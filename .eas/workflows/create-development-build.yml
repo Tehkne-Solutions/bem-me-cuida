@@ -1,0 +1,9 @@
+name: Create Android development build
+
+jobs:
+  android_development_build:
+    name: Build Android APK
+    type: build
+    params:
+      platform: android
+      profile: development

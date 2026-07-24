@@ -1,0 +1,40 @@
+{
+  "name": "bem-me-cuida",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Aplicativo mobile-first para acompanhamento emocional, autocuidado e organização do tratamento.",
+  "license": "UNLICENSED",
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "npm run start --workspace @bemmecuida/mobile",
+    "mobile:android": "npm run android --workspace @bemmecuida/mobile",
+    "mobile:ios": "npm run ios --workspace @bemmecuida/mobile",
+    "mobile:web": "npm run web --workspace @bemmecuida/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "config:check": "node --env-file-if-exists=.env scripts/verify-environment.mjs",
+    "staging:check": "node --env-file-if-exists=.env scripts/verify-staging-readiness.mjs",
+    "supabase:start": "npx supabase@latest start",
+    "supabase:stop": "npx supabase@latest stop",
+    "supabase:test": "npx supabase@latest test db",
+    "supabase:lint": "npx supabase@latest db lint --local",
+    "supabase:push:staging": "node --env-file-if-exists=.env scripts/push-supabase-staging.mjs",
+    "build:android:development": "npm run build:android:development --workspace @bemmecuida/mobile",
+    "build:android:preview": "npm run build:android:preview --workspace @bemmecuida/mobile",
+    "e2e:smoke": "maestro test .maestro/smoke-public.yml",
+    "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
+    "release:check": "node scripts/verify-release-readiness.mjs",
+    "verify": "npm run config:check && npm run security:check && npm run check",
+    "security:check": "node scripts/check-sensitive-files.mjs",
+    "e2e:care": "maestro test .maestro/authenticated-care.yml"
+  }
+}

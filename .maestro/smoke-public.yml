@@ -1,0 +1,16 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Fluxo público e apoio imediato
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: open-crisis
+- assertVisible:
+    id: crisis-title
+- assertVisible: "CVV — apoio emocional"
+- assertVisible: "SAMU — emergência médica"
+- tapOn: "← Voltar"
+- assertVisible:
+    id: sign-in-title

@@ -1,0 +1,41 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Login e check-in sintético
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-check-in
+- assertVisible:
+    id: check-in-title
+- tapOn:
+    id: check-in-mood-good
+- scrollUntilVisible:
+    element:
+      id: check-in-note
+    direction: DOWN
+- tapOn:
+    id: check-in-note
+- inputText: "Registro sintetico de homologacao"
+- scrollUntilVisible:
+    element:
+      id: check-in-save
+    direction: DOWN
+- tapOn:
+    id: check-in-save
+- assertVisible: "Check-in salvo"
+- tapOn: "Ver meu dia"
+- assertVisible:
+    id: home-title
+- assertVisible: "Bem"
