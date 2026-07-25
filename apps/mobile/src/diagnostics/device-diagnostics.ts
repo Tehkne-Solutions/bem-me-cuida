@@ -4,13 +4,14 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+import { getAppMetadata } from '@/config/app-metadata';
 import { publicEnvironment } from '@/config/environment';
 import { getDatabase } from '@/data/database';
 import { getLocalSyncState } from '@/data/sync-state-repository';
 import { supabase } from '@/services/supabase';
 import type { DiagnosticItem, DiagnosticReport } from '@/diagnostics/report';
 
-const EXPECTED_LOCAL_SCHEMA = 7;
+const EXPECTED_LOCAL_SCHEMA = 10;
 
 async function checkDatabase(): Promise<DiagnosticItem> {
   try {
@@ -120,6 +121,17 @@ async function checkSync(userId: string | null): Promise<DiagnosticItem> {
   }
 }
 
+function checkInstalledRelease(): DiagnosticItem {
+  const metadata = getAppMetadata();
+  const expectedVariant = metadata.variant === 'beta' || metadata.variant === 'rc';
+  return {
+    id: 'installed-release',
+    label: 'Versão instalada',
+    status: expectedVariant ? 'ok' : 'warning',
+    detail: `${metadata.releaseLabel}; canal ${metadata.variant}; ${metadata.platform}.`,
+  };
+}
+
 export async function runDeviceDiagnostics(userId: string | null): Promise<DiagnosticReport> {
   const checks = await Promise.all([
     checkDatabase(),
@@ -130,6 +142,7 @@ export async function runDeviceDiagnostics(userId: string | null): Promise<Diagn
     checkSync(userId),
   ]);
 
+  checks.unshift(checkInstalledRelease());
   checks.push({
     id: 'privacy-shield',
     label: 'Proteção de conteúdo',

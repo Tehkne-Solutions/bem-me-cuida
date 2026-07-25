@@ -7,6 +7,7 @@ import { AccessibilityProvider } from '@/accessibility/AccessibilityProvider';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { useDatabaseReady } from '@/hooks/use-database-ready';
+import { TechnicalObservabilityProvider } from '@/observability/TechnicalObservabilityProvider';
 import { AppLockShield } from '@/security/AppLockShield';
 import { PrivacyShield } from '@/security/PrivacyShield';
 import { SyncProvider } from '@/sync/SyncProvider';
@@ -54,6 +55,7 @@ function RootNavigator() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="notifications-settings" />
         <Stack.Screen name="accessibility-settings" />
+        <Stack.Screen name="beta-center" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />
@@ -70,11 +72,13 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <AuthProvider>
         <AccessibilityProvider>
-          <PrivacyShield />
-          <AppLockShield />
-          <SyncProvider>
-            <RootNavigator />
-          </SyncProvider>
+          <TechnicalObservabilityProvider>
+            <PrivacyShield />
+            <AppLockShield />
+            <SyncProvider>
+              <RootNavigator />
+            </SyncProvider>
+          </TechnicalObservabilityProvider>
         </AccessibilityProvider>
       </AuthProvider>
     </SafeAreaProvider>

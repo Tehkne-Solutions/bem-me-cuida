@@ -1,6 +1,6 @@
 {
   "name": "bem-me-cuida",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "description": "Aplicativo mobile-first para acompanhamento emocional, autocuidado e organização do tratamento.",
   "license": "UNLICENSED",
@@ -24,6 +24,7 @@
     "config:check": "node --env-file-if-exists=.env scripts/verify-environment.mjs",
     "staging:check": "node --env-file-if-exists=.env scripts/verify-staging-readiness.mjs",
     "beta:check": "node --env-file-if-exists=.env scripts/verify-beta-readiness.mjs",
+    "rc:check": "node --env-file-if-exists=.env scripts/verify-rc-readiness.mjs",
     "supabase:start": "npx supabase@latest start",
     "supabase:stop": "npx supabase@latest stop",
     "supabase:test": "npx supabase@latest test db",
@@ -32,9 +33,10 @@
     "build:android:development": "npm run build:android:development --workspace @bemmecuida/mobile",
     "build:android:preview": "npm run build:android:preview --workspace @bemmecuida/mobile",
     "build:android:beta": "npm run build:android:beta --workspace @bemmecuida/mobile",
+    "build:android:rc": "npm run build:android:rc --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
-    "release:check": "node scripts/verify-release-readiness.mjs",
+    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs",
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",
@@ -43,6 +45,7 @@
     "e2e:support": "maestro test .maestro/support-plan.yml",
     "e2e:reports": "maestro test .maestro/reports.yml",
     "e2e:settings": "maestro test .maestro/settings-privacy.yml",
-    "e2e:preferences": "maestro test .maestro/preferences-accessibility.yml"
+    "e2e:preferences": "maestro test .maestro/preferences-accessibility.yml",
+    "e2e:beta": "maestro test .maestro/beta-center.yml"
   }
 }

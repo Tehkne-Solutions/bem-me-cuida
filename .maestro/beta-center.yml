@@ -1,0 +1,52 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Central da beta e feedback
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-beta
+    direction: DOWN
+- tapOn:
+    id: settings-open-beta
+- assertVisible:
+    id: beta-center-title
+- assertVisible:
+    id: beta-enrollment-toggle
+- scrollUntilVisible:
+    element:
+      id: beta-technical-log
+    direction: DOWN
+- assertVisible:
+    id: beta-technical-log
+- scrollUntilVisible:
+    element:
+      id: beta-feedback-message
+    direction: DOWN
+- tapOn:
+    id: beta-feedback-message
+- inputText: "O botão de retorno demorou a responder durante o teste de navegação."
+- scrollUntilVisible:
+    element:
+      id: beta-feedback-safe-confirmation
+    direction: DOWN
+- tapOn:
+    id: beta-feedback-safe-confirmation
+- assertVisible:
+    id: beta-feedback-submit

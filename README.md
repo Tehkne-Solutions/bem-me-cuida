@@ -19,7 +19,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 06 implementado: busca, filtros, edição e exclusão lógica do Diário, além de comparações descritivas locais sem causalidade.
 - Sprint 07 implementado: central de perfil e privacidade, consentimentos opcionais, exportação integral, solicitação de exclusão e bloqueio biométrico configurável.
 - Sprint 08 implementado: notificações por categoria, horário silencioso, acessibilidade e preparação da beta fechada.
-- Versão atual: `0.9.0`.
+- Sprint 09 implementado: operação da beta, feedback rastreável, observabilidade local consentida e preparação da primeira release candidate.
+- Versão atual: `0.10.0` — **RC 1**.
 
 ## Stack
 
@@ -85,7 +86,7 @@ npm run supabase:push:staging
 npm run build:android:development
 ```
 
-Os builds development, preview e beta usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
+Os builds development, preview, beta e RC usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
 
 ## Beta fechada
 
@@ -105,7 +106,27 @@ A variante beta utiliza:
 - canal EAS `beta`;
 - distribuição interna.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário avançado, insights, plano de apoio, relatórios, privacidade, notificações e acessibilidade ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
+## Release Candidate 1
+
+Consulte [docs/RELEASE-CANDIDATE-01.md](docs/RELEASE-CANDIDATE-01.md).
+
+```bash
+APP_VARIANT=rc npm run config:check
+APP_VARIANT=rc npm run staging:check
+APP_VARIANT=rc npm run rc:check
+npm run build:android:rc
+```
+
+A variante RC utiliza:
+
+- aplicativo `BemMeCuida RC`;
+- release exibida `0.10.0-rc.1`;
+- scheme `bemmecuida-rc`;
+- Android package `com.tehknesolutions.bemmecuida.rc`;
+- canal EAS `rc`;
+- distribuição interna.
+
+O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário, insights, apoio, relatórios, privacidade, notificações, acessibilidade e central da beta usam `E2E_EMAIL` e `E2E_PASSWORD` protegidos.
 
 ## Publicação no GitHub
 
@@ -138,10 +159,12 @@ Na versão `0.8.0`, o titular pode revisar consentimentos opcionais, exportar to
 
 Na versão `0.9.0`, notificações usam conteúdo genérico, categorias opcionais e horário silencioso. Preferências de acessibilidade e notificações permanecem locais por aparelho e separadas por conta no SecureStore.
 
+Na versão `0.10.0`, feedback da beta e adesão usam RLS. O log técnico local é desligado por padrão, limitado a eventos pré-definidos sem texto livre e nunca é enviado automaticamente. Diagnóstico e eventos só acompanham um relato quando o usuário seleciona essas opções.
+
 ## Assinatura
 
 Desenvolvido por **Tehkné Solutions**.
 
 ## Configuração de autenticação
 
-No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://`, `bemmecuida-beta://` e `bemmecuida://`. As URLs exatas e os roteiros de validação estão nos guias de staging e beta.
+No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://`, `bemmecuida-beta://`, `bemmecuida-rc://` e `bemmecuida://`. As URLs exatas e os roteiros de validação estão nos guias de staging, beta e RC.
