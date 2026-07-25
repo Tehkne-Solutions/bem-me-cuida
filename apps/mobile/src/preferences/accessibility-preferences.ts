@@ -22,12 +22,6 @@ function isTextSize(value: unknown): value is TextSizePreference {
   return value === 'system' || value === 'large' || value === 'extra_large';
 }
 
-export function textSizeMultiplier(value: TextSizePreference): number {
-  if (value === 'large') return 1.15;
-  if (value === 'extra_large') return 1.3;
-  return 1;
-}
-
 export async function readAccessibilityPreferences(userId: string): Promise<AppAccessibilityPreferences> {
   const raw = await SecureStore.getItemAsync(storageKey(userId));
   if (!raw) return defaultAccessibilityPreferences;
