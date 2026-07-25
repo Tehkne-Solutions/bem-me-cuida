@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createJournalEntryInputSchema } from './journal';
+import {
+  createJournalEntryInputSchema,
+  journalEntrySchema,
+  updateJournalEntryInputSchema,
+} from './journal';
 
 const valid = {
   title: 'Depois da consulta',
@@ -14,6 +18,10 @@ const valid = {
   linkedCheckInId: null,
 } as const;
 
+const id = '11111111-1111-4111-8111-111111111111';
+const userId = '22222222-2222-4222-8222-222222222222';
+const now = '2026-07-25T12:00:00.000Z';
+
 test('diário aceita entrada estruturada válida', () => {
   assert.equal(createJournalEntryInputSchema.safeParse(valid).success, true);
 });
@@ -24,4 +32,21 @@ test('diário exige pelo menos uma emoção', () => {
 
 test('diário limita o texto principal', () => {
   assert.equal(createJournalEntryInputSchema.safeParse({ ...valid, body: 'a'.repeat(5001) }).success, false);
+});
+
+test('edição exige identificador válido', () => {
+  assert.equal(updateJournalEntryInputSchema.safeParse({ ...valid, id }).success, true);
+  assert.equal(updateJournalEntryInputSchema.safeParse({ ...valid, id: 'inválido' }).success, false);
+});
+
+test('registro aceita tombstone sincronizável', () => {
+  assert.equal(journalEntrySchema.safeParse({
+    ...valid,
+    id,
+    userId,
+    occurredAt: now,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: now,
+  }).success, true);
 });
