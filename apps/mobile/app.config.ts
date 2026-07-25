@@ -1,6 +1,6 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-type AppVariant = 'development' | 'preview' | 'production';
+type AppVariant = 'development' | 'preview' | 'beta' | 'production';
 
 type VariantConfig = { name: string; scheme: string; androidPackage: string; iosBundleIdentifier: string };
 
@@ -17,6 +17,12 @@ const variants: Record<AppVariant, VariantConfig> = {
     androidPackage: 'com.tehknesolutions.bemmecuida.preview',
     iosBundleIdentifier: 'com.tehknesolutions.bemmecuida.preview',
   },
+  beta: {
+    name: 'BemMeCuida Beta',
+    scheme: 'bemmecuida-beta',
+    androidPackage: 'com.tehknesolutions.bemmecuida.beta',
+    iosBundleIdentifier: 'com.tehknesolutions.bemmecuida.beta',
+  },
   production: {
     name: 'BemMeCuida',
     scheme: 'bemmecuida',
@@ -27,19 +33,21 @@ const variants: Record<AppVariant, VariantConfig> = {
 
 function resolveVariant(): AppVariant {
   const value = process.env.APP_VARIANT;
-  return value === 'development' || value === 'preview' || value === 'production' ? value : 'development';
+  return value === 'development' || value === 'preview' || value === 'beta' || value === 'production'
+    ? value
+    : 'development';
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = resolveVariant();
-  const selected = variants[variant]!;
+  const selected = variants[variant];
 
   return {
     ...config,
     name: selected.name,
     slug: 'bem-me-cuida',
     scheme: selected.scheme,
-    version: config.version ?? '0.8.0',
+    version: config.version ?? '0.9.0',
     extra: {
       ...config.extra,
       appVariant: variant,
