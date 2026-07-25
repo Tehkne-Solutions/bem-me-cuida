@@ -18,7 +18,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 05 / Incremento 01 implementado e validado: relatórios longitudinais e compartilhamento seguro.
 - Sprint 06 implementado: busca, filtros, edição e exclusão lógica do Diário, além de comparações descritivas locais sem causalidade.
 - Sprint 07 implementado: central de perfil e privacidade, consentimentos opcionais, exportação integral, solicitação de exclusão e bloqueio biométrico configurável.
-- Versão atual: `0.8.0`.
+- Sprint 08 implementado: notificações por categoria, horário silencioso, acessibilidade e preparação da beta fechada.
+- Versão atual: `0.9.0`.
 
 ## Stack
 
@@ -30,6 +31,7 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Expo SQLite com SQLCipher;
 - Expo SecureStore;
 - Expo LocalAuthentication;
+- Expo Notifications;
 - Supabase Auth + PostgreSQL + RLS;
 - Zod para contratos e validação.
 
@@ -53,7 +55,7 @@ Pré-requisitos:
 - npm 10 ou superior;
 - Android Studio ou Xcode para build nativo;
 - Supabase CLI para ambiente local, quando o backend for ativado;
-- development build do Expo, pois SQLCipher e a validação completa de Face ID não funcionam no Expo Go.
+- development build do Expo, pois SQLCipher, notificações completas e a validação de Face ID não funcionam integralmente no Expo Go.
 
 ```bash
 cp .env.example .env
@@ -64,7 +66,7 @@ npm run release:check
 npm run mobile
 ```
 
-Para gerar o projeto nativo localmente com SQLCipher e autenticação biométrica:
+Para gerar o projeto nativo localmente com SQLCipher, biometria e notificações:
 
 ```bash
 npm run prebuild --workspace @bemmecuida/mobile
@@ -83,9 +85,27 @@ npm run supabase:push:staging
 npm run build:android:development
 ```
 
-Os builds development e preview usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
+Os builds development, preview e beta usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário avançado, insights, plano de apoio, relatórios e central de privacidade ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
+## Beta fechada
+
+Consulte [docs/BETA-FECHADA.md](docs/BETA-FECHADA.md).
+
+```bash
+npm run staging:check
+npm run beta:check
+npm run build:android:beta
+```
+
+A variante beta utiliza:
+
+- aplicativo `BemMeCuida Beta`;
+- scheme `bemmecuida-beta`;
+- Android package `com.tehknesolutions.bemmecuida.beta`;
+- canal EAS `beta`;
+- distribuição interna.
+
+O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário avançado, insights, plano de apoio, relatórios, privacidade, notificações e acessibilidade ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
 
 ## Publicação no GitHub
 
@@ -116,10 +136,12 @@ Na versão `0.7.0`, edição e exclusão do Diário continuam local-first. Exclu
 
 Na versão `0.8.0`, o titular pode revisar consentimentos opcionais, exportar todos os dados locais, registrar uma solicitação de exclusão e ativar bloqueio biométrico com intervalo configurável. A exclusão da conta é uma solicitação controlada, não uma remoção imediata executada pelo aplicativo.
 
+Na versão `0.9.0`, notificações usam conteúdo genérico, categorias opcionais e horário silencioso. Preferências de acessibilidade e notificações permanecem locais por aparelho e separadas por conta no SecureStore.
+
 ## Assinatura
 
 Desenvolvido por **Tehkné Solutions**.
 
 ## Configuração de autenticação
 
-No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://` e `bemmecuida://`. As URLs exatas e o roteiro de validação estão no guia de staging.
+No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://`, `bemmecuida-beta://` e `bemmecuida://`. As URLs exatas e os roteiros de validação estão nos guias de staging e beta.
