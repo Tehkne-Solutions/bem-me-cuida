@@ -1,372 +1,282 @@
 import * as Crypto from 'expo-crypto';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   createMedicationInputSchema,
   medicationIntakeSchema,
   medicationScheduleSchema,
   medicationSchema,
+  updateMedicationInputSchema,
   type CreateMedicationInput,
   type Medication,
   type MedicationIntake,
   type MedicationIntakeStatus,
   type MedicationSchedule,
+  type MedicationScheduleInput,
+  type UpdateMedicationInput,
 } from '@bemmecuida/domain';
 
 import { getDatabase } from '@/data/database';
 import { enqueueSyncRecord } from '@/data/sync-queue-repository';
 import { dateAtLocalTime, endOfLocalDay, formatLocalDate, maskIncludesDate, startOfLocalDay } from '@/services/care-time';
-import { calculateStockAfterStatusChange } from '@/services/stock-policy';
+import { nextStockQuantity, stockDeltaForIntakeTransition } from '@/services/stock-policy';
 
 export type MedicationWithSchedules = Medication & { schedules: MedicationSchedule[] };
-export type TodayMedicationDose = {
-  medication: Medication;
-  schedule: MedicationSchedule;
-  plannedAt: string;
-  intake: MedicationIntake | null;
-};
+export type TodayMedicationDose = { medication: Medication; schedule: MedicationSchedule; plannedAt: string; intake: MedicationIntake | null };
 
 function mapMedication(row: Record<string, unknown>): Medication {
   return medicationSchema.parse({
-    id: row.id,
-    userId: row.user_id,
-    name: row.name,
-    dosageText: row.dosage_text,
-    instructions: row.instructions,
-    prescriber: row.prescriber,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    stockQuantity: row.stock_quantity,
-    lowStockThreshold: row.low_stock_threshold,
-    unitsPerDose: row.units_per_dose ?? 1,
-    stockReminderEnabled: Boolean(row.stock_reminder_enabled),
-    active: Boolean(row.active),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: row.id, userId: row.user_id, name: row.name, dosageText: row.dosage_text,
+    instructions: row.instructions, prescriber: row.prescriber, startDate: row.start_date,
+    endDate: row.end_date, active: Boolean(row.active),
+    stockTrackingEnabled: Boolean(row.stock_tracking_enabled),
+    stockQuantity: row.stock_quantity === null || row.stock_quantity === undefined ? null : Number(row.stock_quantity),
+    unitsPerIntake: row.units_per_intake === null || row.units_per_intake === undefined ? null : Number(row.units_per_intake),
+    refillThreshold: row.refill_threshold === null || row.refill_threshold === undefined ? null : Number(row.refill_threshold),
+    refillReminderEnabled: Boolean(row.refill_reminder_enabled),
+    refillReminderLastSentAt: row.refill_reminder_last_sent_at ?? null,
+    createdAt: row.created_at, updatedAt: row.updated_at,
   });
 }
 
 function mapSchedule(row: Record<string, unknown>): MedicationSchedule {
   return medicationScheduleSchema.parse({
-    id: row.id,
-    userId: row.user_id,
-    medicationId: row.medication_id,
-    timeLocal: row.time_local,
-    weekdaysMask: row.weekdays_mask,
-    reminderEnabled: Boolean(row.reminder_enabled),
-    active: Boolean(row.active),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: row.id, userId: row.user_id, medicationId: row.medication_id,
+    timeLocal: String(row.time_local).slice(0, 5), weekdaysMask: row.weekdays_mask,
+    reminderEnabled: Boolean(row.reminder_enabled), active: Boolean(row.active),
+    createdAt: row.created_at, updatedAt: row.updated_at,
   });
 }
 
 function mapIntake(row: Record<string, unknown>): MedicationIntake {
   return medicationIntakeSchema.parse({
-    id: row.id,
-    userId: row.user_id,
-    medicationId: row.medication_id,
-    scheduleId: row.schedule_id,
-    plannedAt: row.planned_at,
-    occurredAt: row.occurred_at,
-    status: row.status,
-    note: row.note,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: row.id, userId: row.user_id, medicationId: row.medication_id, scheduleId: row.schedule_id,
+    plannedAt: row.planned_at, occurredAt: row.occurred_at, status: row.status, note: row.note,
+    createdAt: row.created_at, updatedAt: row.updated_at,
   });
 }
 
-async function loadSchedules(userId: string, medicationId?: string): Promise<MedicationSchedule[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT * FROM medication_schedules
-     WHERE user_id = ? AND active = 1 AND deleted_at IS NULL
-       AND (? IS NULL OR medication_id = ?)
-     ORDER BY time_local ASC;`,
-    userId,
-    medicationId ?? null,
-    medicationId ?? null,
-  );
-  return rows.map(mapSchedule);
+function buildMedication(input: CreateMedicationInput, userId: string, id: string, createdAt: string, updatedAt: string, active = true): Medication {
+  return medicationSchema.parse({
+    id, userId, name: input.name, dosageText: input.dosageText, instructions: input.instructions,
+    prescriber: input.prescriber, startDate: input.startDate, endDate: input.endDate, active,
+    stockTrackingEnabled: input.stockTrackingEnabled,
+    stockQuantity: input.stockTrackingEnabled ? input.stockQuantity : null,
+    unitsPerIntake: input.stockTrackingEnabled ? input.unitsPerIntake : null,
+    refillThreshold: input.stockTrackingEnabled ? input.refillThreshold : null,
+    refillReminderEnabled: input.stockTrackingEnabled && input.refillReminderEnabled,
+    refillReminderLastSentAt: null, createdAt, updatedAt,
+  });
 }
 
-export async function saveMedication(
-  input: CreateMedicationInput,
-  userId: string,
-): Promise<MedicationWithSchedules> {
+function buildSchedule(input: MedicationScheduleInput, userId: string, medicationId: string, now: string, existing?: MedicationSchedule): MedicationSchedule {
+  return medicationScheduleSchema.parse({
+    id: input.id ?? existing?.id ?? Crypto.randomUUID(), userId, medicationId,
+    timeLocal: input.timeLocal, weekdaysMask: input.weekdaysMask,
+    reminderEnabled: input.reminderEnabled, active: true,
+    createdAt: existing?.createdAt ?? now, updatedAt: now,
+  });
+}
+
+async function persistMedication(db: SQLiteDatabase, medication: Medication): Promise<void> {
+  await db.runAsync(
+    `INSERT INTO medications (
+      id, user_id, name, dosage_text, instructions, prescriber, start_date, end_date,
+      active, stock_tracking_enabled, stock_quantity, units_per_intake, refill_threshold,
+      refill_reminder_enabled, refill_reminder_last_sent_at, created_at, updated_at, synced_at, deleted_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name, dosage_text = excluded.dosage_text, instructions = excluded.instructions,
+      prescriber = excluded.prescriber, start_date = excluded.start_date, end_date = excluded.end_date,
+      active = excluded.active, stock_tracking_enabled = excluded.stock_tracking_enabled,
+      stock_quantity = excluded.stock_quantity, units_per_intake = excluded.units_per_intake,
+      refill_threshold = excluded.refill_threshold, refill_reminder_enabled = excluded.refill_reminder_enabled,
+      refill_reminder_last_sent_at = excluded.refill_reminder_last_sent_at,
+      updated_at = excluded.updated_at, synced_at = NULL, deleted_at = NULL;`,
+    medication.id, medication.userId, medication.name, medication.dosageText, medication.instructions,
+    medication.prescriber, medication.startDate, medication.endDate, medication.active ? 1 : 0,
+    medication.stockTrackingEnabled ? 1 : 0, medication.stockQuantity, medication.unitsPerIntake,
+    medication.refillThreshold, medication.refillReminderEnabled ? 1 : 0,
+    medication.refillReminderLastSentAt, medication.createdAt, medication.updatedAt,
+  );
+  await enqueueSyncRecord(medication.userId, 'medication', medication.id, medication, db);
+}
+
+async function persistSchedule(db: SQLiteDatabase, schedule: MedicationSchedule): Promise<void> {
+  await db.runAsync(
+    `INSERT INTO medication_schedules (
+      id, user_id, medication_id, time_local, weekdays_mask, reminder_enabled,
+      active, created_at, updated_at, synced_at, deleted_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+    ON CONFLICT(id) DO UPDATE SET
+      time_local = excluded.time_local, weekdays_mask = excluded.weekdays_mask,
+      reminder_enabled = excluded.reminder_enabled, active = excluded.active,
+      updated_at = excluded.updated_at, synced_at = NULL, deleted_at = NULL;`,
+    schedule.id, schedule.userId, schedule.medicationId, schedule.timeLocal,
+    schedule.weekdaysMask, schedule.reminderEnabled ? 1 : 0, schedule.active ? 1 : 0,
+    schedule.createdAt, schedule.updatedAt,
+  );
+  await enqueueSyncRecord(schedule.userId, 'medication_schedule', schedule.id, schedule, db);
+}
+
+export async function saveMedicationWithSchedule(input: CreateMedicationInput, userId: string): Promise<{ medication: Medication; schedules: MedicationSchedule[] }> {
   const parsed = createMedicationInputSchema.parse(input);
   const db = await getDatabase();
   const now = new Date().toISOString();
-  const medication = medicationSchema.parse({
-    id: Crypto.randomUUID(), userId, name: parsed.name, dosageText: parsed.dosageText,
-    instructions: parsed.instructions, prescriber: parsed.prescriber, startDate: parsed.startDate,
-    endDate: parsed.endDate, stockQuantity: parsed.stockQuantity, lowStockThreshold: parsed.lowStockThreshold,
-    unitsPerDose: parsed.unitsPerDose, stockReminderEnabled: parsed.stockReminderEnabled,
-    active: true, createdAt: now, updatedAt: now,
-  });
-  const schedules = parsed.schedules.map((item) => medicationScheduleSchema.parse({
-    id: item.id ?? Crypto.randomUUID(), userId, medicationId: medication.id,
-    timeLocal: item.timeLocal, weekdaysMask: item.weekdaysMask,
-    reminderEnabled: item.reminderEnabled, active: true, createdAt: now, updatedAt: now,
-  }));
-
+  const medication = buildMedication(parsed, userId, Crypto.randomUUID(), now, now);
+  const schedules = parsed.schedules.map((schedule) => buildSchedule(schedule, userId, medication.id, now));
   await db.withTransactionAsync(async () => {
-    await db.runAsync(
-      `INSERT INTO medications (
-        id, user_id, name, dosage_text, instructions, prescriber, start_date, end_date,
-        stock_quantity, low_stock_threshold, units_per_dose, stock_reminder_enabled,
-        active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?);`,
-      medication.id, userId, medication.name, medication.dosageText, medication.instructions,
-      medication.prescriber, medication.startDate, medication.endDate, medication.stockQuantity,
-      medication.lowStockThreshold, medication.unitsPerDose, medication.stockReminderEnabled ? 1 : 0, now, now,
-    );
-    for (const schedule of schedules) {
-      await db.runAsync(
-        `INSERT INTO medication_schedules (
-          id, user_id, medication_id, time_local, weekdays_mask, reminder_enabled,
-          active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?);`,
-        schedule.id, userId, medication.id, schedule.timeLocal, schedule.weekdaysMask,
-        schedule.reminderEnabled ? 1 : 0, now, now,
-      );
-      await enqueueSyncRecord(userId, 'medication_schedule', schedule.id, schedule, db);
-    }
-    await enqueueSyncRecord(userId, 'medication', medication.id, medication, db);
+    await persistMedication(db, medication);
+    for (const schedule of schedules) await persistSchedule(db, schedule);
   });
-  return { ...medication, schedules };
+  return { medication, schedules };
 }
-
-export const saveMedicationWithSchedule = saveMedication;
 
 export async function getMedication(userId: string, medicationId: string): Promise<MedicationWithSchedules | null> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<Record<string, unknown>>(
-    'SELECT * FROM medications WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1;',
-    medicationId,
-    userId,
+    'SELECT * FROM medications WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1;', medicationId, userId,
   );
   if (!row) return null;
-  return { ...mapMedication(row), schedules: await loadSchedules(userId, medicationId) };
+  const schedules = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM medication_schedules WHERE medication_id = ? AND user_id = ? AND active = 1 AND deleted_at IS NULL ORDER BY time_local;',
+    medicationId, userId,
+  );
+  return { ...mapMedication(row), schedules: schedules.map(mapSchedule) };
 }
 
-export async function updateMedication(
-  medicationId: string,
-  input: CreateMedicationInput,
-  userId: string,
-): Promise<MedicationWithSchedules> {
-  const parsed = createMedicationInputSchema.parse(input);
-  const existing = await getMedication(userId, medicationId);
-  if (!existing) throw new Error('medication_not_found');
+export async function updateMedication(input: UpdateMedicationInput, userId: string): Promise<MedicationWithSchedules> {
+  const parsed = updateMedicationInputSchema.parse(input);
+  const current = await getMedication(userId, parsed.id);
+  if (!current) throw new Error('medication_not_found');
   const db = await getDatabase();
   const now = new Date().toISOString();
-  const medication = medicationSchema.parse({
-    ...existing,
-    name: parsed.name,
-    dosageText: parsed.dosageText,
-    instructions: parsed.instructions,
-    prescriber: parsed.prescriber,
-    startDate: parsed.startDate,
-    endDate: parsed.endDate,
-    stockQuantity: parsed.stockQuantity,
-    lowStockThreshold: parsed.lowStockThreshold,
-    unitsPerDose: parsed.unitsPerDose,
-    stockReminderEnabled: parsed.stockReminderEnabled,
-    updatedAt: now,
-  });
-  const existingById = new Map(existing.schedules.map((item) => [item.id, item]));
-  const schedules = parsed.schedules.map((item) => {
-    const current = item.id ? existingById.get(item.id) : null;
-    return medicationScheduleSchema.parse({
-      id: item.id ?? Crypto.randomUUID(), userId, medicationId,
-      timeLocal: item.timeLocal, weekdaysMask: item.weekdaysMask,
-      reminderEnabled: item.reminderEnabled, active: true,
-      createdAt: current?.createdAt ?? now, updatedAt: now,
-    });
-  });
-  const activeIds = new Set(schedules.map((item) => item.id));
-  const removed = existing.schedules.filter((item) => !activeIds.has(item.id));
+  const medication = buildMedication(parsed, userId, current.id, current.createdAt, now, parsed.active);
+  medication.refillReminderLastSentAt = parsed.stockQuantity !== current.stockQuantity ? null : current.refillReminderLastSentAt;
+  const byId = new Map(current.schedules.map((item) => [item.id, item]));
+  const schedules = parsed.schedules.map((schedule) => ({ ...buildSchedule(schedule, userId, medication.id, now, schedule.id ? byId.get(schedule.id) : undefined), active: parsed.active }));
+  const suppliedIds = new Set(schedules.map((item) => item.id));
+  const deactivated = current.schedules.filter((item) => !suppliedIds.has(item.id)).map((item) => ({ ...item, active: false, updatedAt: now }));
 
   await db.withTransactionAsync(async () => {
-    await db.runAsync(
-      `UPDATE medications SET name = ?, dosage_text = ?, instructions = ?, prescriber = ?,
-       start_date = ?, end_date = ?, stock_quantity = ?, low_stock_threshold = ?, units_per_dose = ?,
-       stock_reminder_enabled = ?, stock_alerted_at = CASE
-         WHEN ? IS NULL OR ? IS NULL OR ? > ? THEN NULL ELSE stock_alerted_at END,
-       updated_at = ?, synced_at = NULL
-       WHERE id = ? AND user_id = ?;`,
-      medication.name, medication.dosageText, medication.instructions, medication.prescriber,
-      medication.startDate, medication.endDate, medication.stockQuantity, medication.lowStockThreshold,
-      medication.unitsPerDose, medication.stockReminderEnabled ? 1 : 0,
-      medication.stockQuantity, medication.lowStockThreshold, medication.stockQuantity, medication.lowStockThreshold,
-      now, medicationId, userId,
-    );
-    for (const schedule of schedules) {
-      await db.runAsync(
-        `INSERT INTO medication_schedules (
-          id, user_id, medication_id, time_local, weekdays_mask, reminder_enabled,
-          active, created_at, updated_at, synced_at, deleted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, NULL, NULL)
-        ON CONFLICT(id) DO UPDATE SET time_local = excluded.time_local,
-          weekdays_mask = excluded.weekdays_mask, reminder_enabled = excluded.reminder_enabled,
-          active = 1, updated_at = excluded.updated_at, synced_at = NULL, deleted_at = NULL;`,
-        schedule.id, userId, medicationId, schedule.timeLocal, schedule.weekdaysMask,
-        schedule.reminderEnabled ? 1 : 0, schedule.createdAt, now,
-      );
-      await enqueueSyncRecord(userId, 'medication_schedule', schedule.id, schedule, db);
-    }
-    for (const schedule of removed) {
-      const inactive = medicationScheduleSchema.parse({ ...schedule, active: false, updatedAt: now });
-      await db.runAsync(
-        'UPDATE medication_schedules SET active = 0, updated_at = ?, synced_at = NULL WHERE id = ? AND user_id = ?;',
-        now, schedule.id, userId,
-      );
-      await enqueueSyncRecord(userId, 'medication_schedule', schedule.id, inactive, db);
-    }
-    await enqueueSyncRecord(userId, 'medication', medication.id, medication, db);
+    await persistMedication(db, medication);
+    for (const schedule of schedules) await persistSchedule(db, schedule);
+    for (const schedule of deactivated) await persistSchedule(db, schedule);
   });
   return { ...medication, schedules };
 }
 
 export async function deactivateMedication(userId: string, medicationId: string): Promise<void> {
-  const existing = await getMedication(userId, medicationId);
-  if (!existing) return;
-  const db = await getDatabase();
-  const now = new Date().toISOString();
-  const inactive = medicationSchema.parse({ ...existing, active: false, updatedAt: now });
-  await db.withTransactionAsync(async () => {
-    await db.runAsync('UPDATE medications SET active = 0, updated_at = ?, synced_at = NULL WHERE id = ? AND user_id = ?;', now, medicationId, userId);
-    await db.runAsync('UPDATE medication_schedules SET active = 0, updated_at = ?, synced_at = NULL WHERE medication_id = ? AND user_id = ?;', now, medicationId, userId);
-    await enqueueSyncRecord(userId, 'medication', medicationId, inactive, db);
-    for (const schedule of existing.schedules) {
-      await enqueueSyncRecord(userId, 'medication_schedule', schedule.id, { ...schedule, active: false, updatedAt: now }, db);
-    }
-  });
+  const current = await getMedication(userId, medicationId);
+  if (!current) return;
+  await updateMedication({
+    id: current.id, active: false, name: current.name, dosageText: current.dosageText,
+    instructions: current.instructions, prescriber: current.prescriber, startDate: current.startDate,
+    endDate: current.endDate, schedules: current.schedules.map(({ id, timeLocal, weekdaysMask, reminderEnabled }) => ({ id, timeLocal, weekdaysMask, reminderEnabled })),
+    stockTrackingEnabled: current.stockTrackingEnabled, stockQuantity: current.stockQuantity,
+    unitsPerIntake: current.unitsPerIntake, refillThreshold: current.refillThreshold,
+    refillReminderEnabled: current.refillReminderEnabled,
+  }, userId);
 }
 
 export async function listMedications(userId: string, includeInactive = false): Promise<MedicationWithSchedules[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT * FROM medications WHERE user_id = ? AND deleted_at IS NULL AND (? = 1 OR active = 1) ORDER BY name COLLATE NOCASE ASC;`,
-    userId, includeInactive ? 1 : 0,
+  const medicationRows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM medications WHERE user_id = ? ${includeInactive ? '' : 'AND active = 1'} AND deleted_at IS NULL ORDER BY name COLLATE NOCASE;`, userId,
   );
-  const schedules = await loadSchedules(userId);
-  return rows.map((row) => {
+  const scheduleRows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM medication_schedules WHERE user_id = ? ${includeInactive ? '' : 'AND active = 1'} AND deleted_at IS NULL ORDER BY time_local;`, userId,
+  );
+  const schedules = scheduleRows.map(mapSchedule);
+  return medicationRows.map((row) => {
     const medication = mapMedication(row);
-    return { ...medication, schedules: schedules.filter((item) => item.medicationId === medication.id) };
+    return { ...medication, schedules: schedules.filter((schedule) => schedule.medicationId === medication.id) };
   });
 }
 
 export async function listLowStockMedications(userId: string): Promise<MedicationWithSchedules[]> {
-  const all = await listMedications(userId);
-  return all.filter((item) => item.stockQuantity !== null && item.lowStockThreshold !== null && item.stockQuantity <= item.lowStockThreshold);
+  const items = await listMedications(userId);
+  return items.filter((item) => item.stockTrackingEnabled && item.refillReminderEnabled && item.stockQuantity !== null && item.refillThreshold !== null && item.stockQuantity <= item.refillThreshold);
+}
+
+export async function refillMedicationStock(userId: string, medicationId: string, quantity: number): Promise<Medication> {
+  const current = await getMedication(userId, medicationId);
+  if (!current) throw new Error('medication_not_found');
+  const db = await getDatabase();
+  const medication = medicationSchema.parse({ ...current, stockQuantity: Math.max(0, quantity), refillReminderLastSentAt: null, updatedAt: new Date().toISOString() });
+  await db.withTransactionAsync(async () => persistMedication(db, medication));
+  return medication;
+}
+
+export async function markRefillReminderSent(userId: string, medicationId: string, sentAt = new Date().toISOString()): Promise<void> {
+  const current = await getMedication(userId, medicationId);
+  if (!current) return;
+  const db = await getDatabase();
+  const medication = medicationSchema.parse({ ...current, refillReminderLastSentAt: sentAt, updatedAt: sentAt });
+  await db.withTransactionAsync(async () => persistMedication(db, medication));
 }
 
 export async function listTodayMedicationDoses(userId: string, date = new Date()): Promise<TodayMedicationDose[]> {
   const medications = await listMedications(userId);
   const db = await getDatabase();
   const intakeRows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT * FROM medication_intakes WHERE user_id = ? AND planned_at BETWEEN ? AND ? AND deleted_at IS NULL;`,
+    'SELECT * FROM medication_intakes WHERE user_id = ? AND planned_at BETWEEN ? AND ? AND deleted_at IS NULL;',
     userId, startOfLocalDay(date).toISOString(), endOfLocalDay(date).toISOString(),
   );
   const intakes = intakeRows.map(mapIntake);
   const dateKey = formatLocalDate(date);
   return medications
-    .filter((item) => item.startDate <= dateKey && (!item.endDate || item.endDate >= dateKey))
-    .flatMap((medication) => medication.schedules
-      .filter((schedule) => maskIncludesDate(schedule.weekdaysMask, date))
-      .map((schedule) => {
-        const plannedAt = dateAtLocalTime(date, schedule.timeLocal).toISOString();
-        return { medication, schedule, plannedAt, intake: intakes.find((item) => item.scheduleId === schedule.id && item.plannedAt === plannedAt) ?? null };
-      }))
-    .sort((left, right) => left.plannedAt.localeCompare(right.plannedAt));
+    .filter((medication) => medication.startDate <= dateKey && (!medication.endDate || medication.endDate >= dateKey))
+    .flatMap((medication) => medication.schedules.filter((schedule) => schedule.active && maskIncludesDate(schedule.weekdaysMask, date)).map((schedule) => {
+      const plannedAt = dateAtLocalTime(date, schedule.timeLocal).toISOString();
+      return { medication, schedule, plannedAt, intake: intakes.find((item) => item.medicationId === medication.id && item.scheduleId === schedule.id && item.plannedAt === plannedAt) ?? null };
+    })).sort((a, b) => a.plannedAt.localeCompare(b.plannedAt));
 }
 
-export async function recordMedicationIntake(
-  dose: Pick<TodayMedicationDose, 'medication' | 'schedule' | 'plannedAt'>,
-  status: MedicationIntakeStatus,
-  userId: string,
-): Promise<MedicationIntake> {
+export async function recordMedicationIntake(dose: Pick<TodayMedicationDose, 'medication' | 'schedule' | 'plannedAt'>, status: MedicationIntakeStatus, userId: string): Promise<MedicationIntake> {
   const db = await getDatabase();
   const existing = await db.getFirstAsync<Record<string, unknown>>(
-    `SELECT * FROM medication_intakes WHERE user_id = ? AND medication_id = ? AND schedule_id = ? AND planned_at = ? LIMIT 1;`,
+    'SELECT * FROM medication_intakes WHERE user_id = ? AND medication_id = ? AND schedule_id = ? AND planned_at = ? LIMIT 1;',
     userId, dose.medication.id, dose.schedule.id, dose.plannedAt,
   );
+  const previousStatus = existing?.status === 'taken' || existing?.status === 'skipped' ? existing.status : null;
   const now = new Date().toISOString();
   const intake = medicationIntakeSchema.parse({
     id: existing?.id ?? Crypto.randomUUID(), userId, medicationId: dose.medication.id,
-    scheduleId: dose.schedule.id, plannedAt: dose.plannedAt,
-    occurredAt: status === 'taken' ? now : null, status, note: existing?.note ?? null,
-    createdAt: existing?.created_at ?? now, updatedAt: now,
-  });
-  const previousStatus = existing?.status as MedicationIntakeStatus | undefined;
-  const nextStock = calculateStockAfterStatusChange({
-    currentStock: dose.medication.stockQuantity,
-    unitsPerDose: dose.medication.unitsPerDose,
-    previousStatus,
-    nextStatus: status,
+    scheduleId: dose.schedule.id, plannedAt: dose.plannedAt, occurredAt: status === 'taken' ? now : null,
+    status, note: existing?.note ?? null, createdAt: existing?.created_at ?? now, updatedAt: now,
   });
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO medication_intakes (
-        id, user_id, medication_id, schedule_id, planned_at, occurred_at, status, note,
-        created_at, updated_at, synced_at, deleted_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
-      ON CONFLICT(user_id, medication_id, schedule_id, planned_at) DO UPDATE SET
-        occurred_at = excluded.occurred_at, status = excluded.status, note = excluded.note,
-        updated_at = excluded.updated_at, synced_at = NULL, deleted_at = NULL;`,
-      intake.id, userId, intake.medicationId, intake.scheduleId, intake.plannedAt,
-      intake.occurredAt, intake.status, intake.note, intake.createdAt, intake.updatedAt,
+      `INSERT INTO medication_intakes (id,user_id,medication_id,schedule_id,planned_at,occurred_at,status,note,created_at,updated_at,synced_at,deleted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,NULL,NULL)
+       ON CONFLICT(user_id, medication_id, schedule_id, planned_at) DO UPDATE SET
+       occurred_at=excluded.occurred_at,status=excluded.status,note=excluded.note,updated_at=excluded.updated_at,synced_at=NULL,deleted_at=NULL;`,
+      intake.id, userId, intake.medicationId, intake.scheduleId, intake.plannedAt, intake.occurredAt,
+      intake.status, intake.note, intake.createdAt, intake.updatedAt,
     );
     await enqueueSyncRecord(userId, 'medication_intake', intake.id, intake, db);
-    if (nextStock !== dose.medication.stockQuantity && nextStock !== null) {
-      await db.runAsync(
-        `UPDATE medications SET stock_quantity = ?, updated_at = ?, synced_at = NULL,
-         stock_alerted_at = CASE WHEN low_stock_threshold IS NULL OR ? > low_stock_threshold THEN NULL ELSE stock_alerted_at END
-         WHERE id = ? AND user_id = ?;`,
-        nextStock, now, nextStock, dose.medication.id, userId,
-      );
-      const updated = medicationSchema.parse({ ...dose.medication, stockQuantity: nextStock, updatedAt: now });
-      await enqueueSyncRecord(userId, 'medication', updated.id, updated, db);
+
+    const currentRow = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM medications WHERE id = ? AND user_id = ? LIMIT 1;', dose.medication.id, userId);
+    if (currentRow) {
+      const current = mapMedication(currentRow);
+      if (current.stockTrackingEnabled && current.stockQuantity !== null && current.unitsPerIntake !== null) {
+        const delta = stockDeltaForIntakeTransition(previousStatus, status, current.unitsPerIntake);
+        if (delta !== 0) {
+          const medication = medicationSchema.parse({ ...current, stockQuantity: nextStockQuantity(current.stockQuantity, delta), updatedAt: now });
+          await persistMedication(db, medication);
+        }
+      }
     }
   });
   return intake;
 }
 
-export async function listRecentMedicationIntakes(userId: string, limit = 60): Promise<MedicationIntake[]> {
+export async function listRecentMedicationIntakes(userId: string, limit = 30): Promise<MedicationIntake[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT * FROM medication_intakes WHERE user_id = ? AND deleted_at IS NULL ORDER BY planned_at DESC LIMIT ?;`,
-    userId, limit,
+    'SELECT * FROM medication_intakes WHERE user_id = ? AND deleted_at IS NULL ORDER BY planned_at DESC LIMIT ?;', userId, limit,
   );
   return rows.map(mapIntake);
-}
-
-export async function claimLowStockAlert(userId: string, medicationId: string): Promise<boolean> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<{
-    stock_quantity: number | null;
-    low_stock_threshold: number | null;
-    stock_reminder_enabled: number;
-    stock_alerted_at: string | null;
-  }>(
-    `SELECT stock_quantity, low_stock_threshold, stock_reminder_enabled, stock_alerted_at
-     FROM medications WHERE id = ? AND user_id = ? AND active = 1 AND deleted_at IS NULL LIMIT 1;`,
-    medicationId,
-    userId,
-  );
-  const shouldAlert = Boolean(
-    row?.stock_reminder_enabled
-      && row.stock_quantity !== null
-      && row.low_stock_threshold !== null
-      && row.stock_quantity <= row.low_stock_threshold
-      && !row.stock_alerted_at,
-  );
-  if (!shouldAlert) return false;
-  await db.runAsync(
-    'UPDATE medications SET stock_alerted_at = ? WHERE id = ? AND user_id = ? AND stock_alerted_at IS NULL;',
-    new Date().toISOString(),
-    medicationId,
-    userId,
-  );
-  return true;
 }

@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 
 import { getDatabase } from '@/data/database';
 
-export type ReminderEntityType = 'medication_schedule' | 'care_practice';
+export type ReminderEntityType = 'medication_schedule' | 'care_practice' | 'appointment' | 'medication_refill';
 
 export async function replaceNotificationBindings(
   userId: string,
@@ -50,6 +50,7 @@ export async function listNotificationBindings(
   );
   return rows.map((row) => row.notification_id);
 }
+
 
 export async function listAllNotificationBindings(userId: string): Promise<string[]> {
   const db = await getDatabase();
