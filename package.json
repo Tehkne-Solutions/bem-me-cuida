@@ -25,6 +25,8 @@
     "staging:check": "node --env-file-if-exists=.env scripts/verify-staging-readiness.mjs",
     "beta:check": "node --env-file-if-exists=.env scripts/verify-beta-readiness.mjs",
     "rc:check": "node --env-file-if-exists=.env scripts/verify-rc-readiness.mjs",
+    "sprint10:check": "node scripts/verify-sprint10-readiness.mjs",
+    "release:manifest": "node --env-file-if-exists=.env scripts/generate-release-manifest.mjs",
     "supabase:start": "npx supabase@latest start",
     "supabase:stop": "npx supabase@latest stop",
     "supabase:test": "npx supabase@latest test db",
@@ -36,7 +38,7 @@
     "build:android:rc": "npm run build:android:rc --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
-    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs",
+    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs && node scripts/verify-sprint10-readiness.mjs",
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",
@@ -46,6 +48,7 @@
     "e2e:reports": "maestro test .maestro/reports.yml",
     "e2e:settings": "maestro test .maestro/settings-privacy.yml",
     "e2e:preferences": "maestro test .maestro/preferences-accessibility.yml",
-    "e2e:beta": "maestro test .maestro/beta-center.yml"
+    "e2e:beta": "maestro test .maestro/beta-center.yml",
+    "e2e:operator": "maestro test .maestro/operator-console.yml"
   }
 }
