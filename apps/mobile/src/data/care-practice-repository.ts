@@ -143,3 +143,16 @@ export async function listRecentCarePracticeCompletions(userId: string, limit = 
   );
   return rows.map(mapCompletion);
 }
+
+export async function listCarePracticeCompletionsInRange(userId: string, from: string, to: string): Promise<CarePracticeCompletion[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM care_practice_completions
+     WHERE user_id = ? AND planned_at >= ? AND planned_at < ? AND deleted_at IS NULL
+     ORDER BY planned_at DESC;`,
+    userId,
+    from,
+    to,
+  );
+  return rows.map(mapCompletion);
+}

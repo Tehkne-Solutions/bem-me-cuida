@@ -1,10 +1,11 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { Surface } from '@/components/Surface';
 import { listRecentCheckIns } from '@/data/check-in-repository';
 import { listJournalEntriesSince } from '@/data/journal-repository';
@@ -120,6 +121,8 @@ export default function InsightsScreen() {
           </View>
         ))}
       </Surface>
+
+      <SecondaryButton testID="insights-open-reports" label="Criar relatório para compartilhar" onPress={() => router.push('/reports')} />
 
       <Surface style={styles.notice}>
         <AppText variant="bodyStrong">Sobre análises automáticas</AppText>

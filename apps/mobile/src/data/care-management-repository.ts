@@ -155,3 +155,16 @@ export async function updateTreatmentStatus(userId: string, treatmentId: string,
   await db.withTransactionAsync(async () => persistTreatment(db, record));
   return record;
 }
+
+export async function listAppointmentsInRange(userId: string, from: string, to: string): Promise<Appointment[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM appointments
+     WHERE user_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND deleted_at IS NULL
+     ORDER BY scheduled_at ASC;`,
+    userId,
+    from,
+    to,
+  );
+  return rows.map(mapAppointment);
+}

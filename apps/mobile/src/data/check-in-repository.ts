@@ -96,3 +96,16 @@ export async function listRecentCheckIns(userId: string, limit = 7): Promise<Che
   );
   return rows.map(mapRow);
 }
+
+export async function listCheckInsInRange(userId: string, from: string, to: string): Promise<CheckIn[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM mood_checkins
+     WHERE user_id = ? AND occurred_at >= ? AND occurred_at < ? AND deleted_at IS NULL
+     ORDER BY occurred_at DESC;`,
+    userId,
+    from,
+    to,
+  );
+  return rows.map(mapRow);
+}
