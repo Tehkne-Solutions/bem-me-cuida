@@ -1,0 +1,36 @@
+name: Diagnose Database
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diagnose-database.yml'
+      - 'supabase/**'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ github.token }}
+      - name: Capture Supabase start
+        shell: bash
+        run: |
+          set +e
+          supabase start --debug > /tmp/supabase-start.log 2>&1
+          echo $? > /tmp/supabase-start.code
+          tail -n 200 /tmp/supabase-start.log
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: database-diagnostics
+          path: |
+            /tmp/supabase-start.log
+            /tmp/supabase-start.code
+          retention-days: 1
