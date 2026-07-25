@@ -1,6 +1,6 @@
 {
   "name": "@bemmecuida/mobile",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
@@ -17,7 +17,7 @@
     "build:android:preview": "npx eas-cli@latest build --platform android --profile preview"
   },
   "dependencies": {
-    "@bemmecuida/domain": "0.3.0",
+    "@bemmecuida/domain": "0.4.0",
     "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.8",
     "expo-crypto": "~57.0.0",
