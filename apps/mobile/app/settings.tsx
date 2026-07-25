@@ -261,7 +261,7 @@ export default function SettingsScreen() {
 
           <Surface style={styles.section}>
             <AppText variant="h2">Experiência do aplicativo</AppText>
-            <AppText muted>Controle lembretes, privacidade na tela bloqueada, leitura, contraste e movimento.</AppText>
+            <AppText muted>Controle lembretes, leitura, contraste, movimento e a operação da versão de teste.</AppText>
             <View style={styles.buttonGroup}>
               <SecondaryButton
                 testID="settings-open-notifications"
@@ -272,6 +272,11 @@ export default function SettingsScreen() {
                 testID="settings-open-accessibility"
                 label="Acessibilidade"
                 onPress={() => router.push('/accessibility-settings')}
+              />
+              <SecondaryButton
+                testID="settings-open-beta"
+                label="Central da beta e feedback"
+                onPress={() => router.push('/beta-center')}
               />
             </View>
           </Surface>
