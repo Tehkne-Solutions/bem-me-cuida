@@ -1,0 +1,63 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Notificações e acessibilidade
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-notifications
+    direction: DOWN
+- tapOn:
+    id: settings-open-notifications
+- assertVisible:
+    id: notifications-settings-title
+- assertVisible:
+    id: notifications-enabled
+- scrollUntilVisible:
+    element:
+      id: notifications-quiet-hours
+    direction: DOWN
+- assertVisible:
+    id: notifications-quiet-hours
+- scrollUntilVisible:
+    element:
+      id: notifications-settings-save
+    direction: DOWN
+- assertVisible:
+    id: notifications-settings-save
+- tapOn:
+    id: notifications-settings-back
+- scrollUntilVisible:
+    element:
+      id: settings-open-accessibility
+    direction: DOWN
+- tapOn:
+    id: settings-open-accessibility
+- assertVisible:
+    id: accessibility-settings-title
+- assertVisible:
+    id: accessibility-high-contrast
+- assertVisible:
+    id: accessibility-reduce-motion
+- scrollUntilVisible:
+    element:
+      id: accessibility-settings-save
+    direction: DOWN
+- assertVisible:
+    id: accessibility-settings-save
