@@ -8,6 +8,8 @@ import {
   medicationSchema,
   professionalSchema,
   treatmentSchema,
+  supportContactSchema,
+  supportPlanSchema,
 } from '@bemmecuida/domain';
 
 import { getCareSyncCursor, resetCareSyncCursor, saveCareSyncCursor } from '@/data/care-sync-cursor-repository';
@@ -24,6 +26,8 @@ export const careEntityTypes = [
   'appointment',
   'treatment',
   'journal_entry',
+  'support_plan',
+  'support_contact',
 ] as const;
 
 export type CareEntityType = (typeof careEntityTypes)[number];
@@ -38,6 +42,8 @@ const tableByEntity: Record<CareEntityType, string> = {
   appointment: 'appointments',
   treatment: 'treatments',
   journal_entry: 'journal_entries',
+  support_plan: 'support_plans',
+  support_contact: 'support_contacts',
 };
 
 function isCareEntityType(value: string): value is CareEntityType {
@@ -55,6 +61,8 @@ function parseCarePayload(entityType: CareEntityType, payload: unknown): { userI
     case 'appointment': return appointmentSchema.parse(payload);
     case 'treatment': return treatmentSchema.parse(payload);
     case 'journal_entry': return journalEntrySchema.parse(payload);
+    case 'support_plan': return supportPlanSchema.parse(payload);
+    case 'support_contact': return supportContactSchema.parse(payload);
   }
 }
 
@@ -355,6 +363,58 @@ async function applyRemoteJournalEntry(payload: Record<string, unknown>, syncedA
   );
 }
 
+
+async function applyRemoteSupportPlan(payload: Record<string, unknown>, syncedAt: string): Promise<void> {
+  if (await markDeleted('support_plans', payload, syncedAt)) return;
+  const record = supportPlanSchema.parse({
+    id: payload.id, userId: payload.user_id,
+    warningSigns: payload.warning_signs ?? [], immediateActions: payload.immediate_actions ?? [],
+    safePlaces: payload.safe_places ?? [], importantReminder: payload.important_reminder,
+    groundingReminder: payload.grounding_reminder, createdAt: payload.created_at,
+    updatedAt: payload.client_updated_at,
+  });
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO support_plans (
+      id,user_id,warning_signs_json,immediate_actions_json,safe_places_json,
+      important_reminder,grounding_reminder,created_at,updated_at,synced_at,deleted_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,NULL)
+    ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,
+      warning_signs_json=excluded.warning_signs_json,immediate_actions_json=excluded.immediate_actions_json,
+      safe_places_json=excluded.safe_places_json,important_reminder=excluded.important_reminder,
+      grounding_reminder=excluded.grounding_reminder,updated_at=excluded.updated_at,
+      synced_at=excluded.synced_at,deleted_at=NULL
+    WHERE excluded.updated_at >= support_plans.updated_at;`,
+    record.id, record.userId, JSON.stringify(record.warningSigns), JSON.stringify(record.immediateActions),
+    JSON.stringify(record.safePlaces), record.importantReminder, record.groundingReminder,
+    record.createdAt, record.updatedAt, syncedAt,
+  );
+}
+
+async function applyRemoteSupportContact(payload: Record<string, unknown>, syncedAt: string): Promise<void> {
+  if (await markDeleted('support_contacts', payload, syncedAt)) return;
+  const record = supportContactSchema.parse({
+    id: payload.id, userId: payload.user_id, name: payload.name,
+    relationship: payload.relationship, phone: payload.phone,
+    availabilityNotes: payload.availability_notes, priority: payload.priority,
+    active: payload.active, createdAt: payload.created_at, updatedAt: payload.client_updated_at,
+  });
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO support_contacts (
+      id,user_id,name,relationship,phone,availability_notes,priority,active,
+      created_at,updated_at,synced_at,deleted_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)
+    ON CONFLICT(id) DO UPDATE SET name=excluded.name,relationship=excluded.relationship,
+      phone=excluded.phone,availability_notes=excluded.availability_notes,priority=excluded.priority,
+      active=excluded.active,updated_at=excluded.updated_at,synced_at=excluded.synced_at,deleted_at=NULL
+    WHERE excluded.updated_at >= support_contacts.updated_at;`,
+    record.id, record.userId, record.name, record.relationship, record.phone,
+    record.availabilityNotes, record.priority, record.active ? 1 : 0,
+    record.createdAt, record.updatedAt, syncedAt,
+  );
+}
+
 async function applyRemoteCareRecord(row: PullRow): Promise<void> {
   switch (row.entity_type) {
     case 'medication': return applyRemoteMedication(row.payload, row.server_updated_at);
@@ -366,6 +426,8 @@ async function applyRemoteCareRecord(row: PullRow): Promise<void> {
     case 'appointment': return applyRemoteAppointment(row.payload, row.server_updated_at);
     case 'treatment': return applyRemoteTreatment(row.payload, row.server_updated_at);
     case 'journal_entry': return applyRemoteJournalEntry(row.payload, row.server_updated_at);
+    case 'support_plan': return applyRemoteSupportPlan(row.payload, row.server_updated_at);
+    case 'support_contact': return applyRemoteSupportContact(row.payload, row.server_updated_at);
   }
 }
 

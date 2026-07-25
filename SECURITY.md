@@ -25,3 +25,6 @@ Todo conteúdo relacionado a humor, diário, medicamentos, tratamentos, substân
 ## Relato de vulnerabilidade
 
 Não abra issues públicas com informações sensíveis. Encaminhe o relato diretamente à Tehkné Solutions pelo canal interno definido para segurança.
+
+
+Planos de apoio e contatos de confiança são dados sensíveis. O app não deve inferir risco, registrar o conteúdo em logs nem substituir serviços de emergência.

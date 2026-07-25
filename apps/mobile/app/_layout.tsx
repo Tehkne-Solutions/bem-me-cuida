@@ -47,6 +47,7 @@ function RootNavigator() {
         <Stack.Screen name="routines/index" />
         <Stack.Screen name="routines/new" />
         <Stack.Screen name="care-history" />
+        <Stack.Screen name="support-plan" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />

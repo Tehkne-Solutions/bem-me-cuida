@@ -1,0 +1,13 @@
+appId: com.tehknesolutions.bemmecuida.dev
+---
+- launchApp
+- assertVisible: "Hoje"
+- tapOn: "Cuidado"
+- tapOn:
+    id: "care-open-support-plan"
+- assertVisible: "O que pode ajudar em momentos difíceis"
+- tapOn:
+    id: "support-warning-signs"
+- inputText: "Registro sintético para validação"
+- tapOn:
+    id: "support-plan-save"
