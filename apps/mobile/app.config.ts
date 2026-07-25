@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: selected.name,
     slug: 'bem-me-cuida',
     scheme: selected.scheme,
-    version: config.version ?? '0.3.0',
+    version: config.version ?? '0.5.0',
     extra: {
       ...config.extra,
       appVariant: variant,

@@ -30,6 +30,9 @@ const requiredFiles = [
   '.maestro/smoke-public.yml',
   '.maestro/authenticated-check-in.yml',
   '.maestro/journal-insights.yml',
+  'docs/SPRINT-04.md',
+  'supabase/migrations/202607250008_support_plan.sql',
+  '.maestro/support-plan.yml',
   '.eas/workflows/e2e-tests-android.yml',
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
@@ -107,6 +110,11 @@ if (!/version:\s*7[\s\S]*CREATE TABLE IF NOT EXISTS appointments/.test(localMigr
 const journalMigrations = readFileSync(join(root, 'apps/mobile/src/data/journal-migrations.ts'), 'utf8');
 for (const marker of ['JOURNAL_SCHEMA_VERSION = 8', 'CREATE TABLE IF NOT EXISTS journal_entries']) {
   if (!journalMigrations.includes(marker)) fail(`Migration local do diário sem marcador obrigatório: ${marker}`);
+}
+
+const supportMigrations = readFileSync(join(root, 'apps/mobile/src/data/support-plan-migrations.ts'), 'utf8');
+if (!/SUPPORT_PLAN_SCHEMA_VERSION = 9[\s\S]*CREATE TABLE IF NOT EXISTS support_plans/.test(supportMigrations)) {
+  fail('Migration local 9 do plano de apoio não foi localizada.');
 }
 
 const syncSource = readFileSync(join(root, 'apps/mobile/src/services/sync.ts'), 'utf8');

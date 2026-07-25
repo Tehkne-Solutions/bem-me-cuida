@@ -55,6 +55,7 @@ export default function CareScreen() {
         <CareLink emoji="🗓️" title="Consultas" description="Compromissos, profissionais e lembretes discretos." onPress={() => router.push('/appointments')} />
         <CareLink emoji="🤝" title="Tratamentos" description="Organize acompanhamentos sem receber orientação clínica." onPress={() => router.push('/treatments')} />
         <CareLink testID="care-open-history" emoji="🕊️" title="Histórico" description="Uma linha do tempo sem julgamentos ou pontuação punitiva." onPress={() => router.push('/care-history')} />
+        <CareLink testID="care-open-support-plan" emoji="🛟" title="Plano de apoio" description="Sinais, ações e pessoas de confiança para momentos difíceis." onPress={() => router.push('/support-plan')} />
       </Surface>
 
       <Surface style={styles.card}>
