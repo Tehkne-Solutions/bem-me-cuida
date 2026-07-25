@@ -8,19 +8,29 @@
 
 Validar no GitHub Actions a implementação presente no `main` para diário emocional e insights locais.
 
-## Checks obrigatórios
+## Resultado
 
-- configuração de ambiente;
-- verificação de segurança e dados sensíveis;
-- release check;
-- TypeScript em modo estrito;
-- lint;
-- testes de domínio e serviços;
-- configuração pública Expo;
-- inicialização local do Supabase;
-- testes pgTAP;
-- lint PostgreSQL.
+Validação concluída com sucesso no GitHub Actions, execução `30172968509`.
 
-## Critério de encerramento
+### Job `quality`
 
-O Sprint 03 somente será considerado estabilizado quando os jobs `quality` e `database` estiverem verdes. Este documento será atualizado com o resultado final antes do merge.
+- instalação das dependências: aprovado;
+- configuração de ambiente: aprovado;
+- segurança e dados sensíveis: aprovado;
+- release check: aprovado;
+- TypeScript em modo estrito: aprovado;
+- lint: aprovado;
+- testes de domínio e serviços: aprovado;
+- configuração pública Expo: aprovado.
+
+### Job `database`
+
+- inicialização local do Supabase: aprovado;
+- migrations PostgreSQL: aprovadas;
+- testes pgTAP: aprovados;
+- lint PostgreSQL: aprovado;
+- encerramento dos serviços locais: aprovado.
+
+## Conclusão
+
+O Sprint 03 / Incremento 01 está estabilizado no código. A homologação em aparelho físico e a aplicação das migrations em staging continuam como etapas externas de entrega.
