@@ -15,9 +15,11 @@ export function AppLockShield() {
   const [message, setMessage] = useState('Confirme sua identidade para acessar seus registros.');
   const backgroundAt = useRef<number | null>(null);
   const appState = useRef(AppState.currentState);
+  const authenticatingRef = useRef(false);
 
   const authenticate = useCallback(async () => {
-    if (!session || Platform.OS === 'web' || authenticating) return;
+    if (!session || Platform.OS === 'web' || authenticatingRef.current) return;
+    authenticatingRef.current = true;
     setAuthenticating(true);
     setMessage('Confirme sua identidade para acessar seus registros.');
     try {
@@ -37,9 +39,10 @@ export function AppLockShield() {
     } catch {
       setMessage('A autenticação do aparelho não está disponível neste momento.');
     } finally {
+      authenticatingRef.current = false;
       setAuthenticating(false);
     }
-  }, [authenticating, session]);
+  }, [session]);
 
   useEffect(() => {
     if (!session || Platform.OS === 'web') {
