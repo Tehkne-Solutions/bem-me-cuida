@@ -1,66 +1,63 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
-import type { CreateMedicationInput, MedicationSchedule } from '@bemmecuida/domain';
+import type { CreateMedicationInput } from '@bemmecuida/domain';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { MedicationEditor } from '@/components/MedicationEditor';
 import { Screen } from '@/components/Screen';
 import { Surface } from '@/components/Surface';
-import { deactivateMedication, getMedication, updateMedication } from '@/data/medication-repository';
-import { MedicationEditor } from '@/features/care/MedicationEditor';
+import { deactivateMedication, getMedication, updateMedication, type MedicationWithSchedules } from '@/data/medication-repository';
 import { cancelEntityReminders, scheduleEntityReminders } from '@/services/reminders';
 import { useSync } from '@/sync/SyncProvider';
-import { spacing } from '@/theme/tokens';
 
 export default function EditMedicationScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const sync = useSync();
-  const [initial, setInitial] = useState<CreateMedicationInput | null>(null);
-  const [oldSchedules, setOldSchedules] = useState<MedicationSchedule[]>([]);
+  const [item, setItem] = useState<MedicationWithSchedules | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!session || !id) return;
-    void getMedication(session.user.id, id).then((item) => {
-      if (!item) return;
-      setOldSchedules(item.schedules);
-      setInitial({
-        name: item.name, dosageText: item.dosageText, instructions: item.instructions,
-        prescriber: item.prescriber, startDate: item.startDate, endDate: item.endDate,
-        stockQuantity: item.stockQuantity, lowStockThreshold: item.lowStockThreshold,
-        unitsPerDose: item.unitsPerDose, stockReminderEnabled: item.stockReminderEnabled,
-        schedules: item.schedules.map((schedule) => ({ id: schedule.id, timeLocal: schedule.timeLocal, weekdaysMask: schedule.weekdaysMask, reminderEnabled: schedule.reminderEnabled })),
-      });
-    });
-  }, [id, session]);
+    if (!session || !params.id) return;
+    void getMedication(session.user.id, params.id).then(setItem).finally(() => setLoading(false));
+  }, [params.id, session]);
 
-  async function save(value: CreateMedicationInput) {
-    if (!session || !id) return;
+  const initial = useMemo<Partial<CreateMedicationInput> | undefined>(() => item ? ({
+    name: item.name, dosageText: item.dosageText, instructions: item.instructions, prescriber: item.prescriber,
+    startDate: item.startDate, endDate: item.endDate,
+    schedules: item.schedules.map(({ id, timeLocal, weekdaysMask, reminderEnabled }) => ({ id, timeLocal, weekdaysMask, reminderEnabled })),
+    stockTrackingEnabled: item.stockTrackingEnabled, stockQuantity: item.stockQuantity,
+    unitsPerIntake: item.unitsPerIntake, refillThreshold: item.refillThreshold,
+    refillReminderEnabled: item.refillReminderEnabled,
+  }) : undefined, [item]);
+
+  async function handleSave(input: CreateMedicationInput) {
+    if (!session || !item) return;
+    setSaving(true);
     try {
-      for (const schedule of oldSchedules) await cancelEntityReminders(session.user.id, 'medication_schedule', schedule.id);
-      const medication = await updateMedication(id, value, session.user.id);
-      for (const schedule of medication.schedules) {
-        if (!schedule.reminderEnabled) continue;
-        try { await scheduleEntityReminders({ userId: session.user.id, entityType: 'medication_schedule', entityId: schedule.id, timeLocal: schedule.timeLocal, weekdaysMask: schedule.weekdaysMask }); } catch { /* reconciliação posterior */ }
+      for (const schedule of item.schedules) await cancelEntityReminders(session.user.id, 'medication_schedule', schedule.id);
+      const updated = await updateMedication({ ...input, id: item.id, active: true }, session.user.id);
+      for (const schedule of updated.schedules) if (schedule.reminderEnabled) {
+        await scheduleEntityReminders({ userId: session.user.id, entityType: 'medication_schedule', entityId: schedule.id, timeLocal: schedule.timeLocal, weekdaysMask: schedule.weekdaysMask }).catch(() => []);
       }
       void sync.syncNow();
-      Alert.alert('Alterações salvas', 'Os registros anteriores foram preservados.', [{ text: 'Concluir', onPress: () => router.back() }]);
-    } catch {
-      Alert.alert('Não foi possível atualizar', 'Nenhuma alteração parcial foi mantida.');
-    }
+      Alert.alert('Medicamento atualizado', 'O histórico anterior foi preservado.', [{ text: 'Concluir', onPress: () => router.back() }]);
+    } catch { Alert.alert('Não foi possível atualizar', 'Tente novamente.'); }
+    finally { setSaving(false); }
   }
 
-  function confirmDeactivate() {
-    if (!session || !id) return;
-    Alert.alert('Desativar medicamento?', 'O histórico será preservado e novos horários deixarão de aparecer.', [
+  async function handleDeactivate() {
+    if (!session || !item) return;
+    Alert.alert('Desativar medicamento?', 'Os registros anteriores continuarão no histórico.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Desativar', style: 'destructive', onPress: () => void (async () => {
-        for (const schedule of oldSchedules) await cancelEntityReminders(session.user.id, 'medication_schedule', schedule.id);
-        await deactivateMedication(session.user.id, id);
+        for (const schedule of item.schedules) await cancelEntityReminders(session.user.id, 'medication_schedule', schedule.id);
+        await deactivateMedication(session.user.id, item.id);
         void sync.syncNow();
         router.back();
       })() },
@@ -69,13 +66,10 @@ export default function EditMedicationScreen() {
 
   return (
     <Screen>
-      <BackHeader eyebrow="EDITAR MEDICAMENTO" title="Atualizar sem apagar o histórico" />
-      {initial ? <MedicationEditor initialValue={initial} submitLabel="Salvar alterações" testID="medication-update" onSubmit={save} /> : <Surface><AppText muted>Carregando cuidado…</AppText></Surface>}
-      <Surface style={{ gap: spacing.md, marginTop: spacing.xl }}>
-        <AppText variant="bodyStrong">Encerrar este registro</AppText>
-        <AppText variant="caption" muted>Desativar não apaga tomadas anteriores.</AppText>
-        <PrimaryButton tone="danger" label="Desativar medicamento" onPress={confirmDeactivate} />
-      </Surface>
+      <BackHeader eyebrow="EDITAR MEDICAMENTO" title={item?.name ?? 'Carregando'} />
+      {loading ? <Surface><AppText muted>Carregando plano…</AppText></Surface> : item && initial ? (
+        <MedicationEditor initial={initial} submitLabel="Salvar alterações" saving={saving} onSubmit={handleSave} onDeactivate={handleDeactivate} />
+      ) : <Surface><AppText muted>Medicamento não encontrado neste aparelho.</AppText></Surface>}
     </Screen>
   );
 }

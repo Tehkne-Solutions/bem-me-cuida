@@ -5,14 +5,120 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
-import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Surface } from '@/components/Surface';
-import { claimLowStockAlert, listLowStockMedications, listMedications, listTodayMedicationDoses, recordMedicationIntake, type MedicationWithSchedules, type TodayMedicationDose } from '@/data/medication-repository';
-import { sendReplenishmentReminder } from '@/services/reminders';
+import {
+  listMedications,
+  listTodayMedicationDoses,
+  recordMedicationIntake,
+  refillMedicationStock,
+  type MedicationWithSchedules,
+  type TodayMedicationDose,
+} from '@/data/medication-repository';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
-function timeFromIso(value:string){return new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(value))}
-export default function MedicationsScreen(){const{session}=useAuth();const sync=useSync();const[medications,setMedications]=useState<MedicationWithSchedules[]>([]);const[doses,setDoses]=useState<TodayMedicationDose[]>([]);const[lowStock,setLowStock]=useState<MedicationWithSchedules[]>([]);const[savingId,setSavingId]=useState<string|null>(null);const load=useCallback(async()=>{if(!session)return;const[items,today,low]=await Promise.all([listMedications(session.user.id),listTodayMedicationDoses(session.user.id),listLowStockMedications(session.user.id)]);setMedications(items);setDoses(today);setLowStock(low)},[session]);useFocusEffect(useCallback(()=>{void load()},[load,sync.lastSuccessAt]));async function registerDose(dose:TodayMedicationDose,status:'taken'|'skipped'){if(!session)return;setSavingId(dose.schedule.id);try{await recordMedicationIntake(dose,status,session.user.id);if(status==='taken'&&await claimLowStockAlert(session.user.id,dose.medication.id))await sendReplenishmentReminder();await load();void sync.syncNow()}catch{Alert.alert('Não foi possível registrar','O dado não foi alterado. Tente novamente.')}finally{setSavingId(null)}}return <Screen><BackHeader eyebrow="MEDICAMENTOS" title="Organize o que foi prescrito" titleTestID="medications-title"/><Surface style={styles.notice}><AppText variant="bodyStrong">Registro, não orientação médica</AppText><AppText variant="caption" muted>O BemMeCuida não recomenda doses, horários, interrupções ou combinações. Registre somente o plano definido com seu profissional.</AppText></Surface><Link href="/medications/new" asChild><Pressable testID="medications-add" accessibilityRole="button" style={styles.addButton}><AppText variant="bodyStrong" style={styles.addText}>+ Adicionar medicamento</AppText></Pressable></Link>{lowStock.length?<Surface style={styles.stockNotice}><AppText variant="bodyStrong">Reposição próxima</AppText><AppText variant="caption" muted>{lowStock.length===1?'Um medicamento chegou ao limite definido por você.':`${lowStock.length} medicamentos chegaram aos limites definidos por você.`}</AppText>{lowStock.map(item=><AppText key={item.id} variant="caption">• {item.name}: {item.stockQuantity??0} unidade(s)</AppText>)}</Surface>:null}<AppText variant="h2" style={styles.sectionTitle}>Cuidados de hoje</AppText>{doses.length?doses.map(dose=><Surface key={dose.schedule.id} style={styles.card}><View style={styles.rowBetween}><View style={styles.flex}><AppText variant="bodyStrong">{dose.medication.name}</AppText><AppText variant="caption" muted>{dose.medication.dosageText} · {timeFromIso(dose.plannedAt)}</AppText></View><View style={[styles.status,dose.intake?.status==='taken'&&styles.statusDone]}><AppText variant="caption" style={dose.intake?.status==='taken'?styles.statusDoneText:styles.statusText}>{dose.intake?.status==='taken'?'Tomado':dose.intake?.status==='skipped'?'Não tomado':'Pendente'}</AppText></View></View><View style={styles.actions}><View style={styles.flex}><SecondaryButton testID={`medication-skip-${dose.schedule.id}`} label="Registrar não tomada" disabled={savingId===dose.schedule.id} onPress={()=>void registerDose(dose,'skipped')}/></View><View style={styles.flex}><PrimaryButton testID={`medication-take-${dose.schedule.id}`} label="Registrar tomada" loading={savingId===dose.schedule.id} onPress={()=>void registerDose(dose,'taken')}/></View></View></Surface>):<Surface><AppText muted>Nenhum horário de medicamento programado para hoje.</AppText></Surface>}<AppText variant="h2" style={styles.sectionTitle}>Meus medicamentos</AppText>{medications.length?medications.map(medication=><Pressable key={medication.id} accessibilityRole="button" onPress={()=>router.push(`/medications/${medication.id}`)}><Surface style={styles.card}><View style={styles.rowBetween}><View style={styles.flex}><AppText variant="bodyStrong">{medication.name}</AppText><AppText muted>{medication.dosageText}</AppText></View><AppText style={styles.arrow}>›</AppText></View><AppText variant="caption" muted>{medication.schedules.map(item=>item.timeLocal).join(' · ')||'Sem horário ativo'}</AppText>{medication.stockQuantity!==null?<AppText variant="caption" muted>Estoque: {medication.stockQuantity} unidade(s)</AppText>:null}{medication.prescriber?<AppText variant="caption" muted>Profissional: {medication.prescriber}</AppText>:null}</Surface></Pressable>):<Surface><AppText muted>Você ainda não cadastrou medicamentos.</AppText></Surface>}</Screen>}
-const styles=StyleSheet.create({notice:{backgroundColor:colors.sky,gap:spacing.sm,marginBottom:spacing.md},stockNotice:{backgroundColor:colors.peach,gap:spacing.sm,marginTop:spacing.md},addButton:{minHeight:52,alignItems:'center',justifyContent:'center',backgroundColor:colors.primarySoft,borderRadius:radius.md},addText:{color:colors.primaryStrong},sectionTitle:{marginTop:spacing.xl,marginBottom:spacing.md},card:{gap:spacing.sm,marginBottom:spacing.md},rowBetween:{flexDirection:'row',gap:spacing.md,alignItems:'center',justifyContent:'space-between'},flex:{flex:1},actions:{flexDirection:'row',gap:spacing.md,marginTop:spacing.sm},status:{borderRadius:radius.pill,backgroundColor:colors.sand,paddingHorizontal:spacing.md,paddingVertical:spacing.xs},statusDone:{backgroundColor:colors.primarySoft},statusText:{color:colors.textMuted},statusDoneText:{color:colors.primaryStrong},arrow:{fontSize:28,color:colors.textMuted}});
+
+function formatTime(value: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+}
+
+export default function MedicationsScreen() {
+  const { session } = useAuth();
+  const sync = useSync();
+  const [medications, setMedications] = useState<MedicationWithSchedules[]>([]);
+  const [doses, setDoses] = useState<TodayMedicationDose[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    const [items, today] = await Promise.all([listMedications(session.user.id), listTodayMedicationDoses(session.user.id)]);
+    setMedications(items); setDoses(today);
+  }, [session]);
+
+  useFocusEffect(useCallback(() => { void load(); }, [load, sync.lastSuccessAt]));
+
+  async function registerDose(dose: TodayMedicationDose, status: 'taken' | 'skipped') {
+    if (!session) return;
+    setSavingId(dose.schedule.id);
+    try { await recordMedicationIntake(dose, status, session.user.id); await load(); void sync.syncNow(); }
+    catch { Alert.alert('Não foi possível registrar', 'O dado não foi alterado.'); }
+    finally { setSavingId(null); }
+  }
+
+  async function refill(item: MedicationWithSchedules) {
+    if (!session) return;
+    const suggested = Math.max((item.refillThreshold ?? 0) * 2, item.stockQuantity ?? 0);
+    try {
+      await refillMedicationStock(session.user.id, item.id, suggested);
+      await load(); void sync.syncNow();
+      Alert.alert('Estoque atualizado', `Quantidade registrada: ${suggested}. Você pode ajustar esse valor em Editar.`);
+    } catch { Alert.alert('Não foi possível atualizar', 'Tente novamente.'); }
+  }
+
+  return (
+    <Screen>
+      <BackHeader eyebrow="MEDICAMENTOS" title="Organize o que foi prescrito" titleTestID="medications-title" />
+      <Surface style={styles.notice}>
+        <AppText variant="bodyStrong">Registro, não orientação médica</AppText>
+        <AppText variant="caption" muted>O BemMeCuida não recomenda doses, horários, interrupções ou combinações.</AppText>
+      </Surface>
+
+      <Link href="/medications/new" asChild>
+        <Pressable testID="medications-add" accessibilityRole="button" style={styles.addButton}><AppText variant="bodyStrong" style={styles.addText}>+ Adicionar medicamento</AppText></Pressable>
+      </Link>
+
+      <AppText variant="h2" style={styles.sectionTitle}>Cuidados de hoje</AppText>
+      {doses.length ? doses.map((dose) => (
+        <Surface key={dose.schedule.id} style={styles.card}>
+          <View style={styles.rowBetween}>
+            <View style={styles.flex}>
+              <AppText variant="bodyStrong">{dose.medication.name}</AppText>
+              <AppText variant="caption" muted>{dose.medication.dosageText} · {formatTime(dose.plannedAt)}</AppText>
+            </View>
+            <AppText variant="caption" style={dose.intake?.status === 'taken' ? styles.doneText : styles.pendingText}>
+              {dose.intake?.status === 'taken' ? 'Tomado' : dose.intake?.status === 'skipped' ? 'Não tomado' : 'Pendente'}
+            </AppText>
+          </View>
+          <View style={styles.actions}>
+            <View style={styles.flex}><SecondaryButton label="Tomado" disabled={savingId === dose.schedule.id} onPress={() => void registerDose(dose, 'taken')} /></View>
+            <View style={styles.flex}><SecondaryButton label="Hoje não" disabled={savingId === dose.schedule.id} onPress={() => void registerDose(dose, 'skipped')} /></View>
+          </View>
+        </Surface>
+      )) : <Surface><AppText muted>Nenhum horário programado para hoje.</AppText></Surface>}
+
+      <AppText variant="h2" style={styles.sectionTitle}>Seu plano</AppText>
+      {medications.map((item) => {
+        const lowStock = item.stockTrackingEnabled && item.stockQuantity !== null && item.refillThreshold !== null && item.stockQuantity <= item.refillThreshold;
+        return (
+          <Surface key={item.id} style={styles.card}>
+            <Pressable onPress={() => router.push(`/medications/${item.id}`)}>
+              <View style={styles.rowBetween}>
+                <View style={styles.flex}>
+                  <AppText variant="bodyStrong">{item.name}</AppText>
+                  <AppText variant="caption" muted>{item.dosageText} · {item.schedules.map((schedule) => schedule.timeLocal).join(', ')}</AppText>
+                </View>
+                <AppText style={styles.arrow}>›</AppText>
+              </View>
+            </Pressable>
+            {item.stockTrackingEnabled ? <View style={[styles.stock, lowStock && styles.stockLow]}>
+              <View style={styles.flex}><AppText variant="caption" style={lowStock ? styles.warningText : undefined}>Estoque registrado: {item.stockQuantity ?? 0}</AppText></View>
+              {lowStock ? <Pressable onPress={() => void refill(item)}><AppText variant="caption" style={styles.actionText}>Registrar reposição</AppText></Pressable> : null}
+            </View> : null}
+          </Surface>
+        );
+      })}
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  notice: { gap: spacing.sm, backgroundColor: colors.primarySoft, marginBottom: spacing.md },
+  addButton: { minHeight: 52, borderRadius: radius.md, borderWidth: 1, borderColor: colors.primaryStrong, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xl },
+  addText: { color: colors.primaryStrong }, sectionTitle: { marginTop: spacing.md, marginBottom: spacing.md },
+  card: { gap: spacing.md, marginBottom: spacing.md }, rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  flex: { flex: 1 }, actions: { flexDirection: 'row', gap: spacing.md }, doneText: { color: colors.primaryStrong }, pendingText: { color: colors.textMuted },
+  stock: { flexDirection: 'row', gap: spacing.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  stockLow: { backgroundColor: colors.sand, borderRadius: radius.md, padding: spacing.md, borderTopWidth: 0 }, warningText: { color: colors.danger },
+  actionText: { color: colors.primaryStrong }, arrow: { fontSize: 28, color: colors.textMuted },
+});

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Link } from 'expo-router';
 
-import { completeOnboardingInputSchema } from '@bemmecuida/domain';
+import { completeOnboardingInputSchema, type CompleteOnboardingInput } from '@bemmecuida/domain';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
@@ -16,7 +16,119 @@ import { TextField } from '@/components/TextField';
 import { completeOnboarding } from '@/data/profile-repository';
 import { colors, radius, spacing } from '@/theme/tokens';
 
-type ConsentDraft = { terms:boolean; privacy:boolean; healthData:boolean; analytics:boolean; aiProcessing:boolean };
-const initialConsents:ConsentDraft={terms:false,privacy:false,healthData:false,analytics:false,aiProcessing:false};
-export default function OnboardingScreen(){const{session,markOnboardingComplete}=useAuth();const[step,setStep]=useState(0);const[displayName,setDisplayName]=useState('');const[consents,setConsents]=useState(initialConsents);const[loading,setLoading]=useState(false);const[errorText,setErrorText]=useState<string|null>(null);function updateConsent<K extends keyof ConsentDraft>(key:K,value:boolean){setConsents(current=>({...current,[key]:value}))}async function finish(){const parsed=completeOnboardingInputSchema.safeParse({displayName,consents});if(!parsed.success){setErrorText(parsed.error.issues[0]?.message??'Revise as informações.');return}if(!session)return;setLoading(true);setErrorText(null);try{await completeOnboarding(session.user.id,parsed.data);await markOnboardingComplete()}catch{Alert.alert('Não foi possível concluir','Verifique sua conexão e tente novamente. Seus dados não foram perdidos nesta tela.')}finally{setLoading(false)}}return <Screen><BrandHeader compact/><View style={styles.progressTrack}><View style={[styles.progress,{width:`${((step+1)/3)*100}%`}]} /></View><AppText variant="caption" muted>ETAPA {step+1} DE 3</AppText>{step===0?<Surface style={styles.card}><AppText variant="h1">Um apoio para perceber padrões</AppText><AppText muted>O BemMeCuida organiza registros, rotinas e informações para suas conversas com profissionais.</AppText><View style={styles.infoList}><AppText>🌿 Registros rápidos e sem julgamentos</AppText><AppText>🔒 Dados sensíveis protegidos por padrão</AppText><AppText>📊 Relatórios baseados no seu próprio histórico</AppText></View><View style={styles.limitBox}><AppText variant="bodyStrong">Limite importante</AppText><AppText variant="caption" muted>O aplicativo não diagnostica, não substitui terapia ou psiquiatria e não recomenda mudanças de medicamentos.</AppText></View><PrimaryButton label="Continuar" onPress={()=>setStep(1)}/></Surface>:null}{step===1?<Surface style={styles.card}><AppText variant="h1">Como deseja ser chamado?</AppText><AppText muted>Usaremos esse nome apenas para personalizar sua experiência.</AppText><TextField label="Nome ou apelido" value={displayName} onChangeText={setDisplayName} maxLength={80} error={errorText}/><View style={styles.actions}><SecondaryButton label="Voltar" onPress={()=>setStep(0)}/><View style={styles.flex}><PrimaryButton label="Continuar" onPress={()=>{if(displayName.trim().length<2)setErrorText('Informe pelo menos 2 caracteres.');else{setErrorText(null);setStep(2)}}}/></View></View></Surface>:null}{step===2?<Surface style={styles.card}><AppText variant="h1">Privacidade sob seu controle</AppText><AppText muted>Os três primeiros consentimentos são necessários para operar o serviço. Os demais são opcionais.</AppText><CheckboxRow checked={consents.terms} onChange={v=>updateConsent('terms',v)} label="Aceito os Termos de Uso"/><CheckboxRow checked={consents.privacy} onChange={v=>updateConsent('privacy',v)} label="Li a Política de Privacidade"/><CheckboxRow checked={consents.healthData} onChange={v=>updateConsent('healthData',v)} label="Autorizo o tratamento de dados de saúde" description="Necessário para armazenar check-ins, diário e informações de cuidado."/><CheckboxRow checked={consents.analytics} onChange={v=>updateConsent('analytics',v)} label="Permito métricas anônimas de uso" description="Opcional. Não inclui textos do diário ou conteúdo emocional."/><CheckboxRow checked={consents.aiProcessing} onChange={v=>updateConsent('aiProcessing',v)} label="Permito recursos futuros de análise assistiva" description="Opcional e desativável. Nenhuma análise clínica será realizada nesta versão."/><View style={styles.links}><Link href="/legal/terms" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Termos</AppText></Pressable></Link><Link href="/legal/privacy" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Privacidade</AppText></Pressable></Link><Link href="/legal/health-data" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Dados de saúde</AppText></Pressable></Link></View>{errorText?<AppText variant="caption" style={styles.error}>{errorText}</AppText>:null}<View style={styles.actions}><SecondaryButton label="Voltar" onPress={()=>setStep(1)}/><View style={styles.flex}><PrimaryButton label="Concluir" onPress={()=>void finish()} loading={loading}/></View></View></Surface>:null}<AppText variant="caption" muted style={styles.signature}>Tehkné Solutions</AppText></Screen>}
-const styles=StyleSheet.create({progressTrack:{height:6,borderRadius:radius.pill,backgroundColor:colors.surfaceMuted,overflow:'hidden',marginBottom:spacing.sm},progress:{height:'100%',backgroundColor:colors.primaryStrong},card:{gap:spacing.lg,marginTop:spacing.lg},infoList:{gap:spacing.md},limitBox:{padding:spacing.md,borderRadius:radius.md,backgroundColor:colors.sand,gap:spacing.xs},actions:{flexDirection:'row',gap:spacing.md,alignItems:'center'},flex:{flex:1},links:{flexDirection:'row',gap:spacing.lg,flexWrap:'wrap'},link:{color:colors.primaryStrong,textDecorationLine:'underline'},error:{color:colors.danger},signature:{textAlign:'center',marginVertical:spacing.xxl}});
+type ConsentDraft = {
+  terms: boolean;
+  privacy: boolean;
+  healthData: boolean;
+  analytics: boolean;
+  aiProcessing: boolean;
+};
+
+const initialConsents: ConsentDraft = {
+  terms: false,
+  privacy: false,
+  healthData: false,
+  analytics: false,
+  aiProcessing: false,
+};
+
+export default function OnboardingScreen() {
+  const { session, markOnboardingComplete } = useAuth();
+  const [step, setStep] = useState(0);
+  const [displayName, setDisplayName] = useState('');
+  const [consents, setConsents] = useState(initialConsents);
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  function updateConsent<K extends keyof ConsentDraft>(key: K, value: boolean) {
+    setConsents((current) => ({ ...current, [key]: value }));
+  }
+
+  async function finish() {
+    const parsed = completeOnboardingInputSchema.safeParse({ displayName, consents });
+    if (!parsed.success) {
+      setErrorText(parsed.error.issues[0]?.message ?? 'Revise as informações.');
+      return;
+    }
+    if (!session) return;
+
+    setLoading(true);
+    setErrorText(null);
+    try {
+      await completeOnboarding(session.user.id, parsed.data);
+      await markOnboardingComplete();
+    } catch {
+      Alert.alert('Não foi possível concluir', 'Verifique sua conexão e tente novamente. Seus dados não foram perdidos nesta tela.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Screen>
+      <BrandHeader compact />
+      <View style={styles.progressTrack}><View style={[styles.progress, { width: `${((step + 1) / 3) * 100}%` }]} /></View>
+      <AppText variant="caption" muted>ETAPA {step + 1} DE 3</AppText>
+
+      {step === 0 ? (
+        <Surface style={styles.card}>
+          <AppText variant="h1">Um apoio para perceber padrões</AppText>
+          <AppText muted>O BemMeCuida organiza registros, rotinas e informações para suas conversas com profissionais.</AppText>
+          <View style={styles.infoList}>
+            <AppText>🌿 Registros rápidos e sem julgamentos</AppText>
+            <AppText>🔒 Dados sensíveis protegidos por padrão</AppText>
+            <AppText>📊 Relatórios baseados no seu próprio histórico</AppText>
+          </View>
+          <View style={styles.limitBox}>
+            <AppText variant="bodyStrong">Limite importante</AppText>
+            <AppText variant="caption" muted>O aplicativo não diagnostica, não substitui terapia ou psiquiatria e não recomenda mudanças de medicamentos.</AppText>
+          </View>
+          <PrimaryButton label="Continuar" onPress={() => setStep(1)} />
+        </Surface>
+      ) : null}
+
+      {step === 1 ? (
+        <Surface style={styles.card}>
+          <AppText variant="h1">Como deseja ser chamado?</AppText>
+          <AppText muted>Usaremos esse nome apenas para personalizar sua experiência.</AppText>
+          <TextField label="Nome ou apelido" value={displayName} onChangeText={setDisplayName} maxLength={80} error={errorText} />
+          <View style={styles.actions}><SecondaryButton label="Voltar" onPress={() => setStep(0)} /><View style={styles.flex}><PrimaryButton label="Continuar" onPress={() => { if (displayName.trim().length < 2) setErrorText('Informe pelo menos 2 caracteres.'); else { setErrorText(null); setStep(2); } }} /></View></View>
+        </Surface>
+      ) : null}
+
+      {step === 2 ? (
+        <Surface style={styles.card}>
+          <AppText variant="h1">Privacidade sob seu controle</AppText>
+          <AppText muted>Os três primeiros consentimentos são necessários para operar o serviço. Os demais são opcionais.</AppText>
+          <CheckboxRow checked={consents.terms} onChange={(value) => updateConsent('terms', value)} label="Aceito os Termos de Uso" />
+          <CheckboxRow checked={consents.privacy} onChange={(value) => updateConsent('privacy', value)} label="Li a Política de Privacidade" />
+          <CheckboxRow checked={consents.healthData} onChange={(value) => updateConsent('healthData', value)} label="Autorizo o tratamento de dados de saúde" description="Necessário para armazenar check-ins, diário e informações de cuidado." />
+          <CheckboxRow checked={consents.analytics} onChange={(value) => updateConsent('analytics', value)} label="Permito métricas anônimas de uso" description="Opcional. Não inclui textos do diário ou conteúdo emocional." />
+          <CheckboxRow checked={consents.aiProcessing} onChange={(value) => updateConsent('aiProcessing', value)} label="Permito recursos futuros de análise assistiva" description="Opcional e desativável. Nenhuma análise clínica será realizada nesta versão." />
+          <View style={styles.links}>
+            <Link href="/legal/terms" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Termos</AppText></Pressable></Link>
+            <Link href="/legal/privacy" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Privacidade</AppText></Pressable></Link>
+            <Link href="/legal/health-data" asChild><Pressable accessibilityRole="link"><AppText variant="caption" style={styles.link}>Dados de saúde</AppText></Pressable></Link>
+          </View>
+          {errorText ? <AppText variant="caption" style={styles.error}>{errorText}</AppText> : null}
+          <View style={styles.actions}><SecondaryButton label="Voltar" onPress={() => setStep(1)} /><View style={styles.flex}><PrimaryButton label="Concluir" onPress={() => void finish()} loading={loading} /></View></View>
+        </Surface>
+      ) : null}
+      <AppText variant="caption" muted style={styles.signature}>Tehkné Solutions</AppText>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  progressTrack: { height: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: 'hidden', marginBottom: spacing.sm },
+  progress: { height: '100%', backgroundColor: colors.primaryStrong },
+  card: { gap: spacing.lg, marginTop: spacing.lg },
+  infoList: { gap: spacing.md },
+  limitBox: { padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.sand, gap: spacing.xs },
+  actions: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  flex: { flex: 1 },
+  links: { flexDirection: 'row', gap: spacing.lg, flexWrap: 'wrap' },
+  link: { color: colors.primaryStrong, textDecorationLine: 'underline' },
+  error: { color: colors.danger },
+  signature: { textAlign: 'center', marginVertical: spacing.xxl },
+});
