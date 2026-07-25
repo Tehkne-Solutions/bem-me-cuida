@@ -1,5 +1,5 @@
-import type { DiagnosticReport } from '@/diagnostics/report';
 import type { TechnicalEvent } from '@/data/technical-event-repository';
+import type { DiagnosticReport } from '@/diagnostics/report';
 import { supabase } from '@/services/supabase';
 
 export type BetaFeedbackCategory = 'bug' | 'usability' | 'accessibility' | 'performance' | 'idea' | 'other';
@@ -106,15 +106,12 @@ export async function setBetaTesterEnrollment(input: {
   platform: string;
 }): Promise<void> {
   if (!supabase) throw new Error('supabase_not_configured');
-  const now = new Date().toISOString();
   const { error } = await supabase.from('beta_tester_enrollments').upsert({
     user_id: input.userId,
     status: input.status,
     app_version: input.appVersion,
     app_variant: input.appVariant,
     platform: input.platform,
-    enrolled_at: now,
-    updated_at: now,
   }, { onConflict: 'user_id' });
   if (error) throw error;
 }
