@@ -15,10 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Create snapshot
-        run: tar --exclude=.git -czf bem-me-cuida-snapshot.tar.gz .
+        run: tar --exclude=.git -czf /tmp/bem-me-cuida-snapshot.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
           name: bem-me-cuida-snapshot
-          path: bem-me-cuida-snapshot.tar.gz
+          path: /tmp/bem-me-cuida-snapshot.tar.gz
           if-no-files-found: error
           retention-days: 1
