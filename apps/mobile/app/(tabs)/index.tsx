@@ -92,11 +92,18 @@ export default function HomeScreen() {
           <AppText variant="caption" muted>BEMMECUIDA</AppText>
           <AppText variant="h1" testID="home-title">Olá, {profile?.displayName ?? 'por aí'} 🌿</AppText>
         </View>
-        <Link href="/crisis" asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel="Abrir apoio imediato" style={styles.helpButton}>
-            <AppText variant="caption" style={styles.helpText}>Preciso de apoio</AppText>
-          </Pressable>
-        </Link>
+        <View style={styles.headerActions}>
+          <Link href="/settings" asChild>
+            <Pressable testID="home-open-settings" accessibilityRole="button" accessibilityLabel="Abrir conta e privacidade" style={styles.settingsButton}>
+              <AppText variant="caption" style={styles.settingsText}>Conta</AppText>
+            </Pressable>
+          </Link>
+          <Link href="/crisis" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir apoio imediato" style={styles.helpButton}>
+              <AppText variant="caption" style={styles.helpText}>Preciso de apoio</AppText>
+            </Pressable>
+          </Link>
+        </View>
       </View>
 
       <Pressable accessibilityRole="button" accessibilityLabel="Sincronizar registros agora" onPress={() => void sync.syncNow()} style={styles.syncRow}>
@@ -174,8 +181,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.xl },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.xl },
   flex: { flex: 1 },
+  headerActions: { gap: spacing.sm, alignItems: 'flex-end' },
+  settingsButton: { backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  settingsText: { color: colors.primaryStrong },
   helpButton: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   helpText: { color: colors.danger },
   syncRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.sm },
