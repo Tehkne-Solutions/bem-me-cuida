@@ -22,8 +22,8 @@ if (/service_role|secret/i.test(key)) {
 }
 
 const variant = process.env.APP_VARIANT ?? 'development';
-if (!['development', 'preview', 'beta', 'production'].includes(variant)) {
-  errors.push('APP_VARIANT deve ser development, preview, beta ou production.');
+if (!['development', 'preview', 'beta', 'rc', 'production'].includes(variant)) {
+  errors.push('APP_VARIANT deve ser development, preview, beta, rc ou production.');
 }
 
 if (errors.length) {
