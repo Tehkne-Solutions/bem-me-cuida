@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AccessibilityProvider } from '@/accessibility/AccessibilityProvider';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { useDatabaseReady } from '@/hooks/use-database-ready';
@@ -51,6 +52,8 @@ function RootNavigator() {
         <Stack.Screen name="support-plan" />
         <Stack.Screen name="reports" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="notifications-settings" />
+        <Stack.Screen name="accessibility-settings" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />
@@ -66,11 +69,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <AuthProvider>
-        <PrivacyShield />
-        <AppLockShield />
-        <SyncProvider>
-          <RootNavigator />
-        </SyncProvider>
+        <AccessibilityProvider>
+          <PrivacyShield />
+          <AppLockShield />
+          <SyncProvider>
+            <RootNavigator />
+          </SyncProvider>
+        </AccessibilityProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
