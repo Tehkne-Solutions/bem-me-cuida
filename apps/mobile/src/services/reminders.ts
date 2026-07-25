@@ -86,8 +86,8 @@ function discreetContent(
   return {
     title: 'Lembrete de cuidado',
     body,
-    sound: quiet ? false : undefined,
     data: { route, entityType },
+    ...(quiet ? { sound: false } : {}),
   };
 }
 
