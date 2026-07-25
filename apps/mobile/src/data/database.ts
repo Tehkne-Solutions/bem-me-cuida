@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
 
+import { runJournalMigrations } from '@/data/journal-migrations';
 import { runMigrations } from '@/data/migrations';
 import { getOrCreateDatabaseKey } from '@/data/secure-key';
 
@@ -11,7 +12,7 @@ async function openEncryptedDatabase(): Promise<SQLite.SQLiteDatabase> {
   const key = await getOrCreateDatabaseKey();
 
   // A chave é hexadecimal gerada localmente, sem entrada do usuário.
-  await database.execAsync(`PRAGMA key = \"x'${key}'\";`);
+  await database.execAsync(`PRAGMA key = "x'${key}'";`);
   await database.execAsync('PRAGMA cipher_memory_security = ON;');
   if (Platform.OS !== 'web') {
     const cipherRow = await database.getFirstAsync<Record<string, string>>('PRAGMA cipher_version;');
@@ -23,6 +24,7 @@ async function openEncryptedDatabase(): Promise<SQLite.SQLiteDatabase> {
   }
   await database.execAsync('PRAGMA journal_mode = WAL;');
   await runMigrations(database);
+  await runJournalMigrations(database);
   return database;
 }
 

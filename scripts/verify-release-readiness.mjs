@@ -29,10 +29,17 @@ const requiredFiles = [
   'apps/mobile/app/diagnostics.tsx',
   '.maestro/smoke-public.yml',
   '.maestro/authenticated-check-in.yml',
+  '.maestro/journal-insights.yml',
   '.eas/workflows/e2e-tests-android.yml',
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
+  'supabase/migrations/202607250007_journal_insights.sql',
   'docs/SPRINT-02-INCREMENTO-02.md',
+  'docs/SPRINT-03-INCREMENTO-01.md',
+  'packages/domain/src/journal.ts',
+  'apps/mobile/src/data/journal-migrations.ts',
+  'apps/mobile/src/data/journal-repository.ts',
+  'apps/mobile/src/services/insights.ts',
 ];
 
 for (const path of requiredFiles) {
@@ -42,11 +49,13 @@ if (!failures.length) ok(`${requiredFiles.length} arquivos obrigatórios encontr
 
 const rootPackage = readJson('package.json');
 const mobilePackage = readJson('apps/mobile/package.json');
+const domainPackage = readJson('packages/domain/package.json');
+const appConfig = readJson('apps/mobile/app.json');
 const eas = readJson('apps/mobile/eas.json');
 
 if (rootPackage) {
   const scripts = rootPackage.scripts ?? {};
-  for (const name of ['verify', 'security:check', 'release:check', 'e2e:smoke']) {
+  for (const name of ['verify', 'security:check', 'release:check', 'e2e:smoke', 'e2e:journal']) {
     if (!scripts[name]) fail(`Script npm obrigatório ausente: ${name}`);
   }
 }
@@ -56,6 +65,18 @@ if (mobilePackage) {
   for (const name of ['expo', 'expo-router', 'expo-sqlite', 'expo-secure-store', '@supabase/supabase-js']) {
     if (!dependencies[name]) fail(`Dependência mobile obrigatória ausente: ${name}`);
   }
+}
+
+const releaseVersions = [
+  rootPackage?.version,
+  mobilePackage?.version,
+  domainPackage?.version,
+  appConfig?.expo?.version,
+].filter(Boolean);
+if (new Set(releaseVersions).size > 1) {
+  fail(`Versões de release divergentes: ${releaseVersions.join(', ')}.`);
+} else if (releaseVersions.length) {
+  ok(`Versão de release alinhada em ${releaseVersions[0]}.`);
 }
 
 if (!eas?.build?.development || !eas?.build?.preview || !eas?.build?.production || !eas?.build?.['e2e-test']) {
@@ -68,7 +89,7 @@ const migrationsDir = join(root, 'supabase/migrations');
 const migrations = existsSync(migrationsDir)
   ? readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
   : [];
-if (migrations.length < 4) fail('São esperadas pelo menos quatro migrations remotas.');
+if (migrations.length < 7) fail('São esperadas pelo menos sete migrations remotas.');
 if (new Set(migrations.map((name) => name.split('_')[0])).size !== migrations.length) {
   fail('Há migrations remotas com prefixos numéricos duplicados.');
 } else if (migrations.length) {
@@ -83,20 +104,31 @@ if (!/version:\s*7[\s\S]*CREATE TABLE IF NOT EXISTS appointments/.test(localMigr
   fail('Migration local 7 de gestão do cuidado não foi localizada.');
 }
 
+const journalMigrations = readFileSync(join(root, 'apps/mobile/src/data/journal-migrations.ts'), 'utf8');
+for (const marker of ['JOURNAL_SCHEMA_VERSION = 8', 'CREATE TABLE IF NOT EXISTS journal_entries']) {
+  if (!journalMigrations.includes(marker)) fail(`Migration local do diário sem marcador obrigatório: ${marker}`);
+}
+
 const syncSource = readFileSync(join(root, 'apps/mobile/src/services/sync.ts'), 'utf8');
 for (const marker of ['pull_mood_checkins', 'remoteCursorId', 'resetRemoteCursor']) {
   if (!syncSource.includes(marker)) fail(`Sincronização sem marcador obrigatório: ${marker}`);
 }
 
+const careSyncSource = readFileSync(join(root, 'apps/mobile/src/services/care-sync.ts'), 'utf8');
+for (const marker of ["'journal_entry'", 'journalEntrySchema', 'applyRemoteJournalEntry']) {
+  if (!careSyncSource.includes(marker)) fail(`Sincronização do diário sem marcador obrigatório: ${marker}`);
+}
+
 const databaseSource = readFileSync(join(root, 'apps/mobile/src/data/database.ts'), 'utf8');
-for (const marker of ['PRAGMA cipher_version', 'sqlcipher_required', 'closeAsync']) {
-  if (!databaseSource.includes(marker)) fail(`Banco local sem proteção fail-closed obrigatória: ${marker}`);
+for (const marker of ['PRAGMA cipher_version', 'sqlcipher_required', 'closeAsync', 'runJournalMigrations']) {
+  if (!databaseSource.includes(marker)) fail(`Banco local sem proteção ou migration obrigatória: ${marker}`);
 }
 
 const e2eRequiredIds = [
   ['apps/mobile/app/(auth)/sign-in.tsx', 'sign-in-submit'],
   ['apps/mobile/app/(tabs)/index.tsx', 'home-open-check-in'],
   ['apps/mobile/app/(tabs)/check-in.tsx', 'check-in-save'],
+  ['apps/mobile/app/(tabs)/diary.tsx', 'journal-save'],
   ['apps/mobile/app/crisis.tsx', 'crisis-title'],
 ];
 for (const [path, marker] of e2eRequiredIds) {
@@ -143,4 +175,4 @@ if (failures.length) {
 console.log('Release check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Nenhum segredo conhecido foi detectado.');
-console.log('- SQLCipher fail-closed, cursor composto, recuperação de conflito e identificadores E2E estão presentes.');
+console.log('- SQLCipher fail-closed, cursor composto, plano de cuidado, diário e identificadores E2E estão presentes.');
