@@ -56,7 +56,6 @@ async function ensureCareChannels(): Promise<void> {
       showBadge: false,
       enableVibrate: false,
       vibrationPattern: [0],
-      sound: null,
     }),
   ]);
 }
@@ -87,7 +86,7 @@ function discreetContent(
   return {
     title: 'Lembrete de cuidado',
     body,
-    sound: quiet ? null : undefined,
+    sound: quiet ? false : undefined,
     data: { route, entityType },
   };
 }
