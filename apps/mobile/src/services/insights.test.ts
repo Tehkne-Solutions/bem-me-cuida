@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { CheckIn, JournalEntry } from '@bemmecuida/domain';
 
-import { buildWeeklyInsightSummary } from '@/services/insights';
+import { buildWeeklyInsightSummary } from './insights';
 
 const now = '2026-07-25T12:00:00.000Z';
 
