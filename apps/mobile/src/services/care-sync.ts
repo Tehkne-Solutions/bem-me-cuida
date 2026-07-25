@@ -63,7 +63,10 @@ async function markDeleted(table: string, payload: Record<string, unknown>, sync
   const deletedAt = payload.deleted_at as string | null;
   if (!deletedAt) return false;
   const db = await getDatabase();
-  await db.runAsync(`UPDATE ${table} SET deleted_at = ?, synced_at = ?, updated_at = ? WHERE id = ? AND user_id = ?;`, deletedAt, syncedAt, payload.client_updated_at ?? syncedAt, payload.id, payload.user_id);
+  const clientUpdatedAt = typeof payload.client_updated_at === 'string' ? payload.client_updated_at : syncedAt;
+  const entityId = typeof payload.id === 'string' ? payload.id : String(payload.id ?? '');
+  const userId = typeof payload.user_id === 'string' ? payload.user_id : String(payload.user_id ?? '');
+  await db.runAsync(`UPDATE ${table} SET deleted_at = ?, synced_at = ?, updated_at = ? WHERE id = ? AND user_id = ?;`, deletedAt, syncedAt, clientUpdatedAt, entityId, userId);
   return true;
 }
 

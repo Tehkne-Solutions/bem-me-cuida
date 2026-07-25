@@ -123,7 +123,7 @@ export function MedicationEditor({ initial, submitLabel, saving, onSubmit, onDea
       </Surface>
 
       {error ? <AppText style={styles.danger}>{error}</AppText> : null}
-      <PrimaryButton label={submitLabel} onPress={() => void submit()} loading={saving} testID="medication-save" />
+      <PrimaryButton label={submitLabel} onPress={() => void submit()} loading={saving ?? false} testID="medication-save" />
       {onDeactivate ? <SecondaryButton label="Desativar sem apagar histórico" onPress={() => void onDeactivate()} /> : null}
     </View>
   );
