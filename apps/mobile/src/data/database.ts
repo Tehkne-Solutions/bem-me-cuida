@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
 
+import { runBetaOperationMigrations } from '@/data/beta-operation-migrations';
 import { runJournalMigrations } from '@/data/journal-migrations';
 import { runSupportPlanMigrations } from '@/data/support-plan-migrations';
 import { runMigrations } from '@/data/migrations';
@@ -27,6 +28,7 @@ async function openEncryptedDatabase(): Promise<SQLite.SQLiteDatabase> {
   await runMigrations(database);
   await runJournalMigrations(database);
   await runSupportPlanMigrations(database);
+  await runBetaOperationMigrations(database);
   return database;
 }
 
