@@ -36,6 +36,8 @@ const requiredFiles = [
   'apps/mobile/src/data/technical-event-repository.ts',
   'apps/mobile/src/observability/TechnicalObservabilityProvider.tsx',
   'apps/mobile/src/preferences/beta-operation-preferences.ts',
+  'apps/mobile/src/services/technical-observability-policy.ts',
+  'apps/mobile/src/services/technical-observability-policy.test.ts',
 ];
 for (const path of requiredFiles) {
   if (!existsSync(join(root, path))) fail(`Arquivo obrigatório do Sprint 09 ausente: ${path}`);
@@ -97,10 +99,19 @@ for (const marker of ['technicalLogEnabled', 'app_session_started', 'app_backgro
 }
 
 const eventsRepository = read('apps/mobile/src/data/technical-event-repository.ts');
-for (const marker of ['TechnicalEventContext = Record<string, number | boolean | null>', 'LIMIT 200', 'clearTechnicalEvents']) {
+for (const marker of ['sanitizeTechnicalContext', 'LIMIT 200', 'clearTechnicalEvents']) {
   if (!eventsRepository.includes(marker)) fail(`Log técnico sem proteção obrigatória: ${marker}`);
 }
-if (/Record<string,\s*string/.test(eventsRepository)) fail('Contexto técnico não pode aceitar texto livre.');
+
+const technicalPolicy = read('apps/mobile/src/services/technical-observability-policy.ts');
+for (const marker of [
+  'TechnicalEventContext = Record<string, number | boolean | null>',
+  'MAX_CONTEXT_KEYS = 20',
+  'Number.isFinite',
+]) {
+  if (!technicalPolicy.includes(marker)) fail(`Política técnica sem proteção obrigatória: ${marker}`);
+}
+if (/Record<string,\s*string/.test(technicalPolicy)) fail('Contexto técnico não pode aceitar texto livre.');
 
 const betaCenter = read('apps/mobile/app/beta-center.tsx');
 for (const marker of [
@@ -138,4 +149,4 @@ if (failures.length) {
 console.log('Sprint 09 check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Feedback, adesão, RLS, exportação e observabilidade local consentida estão presentes.');
-console.log('- Nenhum contexto técnico aceita texto livre.');
+console.log('- Contextos técnicos são sanitizados em runtime e não aceitam texto livre.');
