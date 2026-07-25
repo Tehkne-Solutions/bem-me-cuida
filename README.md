@@ -15,7 +15,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 02 / Incremento 02 concluído no código: edição segura, múltiplos horários, estoque, consultas, tratamentos e histórico filtrável.
 - Sprint 03 / Incremento 01 implementado: diário emocional estruturado, registros para consulta, tendências semanais locais e perguntas de reflexão sem diagnóstico automático.
 - Sprint 04 / Incremento 01 implementado e validado: plano personalizado de apoio e crise, contatos de confiança e acesso offline.
-- Versão atual: `0.5.0`.
+- Sprint 05 / Incremento 01 em implementação: relatórios longitudinais e compartilhamento seguro.
+- Versão atual: `0.6.0`.
 
 ## Stack
 
@@ -105,6 +106,8 @@ Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, 
 Entradas do diário são armazenadas no banco local criptografado, sincronizadas somente no escopo da conta autenticada e protegidas por RLS no Supabase. Os insights da versão `0.4.0` são calculados localmente a partir de contagens e médias; nenhum texto do diário é enviado a modelos de IA.
 
 O plano de apoio da versão `0.5.0` permanece disponível offline no aparelho e não realiza avaliação automática de risco. Contatos de confiança e orientações pessoais são sincronizados somente no escopo da conta autenticada.
+
+O relatório da versão `0.6.0` é calculado sob demanda no aparelho, não inclui textos do diário e não é salvo ou enviado automaticamente.
 
 ## Assinatura
 

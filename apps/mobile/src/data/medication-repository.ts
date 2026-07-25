@@ -280,3 +280,16 @@ export async function listRecentMedicationIntakes(userId: string, limit = 30): P
   );
   return rows.map(mapIntake);
 }
+
+export async function listMedicationIntakesInRange(userId: string, from: string, to: string): Promise<MedicationIntake[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM medication_intakes
+     WHERE user_id = ? AND planned_at >= ? AND planned_at < ? AND deleted_at IS NULL
+     ORDER BY planned_at DESC;`,
+    userId,
+    from,
+    to,
+  );
+  return rows.map(mapIntake);
+}

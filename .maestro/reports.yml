@@ -1,0 +1,13 @@
+appId: com.tehknesolutions.bemmecuida.dev
+---
+- launchApp
+- assertVisible: "Hoje"
+- tapOn: "Insights"
+- assertVisible: "Entenda mudanças no seu padrão"
+- tapOn:
+    id: "insights-open-reports"
+- assertVisible:
+    id: "reports-title"
+- assertVisible: "Escolha o que compartilhar"
+- assertVisible:
+    id: "reports-share"
