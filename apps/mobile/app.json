@@ -2,7 +2,7 @@
   "expo": {
     "name": "BemMeCuida",
     "slug": "bem-me-cuida",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "orientation": "portrait",
     "scheme": "bemmecuida",
     "userInterfaceStyle": "light",
@@ -32,6 +32,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use o Face ID para proteger seus registros no BemMeCuida."
+        }
+      ],
       [
         "expo-sqlite",
         {

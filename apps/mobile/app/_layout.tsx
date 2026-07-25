@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { useDatabaseReady } from '@/hooks/use-database-ready';
+import { AppLockShield } from '@/security/AppLockShield';
 import { PrivacyShield } from '@/security/PrivacyShield';
 import { SyncProvider } from '@/sync/SyncProvider';
 import { colors, spacing } from '@/theme/tokens';
@@ -49,6 +50,7 @@ function RootNavigator() {
         <Stack.Screen name="care-history" />
         <Stack.Screen name="support-plan" />
         <Stack.Screen name="reports" />
+        <Stack.Screen name="settings" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />
@@ -65,6 +67,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <AuthProvider>
         <PrivacyShield />
+        <AppLockShield />
         <SyncProvider>
           <RootNavigator />
         </SyncProvider>

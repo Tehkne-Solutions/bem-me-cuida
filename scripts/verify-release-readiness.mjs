@@ -38,6 +38,16 @@ const requiredFiles = [
   '.maestro/reports.yml',
   'docs/SPRINT-06.md',
   'docs/ADR-010-diario-editavel-e-comparacoes.md',
+  'docs/SPRINT-07.md',
+  'docs/ADR-011-controle-do-titular-e-bloqueio-local.md',
+  '.maestro/settings-privacy.yml',
+  'supabase/migrations/202607250009_account_privacy.sql',
+  'supabase/tests/account_privacy.sql',
+  'apps/mobile/app/settings.tsx',
+  'apps/mobile/src/data/account-repository.ts',
+  'apps/mobile/src/services/account-export.ts',
+  'apps/mobile/src/security/AppLockShield.tsx',
+  'apps/mobile/src/security/account-preferences.ts',
   '.eas/workflows/e2e-tests-android.yml',
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
@@ -63,17 +73,23 @@ const eas = readJson('apps/mobile/eas.json');
 
 if (rootPackage) {
   const scripts = rootPackage.scripts ?? {};
-  for (const name of ['verify', 'security:check', 'release:check', 'e2e:smoke', 'e2e:journal']) {
+  for (const name of ['verify', 'security:check', 'release:check', 'e2e:smoke', 'e2e:journal', 'e2e:settings']) {
     if (!scripts[name]) fail(`Script npm obrigatório ausente: ${name}`);
   }
 }
 
 if (mobilePackage) {
   const dependencies = mobilePackage.dependencies ?? {};
-  for (const name of ['expo', 'expo-router', 'expo-sqlite', 'expo-secure-store', '@supabase/supabase-js']) {
+  for (const name of ['expo', 'expo-router', 'expo-sqlite', 'expo-secure-store', 'expo-local-authentication', '@supabase/supabase-js']) {
     if (!dependencies[name]) fail(`Dependência mobile obrigatória ausente: ${name}`);
   }
 }
+
+const localAuthPlugin = appConfig?.expo?.plugins?.some((plugin) =>
+  plugin === 'expo-local-authentication'
+  || (Array.isArray(plugin) && plugin[0] === 'expo-local-authentication'));
+if (!localAuthPlugin) fail('Plugin expo-local-authentication ausente no app.json.');
+else ok('Plugin de autenticação biométrica configurado.');
 
 const releaseVersions = [
   rootPackage?.version,
@@ -97,7 +113,7 @@ const migrationsDir = join(root, 'supabase/migrations');
 const migrations = existsSync(migrationsDir)
   ? readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
   : [];
-if (migrations.length < 8) fail('São esperadas pelo menos oito migrations remotas.');
+if (migrations.length < 9) fail('São esperadas pelo menos nove migrations remotas.');
 if (new Set(migrations.map((name) => name.split('_')[0])).size !== migrations.length) {
   fail('Há migrations remotas com prefixos numéricos duplicados.');
 } else if (migrations.length) {
@@ -147,6 +163,21 @@ for (const marker of ['buildContextComparisons', 'sleep-anxiety', 'intensity-anx
   if (!insightsSource.includes(marker)) fail(`Insights sem comparação descritiva obrigatória: ${marker}`);
 }
 
+const accountRepository = readFileSync(join(root, 'apps/mobile/src/data/account-repository.ts'), 'utf8');
+for (const marker of ['listConsentState', 'setOptionalConsent', 'requestAccountDeletion', 'cancelAccountDeletion']) {
+  if (!accountRepository.includes(marker)) fail(`Gestão da conta sem marcador obrigatório: ${marker}`);
+}
+
+const exportSource = readFileSync(join(root, 'apps/mobile/src/services/account-export.ts'), 'utf8');
+for (const marker of ['buildAccountExport', 'journal_entries', 'support_contacts', 'Tehkné Solutions']) {
+  if (!exportSource.includes(marker)) fail(`Exportação integral sem marcador obrigatório: ${marker}`);
+}
+
+const appLockSource = readFileSync(join(root, 'apps/mobile/src/security/AppLockShield.tsx'), 'utf8');
+for (const marker of ['authenticateAsync', 'shouldRequireAppUnlock', 'app-lock-unlock']) {
+  if (!appLockSource.includes(marker)) fail(`Bloqueio do app sem marcador obrigatório: ${marker}`);
+}
+
 const databaseSource = readFileSync(join(root, 'apps/mobile/src/data/database.ts'), 'utf8');
 for (const marker of ['PRAGMA cipher_version', 'sqlcipher_required', 'closeAsync', 'runJournalMigrations']) {
   if (!databaseSource.includes(marker)) fail(`Banco local sem proteção ou migration obrigatória: ${marker}`);
@@ -155,10 +186,14 @@ for (const marker of ['PRAGMA cipher_version', 'sqlcipher_required', 'closeAsync
 const e2eRequiredIds = [
   ['apps/mobile/app/(auth)/sign-in.tsx', 'sign-in-submit'],
   ['apps/mobile/app/(tabs)/index.tsx', 'home-open-check-in'],
+  ['apps/mobile/app/(tabs)/index.tsx', 'home-open-settings'],
   ['apps/mobile/app/(tabs)/check-in.tsx', 'check-in-save'],
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-save'],
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-search'],
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-cancel-edit'],
+  ['apps/mobile/app/settings.tsx', 'settings-title'],
+  ['apps/mobile/app/settings.tsx', 'settings-export'],
+  ['apps/mobile/app/settings.tsx', 'settings-sign-out'],
   ['apps/mobile/app/crisis.tsx', 'crisis-title'],
 ];
 for (const [path, marker] of e2eRequiredIds) {
@@ -205,4 +240,4 @@ if (failures.length) {
 console.log('Release check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Nenhum segredo conhecido foi detectado.');
-console.log('- SQLCipher fail-closed, cursor composto, diário editável, tombstones, comparações locais e identificadores E2E estão presentes.');
+console.log('- SQLCipher fail-closed, biometria, exportação integral, consentimentos, exclusão controlada e identificadores E2E estão presentes.');
