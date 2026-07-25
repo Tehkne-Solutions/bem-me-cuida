@@ -46,6 +46,10 @@ export default function DiagnosticsScreen() {
   }
 
   const blocked = report ? hasBlockingDiagnostic(report) : false;
+  const summaryStyle = StyleSheet.flatten([
+    styles.summary,
+    blocked ? styles.summaryError : styles.summaryOk,
+  ]);
 
   return (
     <Screen>
@@ -66,7 +70,7 @@ export default function DiagnosticsScreen() {
 
       {!loading && report ? (
         <>
-          <Surface style={[styles.summary, blocked ? styles.summaryError : styles.summaryOk]}>
+          <Surface style={summaryStyle}>
             <AppText variant="h2">{blocked ? 'Existe um bloqueio técnico' : 'A base técnica está pronta'}</AppText>
             <AppText muted>{blocked ? 'Corrija os itens em vermelho antes de aprovar a homologação.' : 'Avisos amarelos podem depender de conexão, sessão ou ambiente externo.'}</AppText>
           </Surface>
