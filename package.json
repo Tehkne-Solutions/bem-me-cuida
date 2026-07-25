@@ -1,6 +1,6 @@
 {
   "name": "bem-me-cuida",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Aplicativo mobile-first para acompanhamento emocional, autocuidado e organização do tratamento.",
   "license": "UNLICENSED",
@@ -36,6 +36,7 @@
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",
-    "e2e:management": "maestro test .maestro/care-management.yml"
+    "e2e:management": "maestro test .maestro/care-management.yml",
+    "e2e:journal": "maestro test .maestro/journal-insights.yml"
   }
 }

@@ -1,0 +1,17 @@
+appId: com.tehknesolutions.bemmecuida.dev
+---
+- launchApp
+- assertVisible: "Hoje"
+- tapOn: "Diário"
+- assertVisible: "Um espaço para colocar em palavras"
+- tapOn:
+    id: "journal-add"
+- assertVisible:
+    id: "new-journal-title"
+- tapOn:
+    id: "journal-body"
+- inputText: "Registro sintético para validação do diário."
+- tapOn:
+    id: "journal-save"
+- tapOn: "Insights"
+- assertVisible: "Observe o que você registrou"

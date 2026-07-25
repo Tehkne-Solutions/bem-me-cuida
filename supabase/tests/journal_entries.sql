@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_table('public','journal_entries','journal_entries existe');
+select ok(exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='journal_entries' and c.relrowsecurity),'RLS ativa em journal_entries');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='journal_entries' and policyname='journal_entries_select_own'),'policy select existe');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='journal_entries' and policyname='journal_entries_insert_own'),'policy insert existe');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='journal_entries' and policyname='journal_entries_update_own'),'policy update existe');
+select has_function('public','sync_journal_entry',array['jsonb'],'sync_journal_entry existe');
+select has_function('public','pull_journal_entries',array['timestamp with time zone','uuid','integer'],'pull_journal_entries existe');
+select has_index('public','journal_entries','journal_entries_user_occurred_idx','índice principal existe');
+select * from finish();
+rollback;

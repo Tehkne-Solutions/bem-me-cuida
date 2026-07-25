@@ -22,6 +22,10 @@ Todo conteúdo relacionado a humor, diário, medicamentos, tratamentos, substân
 14. Relatórios de diagnóstico podem conter somente estados técnicos; nome, e-mail, IDs, tokens e conteúdo emocional são proibidos.
 15. Credenciais de contas E2E devem ser fornecidas por ambiente e nunca versionadas nos fluxos Maestro.
 
+16. O texto integral do diário não pode ser incluído em relatórios compartilháveis por padrão.
+17. Sinalizações de linguagem sensível devem executar localmente, usar incerteza explícita e nunca bloquear o salvamento.
+18. Insights podem descrever frequências e médias, mas não podem afirmar diagnóstico, causa ou previsão.
+
 ## Relato de vulnerabilidade
 
 Não abra issues públicas com informações sensíveis. Encaminhe o relato diretamente à Tehkné Solutions pelo canal interno definido para segurança.

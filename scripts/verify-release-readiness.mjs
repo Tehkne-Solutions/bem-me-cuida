@@ -33,6 +33,9 @@ const requiredFiles = [
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
   'docs/SPRINT-02-INCREMENTO-02.md',
+  'docs/SPRINT-03.md',
+  'supabase/migrations/202607250007_journal_entries.sql',
+  '.maestro/journal-insights.yml',
 ];
 
 for (const path of requiredFiles) {
@@ -82,9 +85,12 @@ if (!/version:\s*5[\s\S]*remote_cursor_id/.test(localMigrations)) {
 if (!/version:\s*7[\s\S]*CREATE TABLE IF NOT EXISTS appointments/.test(localMigrations)) {
   fail('Migration local 7 de gestão do cuidado não foi localizada.');
 }
+if (!/version:\s*8[\s\S]*CREATE TABLE IF NOT EXISTS journal_entries/.test(localMigrations)) {
+  fail('Migration local 8 do diário emocional não foi localizada.');
+}
 
 const syncSource = readFileSync(join(root, 'apps/mobile/src/services/sync.ts'), 'utf8');
-for (const marker of ['pull_mood_checkins', 'remoteCursorId', 'resetRemoteCursor']) {
+for (const marker of ['pull_mood_checkins', 'remoteCursorId', 'resetRemoteCursor', 'pullRemoteJournalEntries']) {
   if (!syncSource.includes(marker)) fail(`Sincronização sem marcador obrigatório: ${marker}`);
 }
 

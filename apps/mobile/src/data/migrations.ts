@@ -305,6 +305,33 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_notification_bindings_entity ON local_notification_bindings(user_id, entity_type, entity_id);
     `,
   },
+  {
+    version: 8,
+    sql: `
+      CREATE TABLE IF NOT EXISTS journal_entries (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        title TEXT CHECK (title IS NULL OR length(title) <= 120),
+        body TEXT NOT NULL CHECK (length(trim(body)) BETWEEN 1 AND 10000),
+        mood TEXT NOT NULL CHECK (mood IN ('very_low','low','neutral','good','very_good')),
+        intensity INTEGER CHECK (intensity IS NULL OR intensity BETWEEN 0 AND 10),
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        flag_for_therapy INTEGER NOT NULL DEFAULT 0 CHECK (flag_for_therapy IN (0, 1)),
+        archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        synced_at TEXT,
+        deleted_at TEXT,
+        UNIQUE(id, user_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_journal_entries_user_occurred
+        ON journal_entries(user_id, archived, occurred_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_journal_entries_user_therapy
+        ON journal_entries(user_id, flag_for_therapy, occurred_at DESC);
+    `,
+  },
 ];
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

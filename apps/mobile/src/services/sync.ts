@@ -14,6 +14,12 @@ import {
   resetCareEntityCursor,
   syncCareQueueItem,
 } from '@/services/care-sync';
+import {
+  markJournalSynced,
+  pullRemoteJournalEntries,
+  resetJournalCursor,
+  syncJournalQueueItem,
+} from '@/services/journal-sync';
 import { supabase } from '@/services/supabase';
 import { MAX_SYNC_ATTEMPTS, nextRetryAt, safeSyncErrorCode } from '@/services/sync-policy';
 
@@ -135,12 +141,16 @@ export async function flushSyncQueue(userId?: string): Promise<{
       const payload = JSON.parse(item.payload) as unknown;
       const outcome = item.entity_type === 'mood_checkin'
         ? await syncMoodCheckIn(payload, activeUserId)
-        : await syncCareQueueItem(item.entity_type, payload, activeUserId);
+        : item.entity_type === 'journal_entry'
+          ? await syncJournalQueueItem(payload, activeUserId)
+          : await syncCareQueueItem(item.entity_type, payload, activeUserId);
       if (outcome === 'remote_newer') remoteNewerEntities.add(item.entity_type);
 
       await db.runAsync('DELETE FROM sync_queue WHERE id = ?;', item.id);
       if (item.entity_type === 'mood_checkin') {
         await db.runAsync('UPDATE mood_checkins SET synced_at = ? WHERE id = ?;', new Date().toISOString(), item.entity_id);
+      } else if (item.entity_type === 'journal_entry') {
+        await markJournalSynced(activeUserId, item.entity_id);
       } else {
         await markCareEntitySynced(item.entity_type, item.entity_id, activeUserId);
       }
@@ -287,14 +297,16 @@ export async function runSyncCycle(userId: string): Promise<SyncCycleResult> {
     if (pushed.skipped) return { pushed: 0, pulled: 0, skipped: true };
     for (const entityType of pushed.remoteNewerEntities) {
       if (entityType === 'mood_checkin') await resetRemoteCursor(userId);
+      else if (entityType === 'journal_entry') await resetJournalCursor(userId);
       else await resetCareEntityCursor(userId, entityType);
     }
-    const [moodPulled, carePulled] = await Promise.all([
+    const [moodPulled, carePulled, journalPulled] = await Promise.all([
       pullRemoteCheckIns(userId),
       pullAllCareRecords(userId),
+      pullRemoteJournalEntries(userId),
     ]);
     await markSyncSuccess(userId);
-    return { pushed: pushed.processed, pulled: moodPulled + carePulled, skipped: false };
+    return { pushed: pushed.processed, pulled: moodPulled + carePulled + journalPulled, skipped: false };
   } catch (error) {
     await markSyncFailure(userId, safeSyncErrorCode(error));
     throw error;
