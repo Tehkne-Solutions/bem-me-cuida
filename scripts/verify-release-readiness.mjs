@@ -36,6 +36,8 @@ const requiredFiles = [
   'docs/SPRINT-05.md',
   'docs/ADR-009-relatorios-locais-e-minimizacao.md',
   '.maestro/reports.yml',
+  'docs/SPRINT-06.md',
+  'docs/ADR-010-diario-editavel-e-comparacoes.md',
   '.eas/workflows/e2e-tests-android.yml',
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
@@ -95,7 +97,7 @@ const migrationsDir = join(root, 'supabase/migrations');
 const migrations = existsSync(migrationsDir)
   ? readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
   : [];
-if (migrations.length < 7) fail('São esperadas pelo menos sete migrations remotas.');
+if (migrations.length < 8) fail('São esperadas pelo menos oito migrations remotas.');
 if (new Set(migrations.map((name) => name.split('_')[0])).size !== migrations.length) {
   fail('Há migrations remotas com prefixos numéricos duplicados.');
 } else if (migrations.length) {
@@ -111,7 +113,7 @@ if (!/version:\s*7[\s\S]*CREATE TABLE IF NOT EXISTS appointments/.test(localMigr
 }
 
 const journalMigrations = readFileSync(join(root, 'apps/mobile/src/data/journal-migrations.ts'), 'utf8');
-for (const marker of ['JOURNAL_SCHEMA_VERSION = 8', 'CREATE TABLE IF NOT EXISTS journal_entries']) {
+for (const marker of ['JOURNAL_SCHEMA_VERSION = 8', 'CREATE TABLE IF NOT EXISTS journal_entries', 'deleted_at']) {
   if (!journalMigrations.includes(marker)) fail(`Migration local do diário sem marcador obrigatório: ${marker}`);
 }
 
@@ -126,8 +128,23 @@ for (const marker of ['pull_mood_checkins', 'remoteCursorId', 'resetRemoteCursor
 }
 
 const careSyncSource = readFileSync(join(root, 'apps/mobile/src/services/care-sync.ts'), 'utf8');
-for (const marker of ["'journal_entry'", 'journalEntrySchema', 'applyRemoteJournalEntry']) {
+for (const marker of ["'journal_entry'", 'journalEntrySchema', 'applyRemoteJournalEntry', 'markDeleted']) {
   if (!careSyncSource.includes(marker)) fail(`Sincronização do diário sem marcador obrigatório: ${marker}`);
+}
+
+const journalDomain = readFileSync(join(root, 'packages/domain/src/journal.ts'), 'utf8');
+for (const marker of ['updateJournalEntryInputSchema', 'deletedAt']) {
+  if (!journalDomain.includes(marker)) fail(`Domínio do diário sem marcador do Sprint 06: ${marker}`);
+}
+
+const journalRepository = readFileSync(join(root, 'apps/mobile/src/data/journal-repository.ts'), 'utf8');
+for (const marker of ['listJournalEntries', 'updateJournalEntry', 'deleteJournalEntry', "operation: 'upsert' | 'delete'"]) {
+  if (!journalRepository.includes(marker)) fail(`Repositório do diário sem marcador do Sprint 06: ${marker}`);
+}
+
+const insightsSource = readFileSync(join(root, 'apps/mobile/src/services/insights.ts'), 'utf8');
+for (const marker of ['buildContextComparisons', 'sleep-anxiety', 'intensity-anxiety', 'strategies-intensity']) {
+  if (!insightsSource.includes(marker)) fail(`Insights sem comparação descritiva obrigatória: ${marker}`);
 }
 
 const databaseSource = readFileSync(join(root, 'apps/mobile/src/data/database.ts'), 'utf8');
@@ -140,6 +157,8 @@ const e2eRequiredIds = [
   ['apps/mobile/app/(tabs)/index.tsx', 'home-open-check-in'],
   ['apps/mobile/app/(tabs)/check-in.tsx', 'check-in-save'],
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-save'],
+  ['apps/mobile/app/(tabs)/diary.tsx', 'journal-search'],
+  ['apps/mobile/app/(tabs)/diary.tsx', 'journal-cancel-edit'],
   ['apps/mobile/app/crisis.tsx', 'crisis-title'],
 ];
 for (const [path, marker] of e2eRequiredIds) {
@@ -186,4 +205,4 @@ if (failures.length) {
 console.log('Release check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Nenhum segredo conhecido foi detectado.');
-console.log('- SQLCipher fail-closed, cursor composto, plano de cuidado, diário e identificadores E2E estão presentes.');
+console.log('- SQLCipher fail-closed, cursor composto, diário editável, tombstones, comparações locais e identificadores E2E estão presentes.');
