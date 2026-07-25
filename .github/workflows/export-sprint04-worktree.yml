@@ -1,0 +1,24 @@
+name: Export Sprint 04 worktree
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/export-sprint04-worktree.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create worktree snapshot
+        run: tar --exclude=.git -czf /tmp/bem-me-cuida-sprint04.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bem-me-cuida-sprint04-worktree
+          path: /tmp/bem-me-cuida-sprint04.tar.gz
+          if-no-files-found: error
+          retention-days: 1
