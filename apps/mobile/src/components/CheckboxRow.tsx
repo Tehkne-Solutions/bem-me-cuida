@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAppAccessibility } from '@/accessibility/AccessibilityProvider';
 import { AppText } from '@/components/AppText';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -8,17 +9,31 @@ type Props = {
   label: string;
   description?: string;
   onChange: (checked: boolean) => void;
+  testID?: string;
 };
 
-export function CheckboxRow({ checked, label, description, onChange }: Props) {
+export function CheckboxRow({ checked, label, description, onChange, testID }: Props) {
+  const { preferences } = useAppAccessibility();
+
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      accessibilityHint={description}
       onPress={() => onChange(!checked)}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed, focused }) => [
+        styles.row,
+        pressed && styles.pressed,
+        focused && styles.focused,
+      ]}
     >
-      <View style={[styles.box, checked && styles.boxChecked]}>
+      <View style={[
+        styles.box,
+        preferences.highContrast && styles.boxHighContrast,
+        checked && styles.boxChecked,
+      ]}>
         {checked ? <AppText variant="bodyStrong" style={styles.check}>✓</AppText> : null}
       </View>
       <View style={styles.copy}>
@@ -30,8 +45,15 @@ export function CheckboxRow({ checked, label, description, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm, alignItems: 'flex-start' },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'flex-start',
+    borderRadius: radius.sm,
+  },
   pressed: { opacity: 0.72 },
+  focused: { outlineColor: colors.primaryStrong, outlineWidth: 2 },
   box: {
     width: 24,
     height: 24,
@@ -43,6 +65,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 1,
   },
+  boxHighContrast: { borderWidth: 2, borderColor: '#202A26' },
   boxChecked: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong },
   check: { color: colors.white, lineHeight: 20 },
   copy: { flex: 1, gap: spacing.xs },
