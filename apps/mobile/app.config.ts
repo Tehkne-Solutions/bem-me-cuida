@@ -32,14 +32,14 @@ function resolveVariant(): AppVariant {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = resolveVariant();
-  const selected = variants[variant];
+  const selected = variants[variant]!;
 
   return {
     ...config,
     name: selected.name,
     slug: 'bem-me-cuida',
     scheme: selected.scheme,
-    version: config.version ?? '0.1.0',
+    version: config.version ?? '0.3.0',
     extra: {
       ...config.extra,
       appVariant: variant,
