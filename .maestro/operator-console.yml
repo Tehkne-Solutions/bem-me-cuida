@@ -37,25 +37,3 @@ name: Console operacional de releases
     id: operator-candidate-title
 - assertVisible:
     id: operator-create-candidate
-- scrollUntilVisible:
-    element:
-      id: operator-status-qa
-    direction: DOWN
-    optional: true
-- assertVisible:
-    id: operator-status-qa
-    optional: true
-- assertVisible:
-    id: operator-status-approved
-    optional: true
-- scrollUntilVisible:
-    element:
-      id: operator-register-build
-    direction: DOWN
-    optional: true
-- assertVisible:
-    id: operator-register-build
-    optional: true
-- assertVisible:
-    id: operator-promote-release
-    optional: true
