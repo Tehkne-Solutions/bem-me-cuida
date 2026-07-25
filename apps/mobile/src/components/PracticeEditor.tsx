@@ -12,7 +12,7 @@ import { WeekdaySelector } from '@/components/WeekdaySelector';
 import { careCategoryEmoji, careCategoryLabel } from '@/services/care-labels';
 import { spacing } from '@/theme/tokens';
 type Props={initial?:Partial<CreateCarePracticeInput>;saving?:boolean;submitLabel:string;onSubmit:(input:CreateCarePracticeInput)=>Promise<void>;onDeactivate?:()=>Promise<void>};
-const defaultForm:CreateCarePracticeInput={title:'',category:'other',description:null,targetMinutes:null,timeLocal:null,weekdaysMask:127,reminderEnabled:false};
+const defaultForm:CreateCarePracticeInput={title:'',category:'custom',description:null,targetMinutes:null,timeLocal:null,weekdaysMask:127,reminderEnabled:false};
 export function PracticeEditor({initial,saving,submitLabel,onSubmit,onDeactivate}:Props){
   const [form,setForm]=useState<CreateCarePracticeInput>({...defaultForm,...initial}); const [error,setError]=useState<string|null>(null);
   function update<K extends keyof CreateCarePracticeInput>(key:K,value:CreateCarePracticeInput[K]){setForm(current=>({...current,[key]:value}));}
