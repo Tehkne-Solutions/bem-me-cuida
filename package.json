@@ -1,6 +1,6 @@
 {
   "name": "bem-me-cuida",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Aplicativo mobile-first para acompanhamento emocional, autocuidado e organização do tratamento.",
   "license": "UNLICENSED",
@@ -23,6 +23,7 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "config:check": "node --env-file-if-exists=.env scripts/verify-environment.mjs",
     "staging:check": "node --env-file-if-exists=.env scripts/verify-staging-readiness.mjs",
+    "beta:check": "node --env-file-if-exists=.env scripts/verify-beta-readiness.mjs",
     "supabase:start": "npx supabase@latest start",
     "supabase:stop": "npx supabase@latest stop",
     "supabase:test": "npx supabase@latest test db",
@@ -30,6 +31,7 @@
     "supabase:push:staging": "node --env-file-if-exists=.env scripts/push-supabase-staging.mjs",
     "build:android:development": "npm run build:android:development --workspace @bemmecuida/mobile",
     "build:android:preview": "npm run build:android:preview --workspace @bemmecuida/mobile",
+    "build:android:beta": "npm run build:android:beta --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
     "release:check": "node scripts/verify-release-readiness.mjs",
@@ -40,6 +42,7 @@
     "e2e:journal": "maestro test .maestro/journal-insights.yml",
     "e2e:support": "maestro test .maestro/support-plan.yml",
     "e2e:reports": "maestro test .maestro/reports.yml",
-    "e2e:settings": "maestro test .maestro/settings-privacy.yml"
+    "e2e:settings": "maestro test .maestro/settings-privacy.yml",
+    "e2e:preferences": "maestro test .maestro/preferences-accessibility.yml"
   }
 }

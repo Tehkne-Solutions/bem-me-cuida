@@ -260,6 +260,23 @@ export default function SettingsScreen() {
           </Surface>
 
           <Surface style={styles.section}>
+            <AppText variant="h2">Experiência do aplicativo</AppText>
+            <AppText muted>Controle lembretes, privacidade na tela bloqueada, leitura, contraste e movimento.</AppText>
+            <View style={styles.buttonGroup}>
+              <SecondaryButton
+                testID="settings-open-notifications"
+                label="Notificações e horário silencioso"
+                onPress={() => router.push('/notifications-settings')}
+              />
+              <SecondaryButton
+                testID="settings-open-accessibility"
+                label="Acessibilidade"
+                onPress={() => router.push('/accessibility-settings')}
+              />
+            </View>
+          </Surface>
+
+          <Surface style={styles.section}>
             <AppText variant="h2">Seus dados</AppText>
             <AppText muted>A exportação é preparada localmente e pode conter informações emocionais e de saúde. Revise o destino antes de compartilhar.</AppText>
             <PrimaryButton testID="settings-export" label="Exportar todos os meus dados" loading={exporting} onPress={() => void exportData()} />

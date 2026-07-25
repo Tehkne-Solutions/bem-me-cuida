@@ -1,6 +1,6 @@
 {
   "name": "@bemmecuida/mobile",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
@@ -14,10 +14,11 @@
     "test": "tsx --test src/services/*.test.ts src/config/*.test.ts src/diagnostics/*.test.ts src/security/*.test.ts",
     "config:public": "expo config --type public",
     "build:android:development": "npx eas-cli@latest build --platform android --profile development",
-    "build:android:preview": "npx eas-cli@latest build --platform android --profile preview"
+    "build:android:preview": "npx eas-cli@latest build --platform android --profile preview",
+    "build:android:beta": "npx eas-cli@latest build --platform android --profile beta"
   },
   "dependencies": {
-    "@bemmecuida/domain": "0.8.0",
+    "@bemmecuida/domain": "0.9.0",
     "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.8",
     "expo-crypto": "~57.0.0",

@@ -48,6 +48,18 @@ const requiredFiles = [
   'apps/mobile/src/services/account-export.ts',
   'apps/mobile/src/security/AppLockShield.tsx',
   'apps/mobile/src/security/account-preferences.ts',
+  'docs/SPRINT-08.md',
+  'docs/ADR-012-preferencias-locais-e-beta-isolada.md',
+  'docs/BETA-FECHADA.md',
+  '.maestro/preferences-accessibility.yml',
+  'apps/mobile/app/notifications-settings.tsx',
+  'apps/mobile/app/accessibility-settings.tsx',
+  'apps/mobile/src/preferences/notification-preferences.ts',
+  'apps/mobile/src/preferences/accessibility-preferences.ts',
+  'apps/mobile/src/accessibility/AccessibilityProvider.tsx',
+  'apps/mobile/src/services/notification-policy.ts',
+  'apps/mobile/src/services/accessibility-policy.ts',
+  'scripts/verify-beta-readiness.mjs',
   '.eas/workflows/e2e-tests-android.yml',
   'supabase/migrations/202607240004_pull_cursor.sql',
   'supabase/migrations/202607250006_care_management.sql',
@@ -73,14 +85,32 @@ const eas = readJson('apps/mobile/eas.json');
 
 if (rootPackage) {
   const scripts = rootPackage.scripts ?? {};
-  for (const name of ['verify', 'security:check', 'release:check', 'e2e:smoke', 'e2e:journal', 'e2e:settings']) {
+  for (const name of [
+    'verify',
+    'security:check',
+    'release:check',
+    'beta:check',
+    'build:android:beta',
+    'e2e:smoke',
+    'e2e:journal',
+    'e2e:settings',
+    'e2e:preferences',
+  ]) {
     if (!scripts[name]) fail(`Script npm obrigatório ausente: ${name}`);
   }
 }
 
 if (mobilePackage) {
   const dependencies = mobilePackage.dependencies ?? {};
-  for (const name of ['expo', 'expo-router', 'expo-sqlite', 'expo-secure-store', 'expo-local-authentication', '@supabase/supabase-js']) {
+  for (const name of [
+    'expo',
+    'expo-router',
+    'expo-sqlite',
+    'expo-secure-store',
+    'expo-local-authentication',
+    'expo-notifications',
+    '@supabase/supabase-js',
+  ]) {
     if (!dependencies[name]) fail(`Dependência mobile obrigatória ausente: ${name}`);
   }
 }
@@ -90,6 +120,12 @@ const localAuthPlugin = appConfig?.expo?.plugins?.some((plugin) =>
   || (Array.isArray(plugin) && plugin[0] === 'expo-local-authentication'));
 if (!localAuthPlugin) fail('Plugin expo-local-authentication ausente no app.json.');
 else ok('Plugin de autenticação biométrica configurado.');
+
+const notificationsPlugin = appConfig?.expo?.plugins?.some((plugin) =>
+  plugin === 'expo-notifications'
+  || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'));
+if (!notificationsPlugin) fail('Plugin expo-notifications ausente no app.json.');
+else ok('Plugin de notificações configurado.');
 
 const releaseVersions = [
   rootPackage?.version,
@@ -103,10 +139,29 @@ if (new Set(releaseVersions).size > 1) {
   ok(`Versão de release alinhada em ${releaseVersions[0]}.`);
 }
 
-if (!eas?.build?.development || !eas?.build?.preview || !eas?.build?.production || !eas?.build?.['e2e-test']) {
-  fail('eas.json precisa conter development, preview, production e e2e-test.');
+if (
+  !eas?.build?.development
+  || !eas?.build?.preview
+  || !eas?.build?.beta
+  || !eas?.build?.production
+  || !eas?.build?.['e2e-test']
+) {
+  fail('eas.json precisa conter development, preview, beta, production e e2e-test.');
 } else {
-  ok('Perfis EAS de desenvolvimento, homologação, produção e E2E encontrados.');
+  ok('Perfis EAS de desenvolvimento, homologação, beta, produção e E2E encontrados.');
+  if (eas.build.beta.distribution !== 'internal') fail('Perfil beta precisa usar distribuição interna.');
+  if (eas.build.beta.channel !== 'beta') fail('Perfil beta precisa usar canal beta.');
+  if (eas.build.beta.env?.APP_VARIANT !== 'beta') fail('Perfil beta precisa definir APP_VARIANT=beta.');
+}
+
+const appConfigSource = readFileSync(join(root, 'apps/mobile/app.config.ts'), 'utf8');
+for (const marker of [
+  "name: 'BemMeCuida Beta'",
+  "scheme: 'bemmecuida-beta'",
+  "androidPackage: 'com.tehknesolutions.bemmecuida.beta'",
+  "iosBundleIdentifier: 'com.tehknesolutions.bemmecuida.beta'",
+]) {
+  if (!appConfigSource.includes(marker)) fail(`Configuração da beta sem marcador obrigatório: ${marker}`);
 }
 
 const migrationsDir = join(root, 'supabase/migrations');
@@ -174,8 +229,39 @@ for (const marker of ['buildAccountExport', 'journal_entries', 'support_contacts
 }
 
 const appLockSource = readFileSync(join(root, 'apps/mobile/src/security/AppLockShield.tsx'), 'utf8');
-for (const marker of ['authenticateAsync', 'shouldRequireAppUnlock', 'app-lock-unlock']) {
+for (const marker of ['authenticateAsync', 'shouldRequireAppUnlock', 'app-lock-unlock', 'reduceMotion']) {
   if (!appLockSource.includes(marker)) fail(`Bloqueio do app sem marcador obrigatório: ${marker}`);
+}
+
+const notificationPreferences = readFileSync(join(root, 'apps/mobile/src/preferences/notification-preferences.ts'), 'utf8');
+for (const marker of ['dailyCheckIn', 'quietHoursEnabled', 'quietStartLocal', 'SecureStore']) {
+  if (!notificationPreferences.includes(marker)) fail(`Preferências de notificações sem marcador obrigatório: ${marker}`);
+}
+
+const reminderSource = readFileSync(join(root, 'apps/mobile/src/services/reminders.ts'), 'utf8');
+for (const marker of [
+  'care-reminders-quiet',
+  'scheduleDailyCheckInReminder',
+  'refreshAllUserReminders',
+  'readNotificationPreferences',
+  'discreetContent',
+]) {
+  if (!reminderSource.includes(marker)) fail(`Serviço de lembretes sem marcador do Sprint 08: ${marker}`);
+}
+
+const notificationPolicy = readFileSync(join(root, 'apps/mobile/src/services/notification-policy.ts'), 'utf8');
+for (const marker of ['isWithinQuietHours', 'normalizeTimeLocal', 'start < end']) {
+  if (!notificationPolicy.includes(marker)) fail(`Política de horário silencioso sem marcador: ${marker}`);
+}
+
+const accessibilityProvider = readFileSync(join(root, 'apps/mobile/src/accessibility/AccessibilityProvider.tsx'), 'utf8');
+for (const marker of ['AccessibilityInfo', 'reduceMotionChanged', 'fontScale', 'updatePreferences']) {
+  if (!accessibilityProvider.includes(marker)) fail(`Provider de acessibilidade sem marcador: ${marker}`);
+}
+
+const appTextSource = readFileSync(join(root, 'apps/mobile/src/components/AppText.tsx'), 'utf8');
+for (const marker of ['useAppAccessibility', 'scaleTextMetrics', 'highContrast', 'maxFontSizeMultiplier']) {
+  if (!appTextSource.includes(marker)) fail(`AppText sem suporte acessível obrigatório: ${marker}`);
 }
 
 const databaseSource = readFileSync(join(root, 'apps/mobile/src/data/database.ts'), 'utf8');
@@ -192,8 +278,14 @@ const e2eRequiredIds = [
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-search'],
   ['apps/mobile/app/(tabs)/diary.tsx', 'journal-cancel-edit'],
   ['apps/mobile/app/settings.tsx', 'settings-title'],
+  ['apps/mobile/app/settings.tsx', 'settings-open-notifications'],
+  ['apps/mobile/app/settings.tsx', 'settings-open-accessibility'],
   ['apps/mobile/app/settings.tsx', 'settings-export'],
   ['apps/mobile/app/settings.tsx', 'settings-sign-out'],
+  ['apps/mobile/app/notifications-settings.tsx', 'notifications-settings-title'],
+  ['apps/mobile/app/notifications-settings.tsx', 'notifications-settings-save'],
+  ['apps/mobile/app/accessibility-settings.tsx', 'accessibility-settings-title'],
+  ['apps/mobile/app/accessibility-settings.tsx', 'accessibility-settings-save'],
   ['apps/mobile/app/crisis.tsx', 'crisis-title'],
 ];
 for (const [path, marker] of e2eRequiredIds) {
@@ -240,4 +332,4 @@ if (failures.length) {
 console.log('Release check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Nenhum segredo conhecido foi detectado.');
-console.log('- SQLCipher fail-closed, biometria, exportação integral, consentimentos, exclusão controlada e identificadores E2E estão presentes.');
+console.log('- SQLCipher, biometria, privacidade, notificações discretas, acessibilidade e beta isolada estão presentes.');
