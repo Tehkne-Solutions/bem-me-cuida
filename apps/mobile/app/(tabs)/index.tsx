@@ -11,7 +11,8 @@ import { Screen } from '@/components/Screen';
 import { Surface } from '@/components/Surface';
 import { listTodayCarePractices } from '@/data/care-practice-repository';
 import { listRecentCheckIns } from '@/data/check-in-repository';
-import { listTodayMedicationDoses } from '@/data/medication-repository';
+import { listLowStockMedications, listTodayMedicationDoses } from '@/data/medication-repository';
+import { listAppointments } from '@/data/care-management-repository';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -28,6 +29,8 @@ type CareSummary = {
   medicationDone: number;
   practiceTotal: number;
   practiceDone: number;
+  lowStock: number;
+  upcomingAppointments: number;
 };
 
 const emptyCareSummary: CareSummary = {
@@ -35,6 +38,8 @@ const emptyCareSummary: CareSummary = {
   medicationDone: 0,
   practiceTotal: 0,
   practiceDone: 0,
+  lowStock: 0,
+  upcomingAppointments: 0,
 };
 
 export default function HomeScreen() {
@@ -49,13 +54,17 @@ export default function HomeScreen() {
       listRecentCheckIns(session.user.id, 1),
       listTodayMedicationDoses(session.user.id),
       listTodayCarePractices(session.user.id),
-    ]).then(([checkIns, doses, practices]) => {
+      listLowStockMedications(session.user.id),
+      listAppointments(session.user.id, { limit: 20 }),
+    ]).then(([checkIns, doses, practices, lowStock, appointments]) => {
       setLatest(checkIns[0] ?? null);
       setCare({
         medicationTotal: doses.length,
         medicationDone: doses.filter((item) => item.intake?.status === 'taken').length,
         practiceTotal: practices.length,
         practiceDone: practices.filter((item) => item.completion?.status === 'completed').length,
+        lowStock: lowStock.length,
+        upcomingAppointments: appointments.filter((item) => item.status === 'scheduled').length,
       });
     }).catch(() => {
       setLatest(null);
@@ -129,6 +138,10 @@ export default function HomeScreen() {
               <AppText variant="caption" muted>{care.practiceDone}/{care.practiceTotal}</AppText>
             </Pressable>
           </Link>
+        </View>
+        <View style={styles.careLinks}>
+          <Link href="/appointments" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{care.upcomingAppointments} próxima(s)</AppText></Pressable></Link>
+          <Link href="/medications" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{care.lowStock} aviso(s)</AppText></Pressable></Link>
         </View>
         <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
       </Surface>

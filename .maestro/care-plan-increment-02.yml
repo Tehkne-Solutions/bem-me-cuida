@@ -1,0 +1,57 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Consultas e tratamentos sintéticos
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn: "Cuidado"
+- tapOn:
+    id: care-open-appointments
+- assertVisible:
+    id: appointments-title
+- tapOn:
+    id: appointments-add
+- tapOn:
+    id: appointment-title
+- eraseText
+- inputText: "Consulta sintetica E2E"
+- tapOn:
+    id: appointment-professional
+- inputText: "Profissional E2E"
+- scrollUntilVisible:
+    element:
+      id: appointment-save
+    direction: DOWN
+- tapOn:
+    id: appointment-save
+- assertVisible: "Consulta cadastrada"
+- tapOn: "Concluir"
+- assertVisible: "Consulta sintetica E2E"
+- tapOn: "← Voltar"
+- tapOn:
+    id: care-open-treatments
+- assertVisible:
+    id: treatments-title
+- tapOn:
+    id: treatments-add
+- tapOn:
+    id: treatment-name
+- inputText: "Tratamento sintetico E2E"
+- scrollUntilVisible:
+    element:
+      id: treatment-save
+    direction: DOWN
+- tapOn:
+    id: treatment-save
+- assertVisible: "Tratamento cadastrado"

@@ -52,6 +52,8 @@ export default function CareScreen() {
         <AppText variant="h2">Plano de cuidado</AppText>
         <CareLink testID="care-open-medications" emoji="💊" title="Medicamentos" description="Horários, lembretes e registros do que aconteceu." onPress={() => router.push('/medications')} />
         <CareLink testID="care-open-routines" emoji="🌿" title="Práticas e rotina" description="Exercícios, sono, terapia e outros cuidados possíveis." onPress={() => router.push('/routines')} />
+        <CareLink emoji="🗓️" title="Consultas" description="Compromissos, profissionais e lembretes discretos." onPress={() => router.push('/appointments')} />
+        <CareLink emoji="🤝" title="Tratamentos" description="Organize acompanhamentos sem receber orientação clínica." onPress={() => router.push('/treatments')} />
         <CareLink testID="care-open-history" emoji="🕊️" title="Histórico" description="Uma linha do tempo sem julgamentos ou pontuação punitiva." onPress={() => router.push('/care-history')} />
       </Surface>
 
