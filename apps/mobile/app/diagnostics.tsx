@@ -10,6 +10,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { Surface } from '@/components/Surface';
 import { runDeviceDiagnostics } from '@/diagnostics/device-diagnostics';
 import { formatDiagnosticReport, hasBlockingDiagnostic, type DiagnosticReport, type DiagnosticStatus } from '@/diagnostics/report';
+import { useTechnicalObservability } from '@/observability/TechnicalObservabilityProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const statusMeta: Record<DiagnosticStatus, { symbol: string; label: string; color: string }> = {
@@ -20,17 +21,24 @@ const statusMeta: Record<DiagnosticStatus, { symbol: string; label: string; colo
 
 export default function DiagnosticsScreen() {
   const { session } = useAuth();
+  const { record } = useTechnicalObservability();
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   const execute = useCallback(async () => {
     setLoading(true);
     try {
-      setReport(await runDeviceDiagnostics(session?.user.id ?? null));
+      const nextReport = await runDeviceDiagnostics(session?.user.id ?? null);
+      setReport(nextReport);
+      const summary = nextReport.checks.reduce(
+        (current, check) => ({ ...current, [check.status]: current[check.status] + 1 }),
+        { ok: 0, warning: 0, error: 0 },
+      );
+      await record('diagnostics_completed', summary);
     } finally {
       setLoading(false);
     }
-  }, [session?.user.id]);
+  }, [record, session?.user.id]);
 
   useEffect(() => {
     void execute();
