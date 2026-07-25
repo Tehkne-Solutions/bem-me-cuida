@@ -1,14 +1,14 @@
-import { AccessibilityInfo } from 'react-native';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { AccessibilityInfo } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
 import {
   defaultAccessibilityPreferences,
   readAccessibilityPreferences,
   saveAccessibilityPreferences,
-  textSizeMultiplier,
   type AppAccessibilityPreferences,
 } from '@/preferences/accessibility-preferences';
+import { textSizeMultiplier } from '@/services/accessibility-policy';
 
 type AccessibilityContextValue = {
   preferences: AppAccessibilityPreferences;
