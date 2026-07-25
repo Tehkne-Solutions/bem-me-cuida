@@ -14,6 +14,16 @@ begin
 end;
 $$;
 
+create or replace function public.jsonb_object_size(value jsonb)
+returns integer
+language sql
+immutable
+strict
+set search_path = ''
+as $$
+  select count(*)::integer from jsonb_object_keys(value);
+$$;
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text check (char_length(display_name) <= 80),
@@ -79,7 +89,10 @@ create table public.audit_events (
   entity_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default timezone('utc', now()),
-  constraint audit_metadata_no_sensitive_content check (jsonb_object_length(metadata) <= 12)
+  constraint audit_metadata_no_sensitive_content check (
+    jsonb_typeof(metadata) = 'object'
+    and public.jsonb_object_size(metadata) <= 12
+  )
 );
 
 create trigger profiles_updated_at before update on public.profiles

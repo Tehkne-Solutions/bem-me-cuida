@@ -1,2 +1,16 @@
-import { router } from 'expo-router'; import { Alert } from 'react-native'; import type { CreateCarePracticeInput } from '@bemmecuida/domain'; import { useAuth } from '@/auth/AuthProvider'; import { AppText } from '@/components/AppText'; import { BackHeader } from '@/components/BackHeader'; import { Screen } from '@/components/Screen'; import { saveCarePractice } from '@/data/care-practice-repository'; import { PracticeEditor } from '@/features/care/PracticeEditor'; import { EVERY_DAY_MASK } from '@/services/care-time'; import { scheduleEntityReminders } from '@/services/reminders'; import { useSync } from '@/sync/SyncProvider'; import { spacing } from '@/theme/tokens';
-const initial:CreateCarePracticeInput={title:'',category:'custom',description:null,targetMinutes:null,timeLocal:null,weekdaysMask:EVERY_DAY_MASK,reminderEnabled:false};export default function NewRoutineScreen(){const{session}=useAuth();const sync=useSync();async function save(value:CreateCarePracticeInput){if(!session)return;try{const practice=await saveCarePractice(value,session.user.id);if(practice.reminderEnabled&&practice.timeLocal){try{await scheduleEntityReminders({userId:session.user.id,entityType:'care_practice',entityId:practice.id,timeLocal:practice.timeLocal,weekdaysMask:practice.weekdaysMask})}catch{}}void sync.syncNow();Alert.alert('Prática adicionada','Ela já aparece no seu plano de cuidado.',[{text:'Concluir',onPress:()=>router.back()}])}catch{Alert.alert('Não foi possível salvar','Revise os dados e tente novamente.')}}return <Screen><BackHeader eyebrow="NOVA PRÁTICA" title="Adicionar um cuidado possível" titleTestID="new-routine-title"/><PracticeEditor initialValue={initial} submitLabel="Salvar prática" testID="routine-save" onSubmit={save}/><AppText variant="caption" muted style={{textAlign:'center',marginTop:spacing.md,marginBottom:spacing.xl}}>Você pode registrar “Hoje não” sem perder sequência.</AppText></Screen>}
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Alert } from 'react-native';
+import type { CreateCarePracticeInput } from '@bemmecuida/domain';
+import { useAuth } from '@/auth/AuthProvider';
+import { BackHeader } from '@/components/BackHeader';
+import { PracticeEditor } from '@/components/PracticeEditor';
+import { Screen } from '@/components/Screen';
+import { saveCarePractice } from '@/data/care-practice-repository';
+import { scheduleEntityReminders } from '@/services/reminders';
+import { useSync } from '@/sync/SyncProvider';
+export default function NewRoutineScreen() {
+  const { session } = useAuth(); const sync = useSync(); const [saving, setSaving] = useState(false);
+  async function handleSave(input: CreateCarePracticeInput) { if (!session) return; setSaving(true); try { const practice = await saveCarePractice(input, session.user.id); if (practice.reminderEnabled && practice.timeLocal) await scheduleEntityReminders({ userId: session.user.id, entityType: 'care_practice', entityId: practice.id, timeLocal: practice.timeLocal, weekdaysMask: practice.weekdaysMask }).catch(() => []); void sync.syncNow(); Alert.alert('Prática adicionada', 'Ela já aparece no seu plano.', [{ text: 'Concluir', onPress: () => router.back() }]); } catch { Alert.alert('Não foi possível salvar', 'Tente novamente.'); } finally { setSaving(false); } }
+  return <Screen><BackHeader eyebrow="NOVA PRÁTICA" title="Adicionar um cuidado possível" titleTestID="new-routine-title" /><PracticeEditor submitLabel="Salvar prática" saving={saving} onSubmit={handleSave} /></Screen>;
+}

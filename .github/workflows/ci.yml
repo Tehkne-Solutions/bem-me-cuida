@@ -40,8 +40,18 @@ jobs:
         with:
           version: latest
           github-token: ${{ github.token }}
-      - run: supabase db start
-      - run: supabase test db
+      - run: supabase start
+      - name: Run database tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db 2>&1 | tee /tmp/pgtap.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgtap-failure-log
+          path: /tmp/pgtap.log
+          retention-days: 1
       - run: supabase db lint --local
       - if: always()
         run: supabase stop --no-backup

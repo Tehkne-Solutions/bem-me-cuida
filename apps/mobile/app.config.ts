@@ -2,7 +2,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 type AppVariant = 'development' | 'preview' | 'production';
 
-const variants: Record<AppVariant, Pick<ExpoConfig, 'name' | 'scheme'> & { androidPackage: string; iosBundleIdentifier: string }> = {
+type VariantConfig = { name: string; scheme: string; androidPackage: string; iosBundleIdentifier: string };
+
+const variants: Record<AppVariant, VariantConfig> = {
   development: {
     name: 'BemMeCuida Dev',
     scheme: 'bemmecuida-dev',
