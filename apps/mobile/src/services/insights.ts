@@ -37,6 +37,13 @@ export type WeeklyInsightSummary = {
   prompts: string[];
 };
 
+export type ContextComparison = {
+  id: 'sleep-anxiety' | 'intensity-anxiety' | 'strategies-intensity';
+  title: string;
+  detail: string;
+  sampleSize: number;
+};
+
 function average(values: number[]): number | null {
   if (!values.length) return null;
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
@@ -57,6 +64,62 @@ function topEmotions(entries: JournalEntry[]): Array<{ emotion: JournalEmotion; 
     .sort((a, b) => b[1] - a[1] || journalEmotionLabels[a[0]].localeCompare(journalEmotionLabels[b[0]], 'pt-BR'))
     .slice(0, 4)
     .map(([emotion, count]) => ({ emotion, count }));
+}
+
+function dayKey(value: string): string {
+  return value.slice(0, 10);
+}
+
+function formatAverage(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+}
+
+export function buildContextComparisons(checkIns: CheckIn[], entries: JournalEntry[]): ContextComparison[] {
+  const comparisons: ContextComparison[] = [];
+  const shortSleep = checkIns.filter((item) => item.sleepMinutes !== null && item.sleepMinutes < 360);
+  const longerSleep = checkIns.filter((item) => item.sleepMinutes !== null && item.sleepMinutes >= 420);
+
+  if (shortSleep.length >= 2 && longerSleep.length >= 2) {
+    comparisons.push({
+      id: 'sleep-anxiety',
+      title: 'Sono registrado e ansiedade',
+      detail: `Nos ${shortSleep.length} check-ins com menos de 6 h de sono, a ansiedade média registrada foi ${formatAverage(average(shortSleep.map((item) => item.anxiety)))}/10. Nos ${longerSleep.length} check-ins com 7 h ou mais, foi ${formatAverage(average(longerSleep.map((item) => item.anxiety)))}/10.`,
+      sampleSize: shortSleep.length + longerSleep.length,
+    });
+  }
+
+  const maximumIntensityByDay = new Map<string, number>();
+  for (const entry of entries) {
+    const key = dayKey(entry.occurredAt);
+    maximumIntensityByDay.set(key, Math.max(maximumIntensityByDay.get(key) ?? 0, entry.intensity));
+  }
+  const matched = checkIns
+    .map((item) => ({ checkIn: item, intensity: maximumIntensityByDay.get(dayKey(item.occurredAt)) }))
+    .filter((item): item is { checkIn: CheckIn; intensity: number } => item.intensity !== undefined);
+  const highIntensity = matched.filter((item) => item.intensity >= 7);
+  const lowerIntensity = matched.filter((item) => item.intensity < 7);
+
+  if (highIntensity.length >= 2 && lowerIntensity.length >= 2) {
+    comparisons.push({
+      id: 'intensity-anxiety',
+      title: 'Intensidade do diário e ansiedade',
+      detail: `Em ${highIntensity.length} dias com intensidade emocional 7 ou mais, a ansiedade média registrada foi ${formatAverage(average(highIntensity.map((item) => item.checkIn.anxiety)))}/10. Em ${lowerIntensity.length} dias com intensidade menor, foi ${formatAverage(average(lowerIntensity.map((item) => item.checkIn.anxiety)))}/10.`,
+      sampleSize: matched.length,
+    });
+  }
+
+  const withStrategies = entries.filter((entry) => entry.strategies.length > 0);
+  const withoutStrategies = entries.filter((entry) => entry.strategies.length === 0);
+  if (withStrategies.length >= 2 && withoutStrategies.length >= 2) {
+    comparisons.push({
+      id: 'strategies-intensity',
+      title: 'Estratégias registradas e intensidade',
+      detail: `A intensidade média foi ${formatAverage(average(withStrategies.map((entry) => entry.intensity)))}/10 em ${withStrategies.length} registros que citam alguma estratégia e ${formatAverage(average(withoutStrategies.map((entry) => entry.intensity)))}/10 em ${withoutStrategies.length} registros sem estratégia anotada.`,
+      sampleSize: entries.length,
+    });
+  }
+
+  return comparisons;
 }
 
 export function buildWeeklyInsightSummary(checkIns: CheckIn[], entries: JournalEntry[]): WeeklyInsightSummary {

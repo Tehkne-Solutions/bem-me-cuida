@@ -1,5 +1,5 @@
 appId: com.tehknesolutions.bemmecuida.dev
-name: Diário emocional e insights locais
+name: Diário avançado e insights descritivos
 ---
 - launchApp:
     clearState: true
@@ -17,9 +17,13 @@ name: Diário emocional e insights locais
     id: home-title
 - tapOn: "Diário"
 - assertVisible: "Um espaço para colocar em palavras"
+- scrollUntilVisible:
+    element:
+      id: journal-body
+    direction: DOWN
 - tapOn:
     id: journal-body
-- inputText: "Registro sintetico para validar o diario local-first"
+- inputText: "Registro sintetico para validar busca e edicao"
 - tapOn: "Ansiedade"
 - scrollUntilVisible:
     element:
@@ -29,6 +33,42 @@ name: Diário emocional e insights locais
     id: journal-save
 - assertVisible: "Registro salvo"
 - tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      id: journal-search
+    direction: UP
+- tapOn:
+    id: journal-search
+- inputText: "sintetico"
+- assertVisible: "Registro sintetico para validar busca e edicao"
+- tapOn: "Editar"
+- scrollUntilVisible:
+    element:
+      id: journal-body
+    direction: UP
+- tapOn:
+    id: journal-body
+- eraseText
+- inputText: "Registro atualizado pelo fluxo E2E"
+- scrollUntilVisible:
+    element:
+      id: journal-save
+    direction: DOWN
+- tapOn:
+    id: journal-save
+- assertVisible: "Registro atualizado"
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      id: journal-search
+    direction: UP
+- tapOn:
+    id: journal-search
+- eraseText
+- assertVisible: "Registro atualizado pelo fluxo E2E"
+- tapOn: "Excluir"
+- assertVisible: "Excluir registro?"
+- tapOn: "Cancelar"
 - tapOn: "Insights"
 - assertVisible: "Entenda mudanças no seu padrão"
-- assertVisible: "Perguntas úteis para refletir"
+- assertVisible: "Comparações de contexto"

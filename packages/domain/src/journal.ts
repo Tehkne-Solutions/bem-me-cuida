@@ -30,6 +30,7 @@ export const journalEntrySchema = z.object({
   linkedCheckInId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+  deletedAt: z.iso.datetime().nullable().optional(),
 });
 
 export const createJournalEntryInputSchema = journalEntrySchema.omit({
@@ -38,8 +39,14 @@ export const createJournalEntryInputSchema = journalEntrySchema.omit({
   occurredAt: true,
   createdAt: true,
   updatedAt: true,
+  deletedAt: true,
+});
+
+export const updateJournalEntryInputSchema = createJournalEntryInputSchema.extend({
+  id: z.uuid(),
 });
 
 export type JournalEmotion = (typeof journalEmotionValues)[number];
 export type JournalEntry = z.infer<typeof journalEntrySchema>;
 export type CreateJournalEntryInput = z.infer<typeof createJournalEntryInputSchema>;
+export type UpdateJournalEntryInput = z.infer<typeof updateJournalEntryInputSchema>;

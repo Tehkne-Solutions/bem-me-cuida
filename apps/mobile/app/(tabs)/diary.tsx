@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   journalEmotionValues,
@@ -15,12 +15,27 @@ import { ChoiceChip } from '@/components/ChoiceChip';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScaleInput } from '@/components/ScaleInput';
 import { Screen } from '@/components/Screen';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { Surface } from '@/components/Surface';
 import { TextField } from '@/components/TextField';
-import { listRecentJournalEntries, saveJournalEntry } from '@/data/journal-repository';
+import {
+  deleteJournalEntry,
+  listJournalEntries,
+  saveJournalEntry,
+  updateJournalEntry,
+} from '@/data/journal-repository';
 import { journalEmotionLabels } from '@/services/insights';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
+
+const periodOptions = [
+  { days: 0 as const, label: 'Todo período' },
+  { days: 7 as const, label: '7 dias' },
+  { days: 30 as const, label: '30 dias' },
+  { days: 90 as const, label: '90 dias' },
+];
+
+type PeriodDays = (typeof periodOptions)[number]['days'];
 
 function splitList(value: string): string[] {
   return value
@@ -34,6 +49,14 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function periodStart(days: PeriodDays): string | null {
+  if (!days) return null;
+  const value = new Date();
+  value.setHours(0, 0, 0, 0);
+  value.setDate(value.getDate() - (days - 1));
+  return value.toISOString();
+}
+
 export default function DiaryScreen() {
   const { session } = useAuth();
   const sync = useSync();
@@ -44,17 +67,42 @@ export default function DiaryScreen() {
   const [triggers, setTriggers] = useState('');
   const [strategies, setStrategies] = useState('');
   const [forTherapy, setForTherapy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filterEmotion, setFilterEmotion] = useState<JournalEmotion | null>(null);
+  const [onlyTherapy, setOnlyTherapy] = useState(false);
+  const [periodDays, setPeriodDays] = useState<PeriodDays>(30);
 
   const load = useCallback(async () => {
     if (!session) return;
-    setEntries(await listRecentJournalEntries(session.user.id));
-  }, [session]);
+    setEntries(await listJournalEntries(session.user.id, {
+      query,
+      emotion: filterEmotion,
+      forTherapy: onlyTherapy ? true : null,
+      since: periodStart(periodDays),
+      limit: 200,
+    }));
+  }, [filterEmotion, onlyTherapy, periodDays, query, session]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load, sync.lastSuccessAt]));
 
-  const canSave = useMemo(() => body.trim().length > 0 && emotions.length > 0 && !saving, [body, emotions, saving]);
+  const canSave = useMemo(
+    () => body.trim().length > 0 && emotions.length > 0 && !saving,
+    [body, emotions, saving],
+  );
+
+  function resetForm() {
+    setTitle('');
+    setBody('');
+    setEmotions([]);
+    setIntensity(4);
+    setTriggers('');
+    setStrategies('');
+    setForTherapy(false);
+    setEditingId(null);
+  }
 
   function toggleEmotion(emotion: JournalEmotion) {
     setEmotions((current) => current.includes(emotion)
@@ -62,11 +110,22 @@ export default function DiaryScreen() {
       : current.length < 6 ? [...current, emotion] : current);
   }
 
+  function beginEdit(entry: JournalEntry) {
+    setEditingId(entry.id);
+    setTitle(entry.title ?? '');
+    setBody(entry.body);
+    setEmotions(entry.emotions);
+    setIntensity(entry.intensity);
+    setTriggers(entry.triggers.join(', '));
+    setStrategies(entry.strategies.join(', '));
+    setForTherapy(entry.forTherapy);
+  }
+
   async function save() {
     if (!session || !canSave) return;
     setSaving(true);
     try {
-      await saveJournalEntry({
+      const input = {
         title: title.trim() || null,
         body: body.trim(),
         emotions,
@@ -75,31 +134,108 @@ export default function DiaryScreen() {
         strategies: splitList(strategies),
         forTherapy,
         linkedCheckInId: null,
-      }, session.user.id);
-      setTitle('');
-      setBody('');
-      setEmotions([]);
-      setIntensity(4);
-      setTriggers('');
-      setStrategies('');
-      setForTherapy(false);
+      };
+      if (editingId) {
+        await updateJournalEntry({ ...input, id: editingId }, session.user.id);
+      } else {
+        await saveJournalEntry(input, session.user.id);
+      }
+      const wasEditing = Boolean(editingId);
+      resetForm();
       await load();
       void sync.syncNow();
-      Alert.alert('Registro salvo', 'Seu diário foi guardado com segurança neste dispositivo.');
+      Alert.alert(
+        wasEditing ? 'Registro atualizado' : 'Registro salvo',
+        wasEditing
+          ? 'As alterações foram guardadas e entrarão na próxima sincronização.'
+          : 'Seu diário foi guardado com segurança neste dispositivo.',
+      );
     } catch {
-      Alert.alert('Não foi possível salvar', 'Revise o texto e tente novamente.');
+      Alert.alert('Não foi possível salvar', 'Revise o registro e tente novamente.');
     } finally {
       setSaving(false);
     }
+  }
+
+  function confirmDelete(entry: JournalEntry) {
+    Alert.alert(
+      'Excluir registro?',
+      'Ele deixará de aparecer nos seus dispositivos após a sincronização. Esta ação não pode ser desfeita pelo aplicativo.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            if (!session) return;
+            void deleteJournalEntry(session.user.id, entry.id)
+              .then(async () => {
+                if (editingId === entry.id) resetForm();
+                await load();
+                void sync.syncNow();
+              })
+              .catch(() => Alert.alert('Não foi possível excluir', 'Tente novamente.'));
+          },
+        },
+      ],
+    );
   }
 
   return (
     <Screen>
       <AppText variant="caption" muted>DIÁRIO EMOCIONAL</AppText>
       <AppText variant="h1" style={styles.title}>Um espaço para colocar em palavras</AppText>
-      <AppText muted style={styles.intro}>Registre o que aconteceu sem precisar transformar o momento em diagnóstico ou julgamento.</AppText>
+      <AppText muted style={styles.intro}>Registre, encontre e revise experiências sem transformar o momento em diagnóstico ou julgamento.</AppText>
 
-      <Surface style={styles.form}>
+      <Surface style={styles.filters}>
+        <AppText variant="h2">Encontrar registros</AppText>
+        <TextField
+          testID="journal-search"
+          label="Buscar no diário"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Título, texto, gatilho ou estratégia"
+          maxLength={120}
+        />
+        <View style={styles.chips}>
+          {periodOptions.map((option) => (
+            <ChoiceChip
+              key={option.days}
+              label={option.label}
+              selected={periodDays === option.days}
+              onPress={() => setPeriodDays(option.days)}
+            />
+          ))}
+        </View>
+        <View style={styles.group}>
+          <AppText variant="bodyStrong">Filtrar por emoção</AppText>
+          <View style={styles.chips}>
+            <ChoiceChip label="Todas" selected={filterEmotion === null} onPress={() => setFilterEmotion(null)} />
+            {journalEmotionValues.map((emotion) => (
+              <ChoiceChip
+                key={emotion}
+                label={journalEmotionLabels[emotion]}
+                selected={filterEmotion === emotion}
+                onPress={() => setFilterEmotion(filterEmotion === emotion ? null : emotion)}
+              />
+            ))}
+          </View>
+        </View>
+        <CheckboxRow
+          checked={onlyTherapy}
+          onChange={setOnlyTherapy}
+          label="Somente registros para conversar"
+        />
+      </Surface>
+
+      <Surface style={[styles.form, editingId ? styles.editingForm : undefined]}>
+        <View style={styles.rowBetween}>
+          <View style={styles.flex}>
+            <AppText variant="h2">{editingId ? 'Editando registro' : 'Novo registro'}</AppText>
+            {editingId ? <AppText variant="caption" muted>Salvar manterá a data original e atualizará o conteúdo.</AppText> : null}
+          </View>
+          {editingId ? <View style={styles.editingBadge}><AppText variant="caption">Em edição</AppText></View> : null}
+        </View>
         <TextField
           testID="journal-title"
           label="Título opcional"
@@ -162,11 +298,18 @@ export default function DiaryScreen() {
           label="Levar para uma conversa profissional"
           description="Marca o registro para ser encontrado com facilidade nos insights."
         />
-        <PrimaryButton testID="journal-save" label="Salvar no diário" loading={saving} disabled={!canSave} onPress={() => void save()} />
+        <PrimaryButton
+          testID="journal-save"
+          label={editingId ? 'Salvar alterações' : 'Salvar no diário'}
+          loading={saving}
+          disabled={!canSave}
+          onPress={() => void save()}
+        />
+        {editingId ? <SecondaryButton testID="journal-cancel-edit" label="Cancelar edição" onPress={resetForm} /> : null}
       </Surface>
 
       <View style={styles.sectionHeader}>
-        <AppText variant="h2">Registros recentes</AppText>
+        <AppText variant="h2">Registros encontrados</AppText>
         <AppText variant="caption" muted>{entries.length} exibidos</AppText>
       </View>
       {entries.length ? entries.map((entry) => (
@@ -179,12 +322,39 @@ export default function DiaryScreen() {
             {entry.forTherapy ? <View style={styles.badge}><AppText variant="caption">Para conversar</AppText></View> : null}
           </View>
           <View style={styles.chips}>
-            {entry.emotions.map((emotion) => <View key={emotion} style={styles.emotionTag}><AppText variant="caption">{journalEmotionLabels[emotion]}</AppText></View>)}
+            {entry.emotions.map((emotion) => (
+              <View key={emotion} style={styles.emotionTag}>
+                <AppText variant="caption">{journalEmotionLabels[emotion]}</AppText>
+              </View>
+            ))}
           </View>
           <AppText>{entry.body}</AppText>
+          {entry.triggers.length ? <AppText variant="caption" muted>Gatilhos anotados: {entry.triggers.join(', ')}</AppText> : null}
           {entry.strategies.length ? <AppText variant="caption" muted>O que ajudou: {entry.strategies.join(', ')}</AppText> : null}
+          <View style={styles.entryActions}>
+            <Pressable
+              testID={`journal-edit-${entry.id}`}
+              accessibilityRole="button"
+              onPress={() => beginEdit(entry)}
+              style={({ pressed }) => [styles.entryAction, pressed && styles.pressed]}
+            >
+              <AppText variant="caption" style={styles.editText}>Editar</AppText>
+            </Pressable>
+            <Pressable
+              testID={`journal-delete-${entry.id}`}
+              accessibilityRole="button"
+              onPress={() => confirmDelete(entry)}
+              style={({ pressed }) => [styles.entryAction, styles.deleteAction, pressed && styles.pressed]}
+            >
+              <AppText variant="caption" style={styles.deleteText}>Excluir</AppText>
+            </Pressable>
+          </View>
         </Surface>
-      )) : <Surface><AppText muted>O primeiro registro aparecerá aqui.</AppText></Surface>}
+      )) : (
+        <Surface>
+          <AppText muted>Nenhum registro corresponde aos filtros atuais.</AppText>
+        </Surface>
+      )}
     </Screen>
   );
 }
@@ -192,7 +362,10 @@ export default function DiaryScreen() {
 const styles = StyleSheet.create({
   title: { marginTop: spacing.xs, marginBottom: spacing.sm },
   intro: { marginBottom: spacing.xl },
+  filters: { gap: spacing.lg, marginBottom: spacing.xl },
   form: { gap: spacing.xl, marginBottom: spacing.xxl },
+  editingForm: { borderColor: colors.primaryStrong, borderWidth: 1 },
+  editingBadge: { backgroundColor: colors.sky, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   bodyInput: { minHeight: 144, textAlignVertical: 'top' },
   group: { gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -202,4 +375,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   badge: { backgroundColor: colors.lavender, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   emotionTag: { backgroundColor: colors.primarySoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  entryActions: { flexDirection: 'row', gap: spacing.sm },
+  entryAction: { minHeight: 40, justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: spacing.lg },
+  deleteAction: { borderColor: colors.danger },
+  editText: { color: colors.primaryStrong },
+  deleteText: { color: colors.danger },
+  pressed: { opacity: 0.72 },
 });

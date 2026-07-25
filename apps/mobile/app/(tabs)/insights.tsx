@@ -4,26 +4,34 @@ import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
+import { ChoiceChip } from '@/components/ChoiceChip';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Surface } from '@/components/Surface';
 import { listRecentCheckIns } from '@/data/check-in-repository';
 import { listJournalEntriesSince } from '@/data/journal-repository';
 import {
+  buildContextComparisons,
   buildWeeklyInsightSummary,
   journalEmotionLabels,
   moodLabels,
+  type ContextComparison,
   type WeeklyInsightSummary,
 } from '@/services/insights';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const EMPTY_SUMMARY = buildWeeklyInsightSummary([], []);
+const periodOptions = [
+  { days: 7 as const, label: '7 dias' },
+  { days: 30 as const, label: '30 dias' },
+];
+type InsightPeriod = (typeof periodOptions)[number]['days'];
 
-function weekStart(): Date {
+function periodStart(days: InsightPeriod): Date {
   const value = new Date();
   value.setHours(0, 0, 0, 0);
-  value.setDate(value.getDate() - 6);
+  value.setDate(value.getDate() - (days - 1));
   return value;
 }
 
@@ -34,29 +42,46 @@ function metric(value: number | null, suffix = '/10'): string {
 export default function InsightsScreen() {
   const { session } = useAuth();
   const sync = useSync();
+  const [periodDays, setPeriodDays] = useState<InsightPeriod>(7);
   const [summary, setSummary] = useState<WeeklyInsightSummary>(EMPTY_SUMMARY);
+  const [comparisons, setComparisons] = useState<ContextComparison[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
-    const since = weekStart();
-    const [recentCheckIns, entries] = await Promise.all([
-      listRecentCheckIns(session.user.id, 30),
-      listJournalEntriesSince(session.user.id, since.toISOString()),
-    ]);
-    const checkIns = recentCheckIns.filter((item) => new Date(item.occurredAt) >= since);
-    setSummary(buildWeeklyInsightSummary(checkIns, entries));
-    setLoading(false);
-  }, [session]);
+    try {
+      const since = periodStart(periodDays);
+      const [recentCheckIns, entries] = await Promise.all([
+        listRecentCheckIns(session.user.id, 120),
+        listJournalEntriesSince(session.user.id, since.toISOString()),
+      ]);
+      const checkIns = recentCheckIns.filter((item) => new Date(item.occurredAt) >= since);
+      setSummary(buildWeeklyInsightSummary(checkIns, entries));
+      setComparisons(buildContextComparisons(checkIns, entries));
+    } finally {
+      setLoading(false);
+    }
+  }, [periodDays, session]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load, sync.lastSuccessAt]));
 
   return (
     <Screen>
-      <AppText variant="caption" muted>INSIGHTS DOS ÚLTIMOS 7 DIAS</AppText>
+      <AppText variant="caption" muted>INSIGHTS DESCRITIVOS</AppText>
       <AppText variant="h1" style={styles.title}>Entenda mudanças no seu padrão</AppText>
-      <AppText muted style={styles.intro}>Os dados abaixo descrevem somente o que foi registrado. Eles não representam diagnóstico, previsão de crise ou avaliação clínica.</AppText>
+      <AppText muted style={styles.intro}>Os dados abaixo descrevem somente o que foi registrado. Eles não representam diagnóstico, previsão de crise, causa ou avaliação clínica.</AppText>
+
+      <View style={styles.periods}>
+        {periodOptions.map((option) => (
+          <ChoiceChip
+            key={option.days}
+            label={option.label}
+            selected={periodDays === option.days}
+            onPress={() => setPeriodDays(option.days)}
+          />
+        ))}
+      </View>
 
       <View style={styles.metrics}>
         <Surface style={styles.metricCard}>
@@ -81,7 +106,7 @@ export default function InsightsScreen() {
         <View style={styles.rowBetween}>
           <View style={styles.flex}>
             <AppText variant="h2">Cobertura dos registros</AppText>
-            <AppText muted>Quanto mais dias registrados, mais contexto você terá para observar mudanças.</AppText>
+            <AppText muted>O período selecionado contém somente os dados que você decidiu registrar.</AppText>
           </View>
           <View style={styles.coverageBadge}>
             <AppText variant="bodyStrong">{summary.checkInCount + summary.journalCount}</AppText>
@@ -112,6 +137,24 @@ export default function InsightsScreen() {
       </Surface>
 
       <Surface style={styles.section}>
+        <AppText variant="h2">Comparações de contexto</AppText>
+        <AppText muted>Estas comparações mostram diferenças entre grupos dos seus próprios registros. Elas não demonstram causa, risco ou efeito de tratamento.</AppText>
+        {loading ? <AppText variant="caption" muted>Calculando no aparelho…</AppText> : null}
+        {!loading && comparisons.length ? comparisons.map((comparison) => (
+          <View key={comparison.id} style={styles.comparison}>
+            <View style={styles.comparisonHeader}>
+              <AppText variant="bodyStrong" style={styles.flex}>{comparison.title}</AppText>
+              <AppText variant="caption" muted>{comparison.sampleSize} registros</AppText>
+            </View>
+            <AppText>{comparison.detail}</AppText>
+          </View>
+        )) : null}
+        {!loading && !comparisons.length ? (
+          <AppText variant="caption" muted>São necessários pelo menos dois registros em cada grupo comparado. Continue registrando apenas quando fizer sentido para você.</AppText>
+        ) : null}
+      </Surface>
+
+      <Surface style={styles.section}>
         <AppText variant="h2">Perguntas úteis para refletir</AppText>
         <AppText muted>Leve as perguntas que fizerem sentido para sua terapia ou acompanhamento.</AppText>
         {summary.prompts.map((prompt, index) => (
@@ -126,7 +169,7 @@ export default function InsightsScreen() {
 
       <Surface style={styles.notice}>
         <AppText variant="bodyStrong">Sobre análises automáticas</AppText>
-        <AppText muted>O BemMeCuida identifica apenas contagens e médias dos seus próprios registros. Nenhuma conclusão clínica é gerada, e decisões sobre tratamento devem permanecer com profissionais habilitados.</AppText>
+        <AppText muted>O BemMeCuida calcula localmente contagens, médias e comparações simples. Nenhuma conclusão clínica é gerada, e decisões sobre tratamento devem permanecer com profissionais habilitados.</AppText>
       </Surface>
     </Screen>
   );
@@ -134,7 +177,8 @@ export default function InsightsScreen() {
 
 const styles = StyleSheet.create({
   title: { marginTop: spacing.xs, marginBottom: spacing.sm },
-  intro: { marginBottom: spacing.xl },
+  intro: { marginBottom: spacing.lg },
+  periods: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.xl },
   metricCard: { width: '47%', minWidth: 140, gap: spacing.xs },
   section: { gap: spacing.md, marginBottom: spacing.md },
@@ -144,6 +188,8 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   emotionChip: { backgroundColor: colors.lavender, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  comparison: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  comparisonHeader: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   promptRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   promptNumber: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sky },
   notice: { gap: spacing.sm, backgroundColor: colors.sand, marginTop: spacing.sm },
