@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAppAccessibility } from '@/accessibility/AccessibilityProvider';
@@ -14,6 +15,7 @@ type Props = {
 
 export function CheckboxRow({ checked, label, description, onChange, testID }: Props) {
   const { preferences } = useAppAccessibility();
+  const [focused, setFocused] = useState(false);
 
   return (
     <Pressable
@@ -22,8 +24,10 @@ export function CheckboxRow({ checked, label, description, onChange, testID }: P
       accessibilityState={{ checked }}
       accessibilityLabel={label}
       accessibilityHint={description}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onPress={() => onChange(!checked)}
-      style={({ pressed, focused }) => [
+      style={({ pressed }) => [
         styles.row,
         pressed && styles.pressed,
         focused && styles.focused,
