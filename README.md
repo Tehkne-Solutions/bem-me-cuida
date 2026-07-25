@@ -15,7 +15,7 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 02 / Incremento 02 concluído no código: edição segura, múltiplos horários, estoque, consultas, tratamentos e histórico filtrável.
 - Sprint 03 / Incremento 01 implementado: diário emocional estruturado, registros para consulta, tendências semanais locais e perguntas de reflexão sem diagnóstico automático.
 - Sprint 04 / Incremento 01 implementado e validado: plano personalizado de apoio e crise, contatos de confiança e acesso offline.
-- Sprint 05 / Incremento 01 em implementação: relatórios longitudinais e compartilhamento seguro.
+- Sprint 05 / Incremento 01 implementado e validado: relatórios longitudinais e compartilhamento seguro.
 - Versão atual: `0.6.0`.
 
 ## Stack
@@ -82,7 +82,7 @@ npm run build:android:development
 
 Os builds development e preview usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário, insights e plano de apoio ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
+O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário, insights, plano de apoio e relatórios ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
 
 ## Publicação no GitHub
 
