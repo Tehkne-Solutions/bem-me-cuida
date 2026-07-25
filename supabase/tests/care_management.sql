@@ -1,16 +1,20 @@
 begin;
 select plan(12);
+
 select has_table('public','professionals','professionals existe');
 select row_security_active('public.professionals');
-select has_policy('public','professionals','professionals_select_own');
-select has_policy('public','professionals','professionals_insert_own');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='professionals' and policyname='professionals_select_own'),'professionals_select_own existe');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='professionals' and policyname='professionals_insert_own'),'professionals_insert_own existe');
+
 select has_table('public','appointments','appointments existe');
 select row_security_active('public.appointments');
-select has_policy('public','appointments','appointments_select_own');
-select has_policy('public','appointments','appointments_insert_own');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='appointments' and policyname='appointments_select_own'),'appointments_select_own existe');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='appointments' and policyname='appointments_insert_own'),'appointments_insert_own existe');
+
 select has_table('public','treatments','treatments existe');
 select row_security_active('public.treatments');
-select has_policy('public','treatments','treatments_select_own');
-select has_policy('public','treatments','treatments_insert_own');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='treatments' and policyname='treatments_select_own'),'treatments_select_own existe');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='treatments' and policyname='treatments_insert_own'),'treatments_insert_own existe');
+
 select * from finish();
 rollback;
