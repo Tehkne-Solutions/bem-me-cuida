@@ -14,7 +14,7 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 02 / Incremento 01 concluído no código: medicamentos, práticas, lembretes discretos, histórico e sincronização do plano de cuidado.
 - Sprint 02 / Incremento 02 concluído no código: edição segura, múltiplos horários, estoque, consultas, tratamentos e histórico filtrável.
 - Sprint 03 / Incremento 01 implementado: diário emocional estruturado, registros para consulta, tendências semanais locais e perguntas de reflexão sem diagnóstico automático.
-- Sprint 04 / Incremento 01 em implementação: plano personalizado de apoio e crise.
+- Sprint 04 / Incremento 01 implementado e validado: plano personalizado de apoio e crise, contatos de confiança e acesso offline.
 - Versão atual: `0.5.0`.
 
 ## Stack
@@ -81,7 +81,7 @@ npm run build:android:development
 
 Os builds development e preview usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário e insights ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
+O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário, insights e plano de apoio ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
 
 ## Publicação no GitHub
 
@@ -103,6 +103,8 @@ No Windows PowerShell, execute `./scripts/publicar-github.ps1` após autenticar 
 Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, logs ou sincronização. Dados emocionais e de saúde são tratados como sensíveis por padrão.
 
 Entradas do diário são armazenadas no banco local criptografado, sincronizadas somente no escopo da conta autenticada e protegidas por RLS no Supabase. Os insights da versão `0.4.0` são calculados localmente a partir de contagens e médias; nenhum texto do diário é enviado a modelos de IA.
+
+O plano de apoio da versão `0.5.0` permanece disponível offline no aparelho e não realiza avaliação automática de risco. Contatos de confiança e orientações pessoais são sincronizados somente no escopo da conta autenticada.
 
 ## Assinatura
 
