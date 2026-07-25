@@ -30,7 +30,7 @@ export const journalEntrySchema = z.object({
   linkedCheckInId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  deletedAt: z.iso.datetime().nullable(),
+  deletedAt: z.iso.datetime().nullable().optional(),
 });
 
 export const createJournalEntryInputSchema = journalEntrySchema.omit({
