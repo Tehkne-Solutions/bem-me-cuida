@@ -225,18 +225,21 @@ const migrations = [
   {
     version: 7,
     sql: `
-      ALTER TABLE medications ADD COLUMN stock_quantity REAL;
-      ALTER TABLE medications ADD COLUMN low_stock_threshold REAL;
-      ALTER TABLE medications ADD COLUMN units_per_dose REAL NOT NULL DEFAULT 1;
-      ALTER TABLE medications ADD COLUMN stock_reminder_enabled INTEGER NOT NULL DEFAULT 0 CHECK (stock_reminder_enabled IN (0, 1));
-      ALTER TABLE medications ADD COLUMN stock_alerted_at TEXT;
+      ALTER TABLE medications ADD COLUMN stock_tracking_enabled INTEGER NOT NULL DEFAULT 0 CHECK (stock_tracking_enabled IN (0, 1));
+      ALTER TABLE medications ADD COLUMN stock_quantity REAL CHECK (stock_quantity IS NULL OR stock_quantity >= 0);
+      ALTER TABLE medications ADD COLUMN units_per_intake REAL CHECK (units_per_intake IS NULL OR units_per_intake > 0);
+      ALTER TABLE medications ADD COLUMN refill_threshold REAL CHECK (refill_threshold IS NULL OR refill_threshold >= 0);
+      ALTER TABLE medications ADD COLUMN refill_reminder_enabled INTEGER NOT NULL DEFAULT 0 CHECK (refill_reminder_enabled IN (0, 1));
+      ALTER TABLE medications ADD COLUMN refill_reminder_last_sent_at TEXT;
 
-      CREATE TABLE IF NOT EXISTS care_professionals (
+      CREATE TABLE IF NOT EXISTS professionals (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT NOT NULL,
-        name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 120),
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
         specialty TEXT CHECK (specialty IS NULL OR length(specialty) <= 120),
-        contact TEXT CHECK (contact IS NULL OR length(contact) <= 160),
+        phone TEXT CHECK (phone IS NULL OR length(phone) <= 40),
+        email TEXT CHECK (email IS NULL OR length(email) <= 200),
+        notes TEXT CHECK (notes IS NULL OR length(notes) <= 400),
         active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -244,47 +247,62 @@ const migrations = [
         deleted_at TEXT,
         UNIQUE(id, user_id)
       );
-      CREATE INDEX IF NOT EXISTS idx_care_professionals_user_name
-        ON care_professionals(user_id, active, name);
 
-      CREATE TABLE IF NOT EXISTS care_appointments (
+      CREATE TABLE IF NOT EXISTS appointments (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT NOT NULL,
         professional_id TEXT,
-        title TEXT NOT NULL CHECK (length(title) BETWEEN 2 AND 120),
-        starts_at TEXT NOT NULL,
-        ends_at TEXT,
-        location TEXT CHECK (location IS NULL OR length(location) <= 180),
+        title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 140),
+        scheduled_at TEXT NOT NULL,
+        duration_minutes INTEGER CHECK (duration_minutes IS NULL OR duration_minutes BETWEEN 5 AND 720),
+        location TEXT CHECK (location IS NULL OR length(location) <= 200),
         notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
         status TEXT NOT NULL CHECK (status IN ('scheduled','completed','cancelled')),
+        reminder_enabled INTEGER NOT NULL DEFAULT 0 CHECK (reminder_enabled IN (0, 1)),
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         synced_at TEXT,
         deleted_at TEXT,
         UNIQUE(id, user_id),
-        FOREIGN KEY(professional_id, user_id) REFERENCES care_professionals(id, user_id) ON DELETE RESTRICT
+        FOREIGN KEY(professional_id, user_id) REFERENCES professionals(id, user_id) ON DELETE RESTRICT
       );
-      CREATE INDEX IF NOT EXISTS idx_care_appointments_user_start
-        ON care_appointments(user_id, starts_at DESC);
 
       CREATE TABLE IF NOT EXISTS treatments (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT NOT NULL,
-        name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 120),
-        type TEXT NOT NULL CHECK (type IN ('therapy','medical','group','rehabilitation','other')),
-        provider TEXT CHECK (provider IS NULL OR length(provider) <= 120),
-        started_at TEXT NOT NULL,
-        ended_at TEXT,
+        professional_id TEXT,
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 140),
+        description TEXT CHECK (description IS NULL OR length(description) <= 500),
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        status TEXT NOT NULL CHECK (status IN ('active','paused','completed')),
         notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
-        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         synced_at TEXT,
         deleted_at TEXT,
-        UNIQUE(id, user_id)
+        UNIQUE(id, user_id),
+        FOREIGN KEY(professional_id, user_id) REFERENCES professionals(id, user_id) ON DELETE RESTRICT,
+        CHECK (end_date IS NULL OR end_date >= start_date)
       );
-      CREATE INDEX IF NOT EXISTS idx_treatments_user_active
-        ON treatments(user_id, active, started_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_professionals_user_active ON professionals(user_id, active, name);
+      CREATE INDEX IF NOT EXISTS idx_appointments_user_scheduled ON appointments(user_id, scheduled_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_treatments_user_status ON treatments(user_id, status, start_date DESC);
+
+      DROP INDEX IF EXISTS idx_notification_bindings_entity;
+      ALTER TABLE local_notification_bindings RENAME TO local_notification_bindings_v6;
+      CREATE TABLE local_notification_bindings (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('medication_schedule', 'care_practice', 'appointment', 'medication_refill')),
+        entity_id TEXT NOT NULL,
+        notification_id TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO local_notification_bindings SELECT * FROM local_notification_bindings_v6;
+      DROP TABLE local_notification_bindings_v6;
+      CREATE INDEX IF NOT EXISTS idx_notification_bindings_entity ON local_notification_bindings(user_id, entity_type, entity_id);
     `,
   },
 ];
