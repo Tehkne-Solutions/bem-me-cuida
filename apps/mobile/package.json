@@ -1,6 +1,6 @@
 {
   "name": "@bemmecuida/mobile",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
@@ -11,18 +11,24 @@
     "prebuild": "expo prebuild --clean",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/services/*.test.ts src/config/*.test.ts src/diagnostics/*.test.ts",
+    "test": "tsx --test src/services/*.test.ts src/config/*.test.ts src/diagnostics/*.test.ts src/security/*.test.ts",
     "config:public": "expo config --type public",
     "build:android:development": "npx eas-cli@latest build --platform android --profile development",
     "build:android:preview": "npx eas-cli@latest build --platform android --profile preview"
   },
   "dependencies": {
-    "@bemmecuida/domain": "0.7.0",
+    "@bemmecuida/domain": "0.8.0",
     "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.8",
     "expo-crypto": "~57.0.0",
+    "expo-dev-client": "~57.0.7",
     "expo-linear-gradient": "~57.0.1",
+    "expo-linking": "~57.0.2",
+    "expo-local-authentication": "~57.0.2",
+    "expo-network": "~57.0.0",
+    "expo-notifications": "~57.0.5",
     "expo-router": "~57.0.8",
+    "expo-screen-capture": "~57.0.1",
     "expo-secure-store": "~57.0.0",
     "expo-splash-screen": "~57.0.5",
     "expo-sqlite": "~57.0.0",
@@ -34,22 +40,17 @@
     "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.0",
-    "react-native-url-polyfill": "^3.0.0",
-    "zod": "^4.0.0",
-    "expo-linking": "~57.0.2",
-    "expo-dev-client": "~57.0.7",
-    "expo-network": "~57.0.0",
-    "expo-screen-capture": "~57.0.1",
-    "expo-notifications": "~57.0.5"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
-    "typescript": "~6.0.3",
     "tsx": "^4.20.6",
-    "@types/node": "^24.0.0"
+    "typescript": "~6.0.3"
   }
 }
