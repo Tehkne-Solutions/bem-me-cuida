@@ -1,0 +1,40 @@
+name: Apply Sprint 05 patch
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.bootstrap/sprint05.patch.gz.b64'
+      - '.github/workflows/apply-sprint05.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - name: Decode and apply validated patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d .bootstrap/sprint05.patch.gz.b64 | gzip -d > /tmp/sprint05.patch
+          git apply --check /tmp/sprint05.patch
+          git apply /tmp/sprint05.patch
+          rm -rf .bootstrap
+          rm -f .github/workflows/apply-sprint05.yml
+      - name: Commit final Sprint 05 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Tehkné Solutions"
+          git config user.email "dev@tehkne.solutions"
+          git add -A
+          git commit -m "feat: implementar relatórios e compartilhamento seguro"
+          git push origin "HEAD:${{ github.head_ref || github.ref_name }}"
