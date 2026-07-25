@@ -1,0 +1,21 @@
+name: E2E Android — fluxo público
+
+on:
+  pull_request_labeled:
+    labels: ['e2e']
+
+jobs:
+  build_android:
+    name: Build Android para E2E
+    type: build
+    params:
+      platform: android
+      profile: e2e-test
+
+  smoke_public:
+    name: Validar login e apoio imediato
+    needs: [build_android]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path: ['.maestro/smoke-public.yml']

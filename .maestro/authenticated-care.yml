@@ -1,0 +1,62 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Login e plano de cuidado sintético
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn: "Cuidado"
+- tapOn:
+    id: care-open-medications
+- assertVisible:
+    id: medications-title
+- tapOn:
+    id: medications-add
+- assertVisible:
+    id: new-medication-title
+- tapOn:
+    id: medication-name
+- inputText: "Medicamento sintetico E2E"
+- tapOn:
+    id: medication-dose
+- inputText: "Dose de teste"
+- scrollUntilVisible:
+    element:
+      id: medication-save
+    direction: DOWN
+- tapOn:
+    id: medication-save
+- assertVisible: "Medicamento cadastrado"
+- tapOn: "Concluir"
+- assertVisible: "Medicamento sintetico E2E"
+- tapOn: "← Voltar"
+- tapOn:
+    id: care-open-routines
+- assertVisible:
+    id: routines-title
+- tapOn:
+    id: routines-add
+- assertVisible:
+    id: new-routine-title
+- tapOn:
+    id: routine-name
+- inputText: "Respiracao sintetica E2E"
+- scrollUntilVisible:
+    element:
+      id: routine-save
+    direction: DOWN
+- tapOn:
+    id: routine-save
+- assertVisible: "Prática adicionada"
+- tapOn: "Concluir"
+- assertVisible: "Respiracao sintetica E2E"
