@@ -1,0 +1,26 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Gestão de consultas e tratamentos
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn: "Cuidado"
+- tapOn: "Consultas"
+- tapOn: "+ Adicionar consulta"
+- tapOn: "Título"
+- inputText: "Consulta sintetica E2E"
+- tapOn: "Data e hora"
+- inputText: "2026-12-15 14:00"
+- tapOn: "Salvar consulta"
+- assertVisible: "Consulta sintetica E2E"

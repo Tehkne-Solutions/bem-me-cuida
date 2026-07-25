@@ -12,7 +12,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 
 - Sprint 01 fechado no código: autenticação, onboarding, check-in, SQLCipher, sincronização e diagnóstico.
 - Sprint 02 / Incremento 01 concluído no código: medicamentos, práticas, lembretes discretos, histórico e sincronização do plano de cuidado.
-- Versão atual: `0.2.0`.
+- Sprint 02 / Incremento 02 concluído no código: edição segura, múltiplos horários, estoque, consultas, tratamentos e histórico filtrável.
+- Versão atual: `0.3.0`.
 
 ## Stack
 
