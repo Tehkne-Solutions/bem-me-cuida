@@ -13,7 +13,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 01 fechado no código: autenticação, onboarding, check-in, SQLCipher, sincronização e diagnóstico.
 - Sprint 02 / Incremento 01 concluído no código: medicamentos, práticas, lembretes discretos, histórico e sincronização do plano de cuidado.
 - Sprint 02 / Incremento 02 concluído no código: edição segura, múltiplos horários, estoque, consultas, tratamentos e histórico filtrável.
-- Versão atual: `0.3.0`.
+- Sprint 03 / Incremento 01 implementado: diário emocional estruturado, registros para consulta, tendências semanais locais e perguntas de reflexão sem diagnóstico automático.
+- Versão atual: `0.4.0`.
 
 ## Stack
 
@@ -79,31 +80,17 @@ npm run build:android:development
 
 Os builds development e preview usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in e plano de cuidado ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
-
-## Publicação no GitHub
-
-O repositório remoto recomendado é privado:
-
-```bash
-gh repo create Tehkne-Solutions/bem-me-cuida \
-  --private \
-  --description "BemMeCuida — gestão mental e emocional | Tehkné Solutions" \
-  --source . \
-  --remote origin \
-  --push
-```
-
-No Windows PowerShell, execute `./scripts/publicar-github.ps1` após autenticar o GitHub CLI.
+O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário e insights ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
 
 ## Segurança
 
 Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, logs ou sincronização. Dados emocionais e de saúde são tratados como sensíveis por padrão.
 
+Entradas do diário são armazenadas no banco local criptografado, sincronizadas somente no escopo da conta autenticada e protegidas por RLS no Supabase. Os insights da versão `0.4.0` são calculados localmente a partir de contagens e médias; nenhum texto do diário é enviado a modelos de IA.
+
 ## Assinatura
 
 Desenvolvido por **Tehkné Solutions**.
-
 
 ## Configuração de autenticação
 
