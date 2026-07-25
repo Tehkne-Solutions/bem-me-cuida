@@ -82,6 +82,21 @@ Os builds development e preview usam identificadores e deep links próprios, per
 
 O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário e insights ficam preparados para execução protegida com `E2E_EMAIL` e `E2E_PASSWORD`.
 
+## Publicação no GitHub
+
+O repositório remoto recomendado é privado:
+
+```bash
+gh repo create Tehkne-Solutions/bem-me-cuida \
+  --private \
+  --description "BemMeCuida — gestão mental e emocional | Tehkné Solutions" \
+  --source . \
+  --remote origin \
+  --push
+```
+
+No Windows PowerShell, execute `./scripts/publicar-github.ps1` após autenticar o GitHub CLI.
+
 ## Segurança
 
 Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, logs ou sincronização. Dados emocionais e de saúde são tratados como sensíveis por padrão.
