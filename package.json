@@ -36,7 +36,7 @@
     "build:android:rc": "npm run build:android:rc --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
-    "release:check": "node scripts/verify-release-readiness.mjs",
+    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs",
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",
