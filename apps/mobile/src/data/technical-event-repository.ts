@@ -1,6 +1,12 @@
 import * as Crypto from 'expo-crypto';
 
 import { getDatabase } from '@/data/database';
+import {
+  sanitizeTechnicalContext,
+  type TechnicalEventContext,
+} from '@/services/technical-observability-policy';
+
+export type { TechnicalEventContext } from '@/services/technical-observability-policy';
 
 export type TechnicalEventName =
   | 'app_session_started'
@@ -9,8 +15,6 @@ export type TechnicalEventName =
   | 'diagnostics_completed'
   | 'feedback_submitted'
   | 'feedback_failed';
-
-export type TechnicalEventContext = Record<string, number | boolean | null>;
 
 export type TechnicalEvent = {
   id: string;
@@ -23,11 +27,7 @@ function parseContext(raw: string): TechnicalEventContext {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const output: TechnicalEventContext = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value === 'number' || typeof value === 'boolean' || value === null) output[key] = value;
-    }
-    return output;
+    return sanitizeTechnicalContext(parsed as Record<string, unknown>);
   } catch {
     return {};
   }
@@ -46,7 +46,7 @@ export async function recordTechnicalEvent(
     Crypto.randomUUID(),
     userId,
     eventName,
-    JSON.stringify(context),
+    JSON.stringify(sanitizeTechnicalContext(context)),
     occurredAt,
   );
   await db.runAsync(
