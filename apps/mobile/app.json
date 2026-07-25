@@ -2,7 +2,7 @@
   "expo": {
     "name": "BemMeCuida",
     "slug": "bem-me-cuida",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "scheme": "bemmecuida",
     "userInterfaceStyle": "light",
