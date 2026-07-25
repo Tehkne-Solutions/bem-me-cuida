@@ -1,0 +1,36 @@
+name: Diagnose TypeScript
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diagnose-typecheck.yml'
+      - 'apps/mobile/**'
+      - 'packages/domain/**'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Capture typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck > /tmp/typecheck.log 2>&1
+          echo $? > /tmp/typecheck.code
+          cat /tmp/typecheck.log
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics
+          path: |
+            /tmp/typecheck.log
+            /tmp/typecheck.code
+          retention-days: 1
