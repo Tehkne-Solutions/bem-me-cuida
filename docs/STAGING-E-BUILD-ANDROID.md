@@ -17,6 +17,7 @@ Preencher:
 ```env
 APP_VARIANT=development
 EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_RELEASE_CANDIDATE=
 EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 EXPO_PUBLIC_EAS_PROJECT_ID=<eas-project-id>
@@ -42,6 +43,12 @@ Para a distribuição beta fechada:
 npm run beta:check
 ```
 
+Para a Release Candidate 1:
+
+```bash
+APP_VARIANT=rc npm run rc:check
+```
+
 ## 4. Aplicar banco e configuração Auth
 
 ```bash
@@ -60,7 +67,10 @@ O script executa link, migrations e `config push`. Conferir no painel do Supabas
 - callbacks de beta:
   - `bemmecuida-beta://auth/callback`;
   - `bemmecuida-beta://reset-password`;
-- RLS ativa nas tabelas públicas;
+- callbacks da RC:
+  - `bemmecuida-rc://auth/callback`;
+  - `bemmecuida-rc://reset-password`;
+- RLS ativa nas tabelas públicas, incluindo `beta_feedback` e `beta_tester_enrollments`;
 - nenhuma chave `service_role` copiada para o aplicativo.
 
 ## 5. Vincular o projeto EAS
@@ -79,7 +89,7 @@ npx eas-cli@latest env:create --environment development --name EXPO_PUBLIC_SUPAB
 npx eas-cli@latest env:create --environment development --name EXPO_PUBLIC_EAS_PROJECT_ID --value "<eas-project-id>" --visibility plaintext
 ```
 
-Para preview e beta, repetir no ambiente `preview`, pois o perfil EAS `beta` consome esse conjunto controlado de variáveis.
+Para preview, beta e RC, repetir no ambiente `preview`, pois os perfis EAS `beta` e `rc` consomem esse conjunto controlado de variáveis.
 
 A publishable key pode existir no cliente, mas é marcada como sensitive para reduzir exposição operacional.
 
@@ -106,7 +116,16 @@ npm run build:android:beta
 
 A beta possui pacote, scheme e canal separados. Consulte [BETA-FECHADA.md](BETA-FECHADA.md) antes de compartilhar o link de instalação.
 
-## 8. Roteiro mínimo no aparelho
+## 8. Gerar Release Candidate 1
+
+```bash
+APP_VARIANT=rc npm run rc:check
+npm run build:android:rc
+```
+
+A RC usa `com.tehknesolutions.bemmecuida.rc`, scheme `bemmecuida-rc` e canal EAS `rc`. Consulte [RELEASE-CANDIDATE-01.md](RELEASE-CANDIDATE-01.md).
+
+## 9. Roteiro mínimo no aparelho
 
 1. Abrir sem internet e confirmar que a tela de crise funciona.
 2. Criar conta e confirmar e-mail por deep link.
@@ -123,8 +142,12 @@ A beta possui pacote, scheme e canal separados. Consulte [BETA-FECHADA.md](BETA-
 13. Confirmar que a tela bloqueada não revela nomes, emoções ou conteúdo do Diário.
 14. Testar fonte grande, alto contraste, redução de movimento e leitor de tela.
 15. Compartilhar relatório e confirmar ausência de IDs, tokens e conteúdo emocional não autorizado.
+16. Confirmar participação na beta, pausar e reativar.
+17. Enviar feedback sem anexos e com diagnóstico técnico.
+18. Ativar o log técnico, confirmar limite e apagá-lo.
+19. Instalar Beta e RC em paralelo e confirmar isolamento de sessão.
 
-## 9. Testes E2E
+## 10. Testes E2E
 
 Com o APK development instalado e Maestro configurado:
 
@@ -146,12 +169,13 @@ Fluxos autenticados adicionais:
 ```bash
 npm run e2e:settings
 npm run e2e:preferences
+npm run e2e:beta
 ```
 
 No EAS, adicione a label `e2e` ao pull request para executar o workflow Android sob demanda.
 
-## 10. Aceite
+## 11. Aceite
 
-Use [CHECKLIST-HOMOLOGACAO-SPRINT-01.md](CHECKLIST-HOMOLOGACAO-SPRINT-01.md) e [BETA-FECHADA.md](BETA-FECHADA.md). Não marque a beta como aprovada apenas porque o APK foi gerado: isolamento, offline, notificações, acessibilidade, conflito e dois dispositivos continuam obrigatórios.
+Use [CHECKLIST-HOMOLOGACAO-SPRINT-01.md](CHECKLIST-HOMOLOGACAO-SPRINT-01.md), [BETA-FECHADA.md](BETA-FECHADA.md) e [RELEASE-CANDIDATE-01.md](RELEASE-CANDIDATE-01.md). Não aprove a RC apenas porque o APK foi gerado: isolamento, offline, notificações, acessibilidade, feedback, RLS, conflito e dois dispositivos continuam obrigatórios.
 
 **Assinatura:** Tehkné Solutions.
