@@ -1,0 +1,271 @@
+name: RC 0.11 Release Transition
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Preparar PR de evidências ou finalizar após merge humano
+        required: true
+        default: prepare-evidence
+        type: choice
+        options:
+          - prepare-evidence
+          - finalize-and-build
+      infrastructure_run_id:
+        description: Run ID da captura protegida de infraestrutura
+        required: true
+        default: '0'
+        type: string
+      capture_source_commit:
+        description: SHA de 40 caracteres usado na captura
+        required: true
+        type: string
+      evidence_pr_number:
+        description: PR de evidências já mesclado; use 0 na preparação
+        required: true
+        default: '0'
+        type: string
+      cycle_evidence_url:
+        description: Evidência HTTPS dos gates do ciclo
+        required: true
+        type: string
+      tracking_issue:
+        description: Issue operacional que receberá o relatório
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: rc011-release-transition
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: inputs.action == 'prepare-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_RUN_ID: ${{ inputs.infrastructure_run_id }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.capture_source_commit }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.capture_source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - name: Validate preparation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "${{ inputs.cycle_evidence_url }}" =~ ^https://[^[:space:]]+$ ]]
+      - name: Inspect consolidated capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-transition
+          gh run download "$INPUT_RUN_ID" \
+            --name "rc011-infrastructure-decision-$INPUT_RUN_ID" \
+            --dir /tmp/rc011-transition
+          test -f /tmp/rc011-transition/infrastructure-readiness.updated.json
+          cp /tmp/rc011-transition/infrastructure-readiness.updated.json \
+            release/rc-0.11.0/infrastructure-readiness.json
+          RC011_INFRASTRUCTURE_PATH=release/rc-0.11.0/infrastructure-readiness.json \
+            npm run rc011:infrastructure:external
+
+          mapfile -t CAPTURE_COMMITS < <(jq -r '.scopes | to_entries[] | select(.value.required == true) | .value.sourceCommit' release/rc-0.11.0/infrastructure-readiness.json | sort -u)
+          [[ "${#CAPTURE_COMMITS[@]}" -eq 1 ]]
+          [[ "${CAPTURE_COMMITS[0]}" == "$INPUT_SOURCE_COMMIT" ]]
+      - name: Dispatch evidence PR idempotently
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-infrastructure-$INPUT_RUN_ID"
+          EXISTING_URL=$(gh pr list --state all --head "$BRANCH" --json url --jq '.[0].url // ""')
+          if [[ -n "$EXISTING_URL" ]]; then
+            echo "EVIDENCE_RESULT=PR existente: $EXISTING_URL" >> "$GITHUB_ENV"
+          else
+            gh workflow run rc-011-evidence-pr.yml --ref main \
+              -f action=open-pr \
+              -f infrastructure_run_id="$INPUT_RUN_ID" \
+              -f source_commit="$INPUT_SOURCE_COMMIT" \
+              -f tracking_issue="$INPUT_TRACKING_ISSUE"
+            echo "EVIDENCE_RESULT=Workflow de PR despachado para o run $INPUT_RUN_ID." >> "$GITHUB_ENV"
+          fi
+      - name: Generate preparation report
+        run: |
+          node scripts/generate-rc011-release-transition-report.mjs \
+            --mode prepare-evidence \
+            --capture-run-id "$INPUT_RUN_ID" \
+            --source-commit "$INPUT_SOURCE_COMMIT" \
+            --output-json artifacts/bemmecuida-0.11.0-rc.1-release-transition.json \
+            --output-md artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-release-transition-prepare-${{ github.run_id }}
+          path: |
+            artifacts/bemmecuida-0.11.0-rc.1-release-transition.json
+            artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+          retention-days: 90
+      - name: Publish preparation status
+        shell: bash
+        run: |
+          cat >> artifacts/bemmecuida-0.11.0-rc.1-release-transition.md <<EOF
+
+          ## Despacho
+
+          - $EVIDENCE_RESULT
+          - O PR precisa ser revisado e mesclado por uma pessoa antes da finalização.
+
+          **Tehkné Solutions**
+          EOF
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body-file artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+
+  finalize:
+    if: inputs.action == 'finalize-and-build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      merge_commit: ${{ steps.evidence.outputs.merge_commit }}
+    env:
+      GH_TOKEN: ${{ secrets.RC011_ADMIN_TOKEN }}
+      INPUT_EVIDENCE_PR: ${{ inputs.evidence_pr_number }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Validate finalization inputs and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          [[ "$INPUT_EVIDENCE_PR" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "${{ inputs.cycle_evidence_url }}" =~ ^https://[^[:space:]]+$ ]]
+          PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$GITHUB_ACTOR/permission" --jq '.user.permission')
+          [[ "$PERMISSION" == "admin" ]]
+      - name: Validate merged evidence PR
+        id: evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-transition
+          gh pr view "$INPUT_EVIDENCE_PR" \
+            --json number,state,isDraft,baseRefName,mergeCommit,files,url \
+            > /tmp/rc011-transition/evidence-pr.json
+          MERGE_COMMIT=$(node --input-type=module -e "import {readFileSync} from 'node:fs'; import {validateEvidencePr} from './scripts/lib/rc011-release-transition.mjs'; const value=validateEvidencePr(readFileSync('/tmp/rc011-transition/evidence-pr.json','utf8')); process.stdout.write(value.mergeCommit);")
+          echo "merge_commit=$MERGE_COMMIT" >> "$GITHUB_OUTPUT"
+          git checkout "$MERGE_COMMIT"
+          npm run security:check
+          npm run release:check
+          npm run rc011:infrastructure:external
+      - name: Revoke temporary repository secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for SECRET_NAME in RC011_EXPO_TOKEN RC011_ADMIN_TOKEN; do
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/secrets/$SECRET_NAME" >/dev/null 2>&1 || true
+          done
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/secrets?per_page=100" \
+            --paginate --jq '.secrets[].name' > /tmp/rc011-transition/remaining-secret-names.txt
+          for SECRET_NAME in RC011_EXPO_TOKEN RC011_ADMIN_TOKEN; do
+            if grep -Fxq "$SECRET_NAME" /tmp/rc011-transition/remaining-secret-names.txt; then
+              echo "Secret temporário ainda presente: $SECRET_NAME" >&2
+              exit 1
+            fi
+          done
+
+          jq -n '{confirmedAbsent:true,secretNames:["RC011_ADMIN_TOKEN","RC011_EXPO_TOKEN"],containsSecretValues:false}' \
+            > /tmp/rc011-transition/revocation.json
+      - name: Generate final transition report
+        run: |
+          node scripts/generate-rc011-release-transition-report.mjs \
+            --mode finalize-and-build \
+            --source-commit "${{ steps.evidence.outputs.merge_commit }}" \
+            --evidence-pr-json /tmp/rc011-transition/evidence-pr.json \
+            --revocation-json /tmp/rc011-transition/revocation.json \
+            --build-authorized true \
+            --output-json artifacts/bemmecuida-0.11.0-rc.1-release-transition.json \
+            --output-md artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-release-transition-final-${{ github.run_id }}
+          path: |
+            artifacts/bemmecuida-0.11.0-rc.1-release-transition.json
+            artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+          retention-days: 365
+      - name: Publish finalization report
+        shell: bash
+        run: gh issue comment "$INPUT_TRACKING_ISSUE" --body-file artifacts/bemmecuida-0.11.0-rc.1-release-transition.md
+
+  validate-build:
+    if: inputs.action == 'finalize-and-build'
+    needs: finalize
+    uses: ./.github/workflows/rc-011-build.yml
+    with:
+      action: validate
+      source_commit: ${{ needs.finalize.outputs.merge_commit }}
+      cycle_evidence_url: ${{ inputs.cycle_evidence_url }}
+    secrets: inherit
+
+  build-android:
+    if: inputs.action == 'finalize-and-build'
+    needs:
+      - finalize
+      - validate-build
+    uses: ./.github/workflows/rc-011-build.yml
+    with:
+      action: build-android
+      source_commit: ${{ needs.finalize.outputs.merge_commit }}
+      cycle_evidence_url: ${{ inputs.cycle_evidence_url }}
+    secrets: inherit
+
+  complete:
+    if: always() && inputs.action == 'finalize-and-build' && needs.finalize.result == 'success'
+    needs:
+      - finalize
+      - validate-build
+      - build-android
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - name: Publish build transition result
+        shell: bash
+        run: |
+          cat > /tmp/rc011-build-transition.md <<EOF
+          ## Transição para o primeiro Android
+
+          - PR de evidências: #${{ inputs.evidence_pr_number }}
+          - Commit aprovado: \`${{ needs.finalize.outputs.merge_commit }}\`
+          - Validação protegida: **${{ needs.validate-build.result }}**
+          - Solicitação Android: **${{ needs.build-android.result }}**
+          - Secrets temporários do repositório: revogados antes do build
+
+          O token EAS permanece somente no environment protegido \`rc-011-build\`. O build ainda precisa ter ID, URL e SHA-256 coletados antes da homologação.
+
+          **Tehkné Solutions**
+          EOF
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body-file /tmp/rc011-build-transition.md
