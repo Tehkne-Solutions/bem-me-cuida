@@ -68,7 +68,7 @@
     }
   },
   "evidence": {
-    "trackingIssue": null,
+    "trackingIssue": 24,
     "infrastructureWorkflowRun": null,
     "evidencePullRequest": null,
     "status": "pending"
