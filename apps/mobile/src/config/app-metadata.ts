@@ -15,7 +15,7 @@ function normalizedPublicValue(value: string | undefined, fallback: string): str
 }
 
 export function getAppMetadata(): AppMetadata {
-  const version = appJson.expo.version;
+  const version = normalizedPublicValue(process.env.EXPO_PUBLIC_APP_VERSION, appJson.expo.version);
   const variant = normalizedPublicValue(process.env.EXPO_PUBLIC_APP_ENV, 'development');
   const candidate = process.env.EXPO_PUBLIC_RELEASE_CANDIDATE?.trim();
   const productionRelease = process.env.EXPO_PUBLIC_PRODUCTION_RELEASE?.trim();
