@@ -22,8 +22,13 @@ if (/service_role|secret/i.test(key)) {
 }
 
 const variant = process.env.APP_VARIANT ?? 'development';
-if (!['development', 'preview', 'beta', 'rc', 'production'].includes(variant)) {
-  errors.push('APP_VARIANT deve ser development, preview, beta, rc ou production.');
+if (!['development', 'preview', 'beta', 'rc', 'rc011', 'production'].includes(variant)) {
+  errors.push('APP_VARIANT deve ser development, preview, beta, rc, rc011 ou production.');
+}
+
+if (variant === 'rc011') {
+  if (process.env.EXPO_PUBLIC_APP_VERSION !== '0.11.0') errors.push('A variante rc011 exige EXPO_PUBLIC_APP_VERSION=0.11.0.');
+  if (process.env.EXPO_PUBLIC_RELEASE_CANDIDATE !== '1') errors.push('A variante rc011 exige EXPO_PUBLIC_RELEASE_CANDIDATE=1.');
 }
 
 if (errors.length) {
