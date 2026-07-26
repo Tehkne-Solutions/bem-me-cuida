@@ -1,0 +1,169 @@
+name: RC 0.11 Admin Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Gerar plano ou aplicar infraestrutura
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      reviewer_login:
+        description: Conta administradora diferente do executor para revisar os environments
+        required: true
+        type: string
+      configuration_json:
+        description: JSON com valores públicos e gates da candidata
+        required: true
+        type: string
+      build_evidence_url:
+        description: Evidência HTTPS da configuração do environment de build
+        required: false
+        type: string
+      homologation_evidence_url:
+        description: Evidência HTTPS da configuração do environment de homologação
+        required: false
+        type: string
+      services_evidence_url:
+        description: Evidência HTTPS de EAS, Supabase e callbacks
+        required: false
+        type: string
+      tracking_issue:
+        description: Issue operacional que receberá o relatório
+        required: true
+        default: '27'
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: rc011-admin-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RC011_BOOTSTRAP_CONFIG_JSON: ${{ inputs.configuration_json }}
+      RC011_REVIEWER_LOGIN: ${{ inputs.reviewer_login }}
+      TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+
+      - name: Validate tracking inputs
+        shell: bash
+        env:
+          BUILD_EVIDENCE_URL: ${{ inputs.build_evidence_url }}
+          HOMOLOGATION_EVIDENCE_URL: ${{ inputs.homologation_evidence_url }}
+          SERVICES_EVIDENCE_URL: ${{ inputs.services_evidence_url }}
+        run: |
+          set -euo pipefail
+          [[ "$TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          [[ "$RC011_REVIEWER_LOGIN" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]]
+          if [[ "${{ inputs.action }}" == "apply" ]]; then
+            [[ "$BUILD_EVIDENCE_URL" =~ ^https://[^[:space:]]+$ ]]
+            [[ "$HOMOLOGATION_EVIDENCE_URL" =~ ^https://[^[:space:]]+$ ]]
+            [[ "$SERVICES_EVIDENCE_URL" =~ ^https://[^[:space:]]+$ ]]
+          fi
+
+      - name: Require repository administrator
+        shell: bash
+        run: |
+          set -euo pipefail
+          PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$GITHUB_ACTOR/permission" --jq '.user.permission' 2>/dev/null || echo none)
+          [[ "$PERMISSION" == "admin" ]]
+
+      - run: npm run security:check
+      - run: npm run sprint21:check
+      - run: npm run rc011:admin-bootstrap:test
+
+      - name: Generate bootstrap plan
+        run: |
+          node scripts/execute-rc011-admin-bootstrap.mjs \
+            --mode plan \
+            --output-json artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-plan.json \
+            --output-md artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-plan.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-admin-bootstrap-plan-${{ github.run_id }}
+          path: |
+            artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-plan.json
+            artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-plan.md
+          retention-days: 90
+
+      - name: Apply administrative bootstrap
+        if: inputs.action == 'apply'
+        env:
+          RC011_ADMIN_TOKEN: ${{ secrets.RC011_ADMIN_TOKEN }}
+          RC011_EXPO_TOKEN: ${{ secrets.RC011_EXPO_TOKEN }}
+        run: |
+          node scripts/execute-rc011-admin-bootstrap.mjs \
+            --mode apply \
+            --output-json artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.json \
+            --output-md artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.md
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.action == 'apply' && always()
+        with:
+          name: rc011-admin-bootstrap-result-${{ github.run_id }}
+          path: |
+            artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.json
+            artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.md
+          retention-days: 90
+
+      - name: Publish bootstrap report
+        if: always()
+        shell: bash
+        run: |
+          if [[ "${{ inputs.action }}" == "apply" && -f artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.md ]]; then
+            gh issue comment "$TRACKING_ISSUE" --body-file artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-result.md
+          else
+            gh issue comment "$TRACKING_ISSUE" --body-file artifacts/bemmecuida-0.11.0-rc.1-admin-bootstrap-plan.md
+          fi
+
+      - name: Dispatch audit and protected capture
+        if: inputs.action == 'apply' && success()
+        shell: bash
+        env:
+          BUILD_EVIDENCE_URL: ${{ inputs.build_evidence_url }}
+          HOMOLOGATION_EVIDENCE_URL: ${{ inputs.homologation_evidence_url }}
+          SERVICES_EVIDENCE_URL: ${{ inputs.services_evidence_url }}
+        run: |
+          set -euo pipefail
+          gh workflow run rc-011-external-audit.yml --ref main -f tracking_issue="$TRACKING_ISSUE"
+          gh workflow run rc-011-infrastructure-readiness.yml --ref main \
+            -f action=capture \
+            -f source_commit="$GITHUB_SHA" \
+            -f build_evidence_url="$BUILD_EVIDENCE_URL" \
+            -f homologation_evidence_url="$HOMOLOGATION_EVIDENCE_URL" \
+            -f services_evidence_url="$SERVICES_EVIDENCE_URL"
+
+          cat > /tmp/rc011-next.md <<EOF
+          ## Bootstrap administrativo solicitado
+
+          A configuração idempotente foi aplicada e os workflows de auditoria e captura protegida foram despachados.
+
+          - Commit: \`$GITHUB_SHA\`
+          - Execução: \`$GITHUB_RUN_ID\`
+          - Próxima etapa: revisar a auditoria e abrir o PR de evidências a partir do run da captura.
+
+          Nenhum secret foi incluído neste comentário.
+
+          **Tehkné Solutions**
+          EOF
+          gh issue comment "$TRACKING_ISSUE" --body-file /tmp/rc011-next.md
