@@ -22,7 +22,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 09 implementado: operação da beta, feedback rastreável, observabilidade local consentida e preparação da primeira release candidate.
 - Sprint 10 implementado: console operacional com RBAC, gates, builds, triagem, auditoria, bloqueadores de promoção e preparação editorial das lojas.
 - Sprint 11 implementado: produção isolada, pacote de submissão, rollout gradual, saúde técnica agregada, incidentes e rollback auditado.
-- Versão-base atual: `0.10.0` — **Produção 1 preparada, ainda dependente de build e submissão externos**.
+- Sprint 12 implementado: sustentação, hotfixes, aprovação por quatro-olhos, OTA compatível, rollback e retenção operacional.
+- Versão-base atual: `0.10.0` — **Produção 1 preparada; hotfixes não alteram a versão-base até existir artefato real**.
 
 ## Stack
 
@@ -35,6 +36,7 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Expo SecureStore;
 - Expo LocalAuthentication;
 - Expo Notifications;
+- EAS Update com runtime por versão do aplicativo;
 - Supabase Auth + PostgreSQL + RLS;
 - Zod para contratos e validação.
 
@@ -47,7 +49,7 @@ bem-me-cuida/
 ├── supabase/migrations/       # Banco remoto e políticas RLS
 ├── docs/                      # ADRs, segurança e especificação do sprint
 ├── scripts/                   # Publicação, verificação e manifestos
-└── .github/workflows/         # CI
+└── .github/workflows/         # CI e operações protegidas
 ```
 
 ## Início rápido
@@ -88,7 +90,7 @@ npm run supabase:push:staging
 npm run build:android:development
 ```
 
-Os builds development, preview, beta e RC usam identificadores e deep links próprios, permitindo instalação paralela sem misturar sessões ou redirects.
+Os builds development, preview, beta, RC, validação de hotfix e produção usam canais ou identificadores próprios para evitar mistura de sessões, redirects e bundles.
 
 ## Beta fechada
 
@@ -178,6 +180,43 @@ npm run submit:ios:production
 
 Os comandos de submissão dependem das credenciais reais configuradas no EAS e nos consoles das lojas. Eles não são executados pelo CI público.
 
+## Hotfixes e OTA
+
+Consulte [docs/HOTFIX-AND-OTA-RUNBOOK.md](docs/HOTFIX-AND-OTA-RUNBOOK.md) e [docs/AUDIT-RETENTION.md](docs/AUDIT-RETENTION.md).
+
+Fluxo resumido:
+
+```bash
+npm run release:check
+npm run sprint12:check
+npm run ota:check
+npm run build:android:hotfix-validation
+npm run ota:publish:validation
+```
+
+Depois de homologar o group ID no canal `hotfix-validation`:
+
+```bash
+npm run ota:promote:production
+npm run hotfix:manifest
+```
+
+Operações de emergência:
+
+```bash
+npm run ota:cancel-rollout
+npm run ota:rollback:production
+```
+
+Regras obrigatórias:
+
+- mudança nativa exige novo binário;
+- runtime OTA precisa coincidir com a versão instalada;
+- criador não aprova a própria operação;
+- somente `release_admin` decide hotfix e plano OTA;
+- produção recebe o mesmo grupo homologado por republicação;
+- execução externa usa o ambiente GitHub `production-operations` e credenciais fora do repositório.
+
 ## Consoles operacionais
 
 Os consoles aparecem somente quando o token autenticado contém um papel administrativo assinado:
@@ -192,7 +231,9 @@ Os consoles aparecem somente quando o token autenticado contém um papel adminis
 
 Também é aceito `release_admin`. O papel deve ser atribuído fora do aplicativo, em ambiente administrativo seguro. `user_metadata` não concede acesso.
 
-O console de releases administra candidata, gates, builds, testers e promoção. O console de produção administra submissões, rollout, leituras agregadas, incidentes e rollback.
+- o console de releases administra candidata, gates, builds, testers e promoção;
+- o console de produção administra submissões, rollout, leituras agregadas, incidentes e rollback;
+- o console de sustentação administra hotfixes, aprovações, OTA, artefatos e retenção.
 
 O cliente não recebe permissões genéricas de escrita. As ações passam por RPCs auditadas no Supabase.
 
@@ -206,6 +247,14 @@ O cliente não recebe permissões genéricas de escrita. As ações passam por R
 - autenticação ≥ 98%;
 - zero bloqueadores;
 - zero SEV1 ou SEV2 abertos.
+
+### Retenção operacional
+
+- saúde agregada: mínimo de 180 dias;
+- auditoria: mínimo de 365 dias;
+- timeline de incidentes resolvidos: mínimo de 730 dias;
+- legal hold e holds temporais impedem exclusão;
+- execução efetiva exige `release_admin` e confirmação destrutiva explícita.
 
 ## Testes E2E
 
@@ -221,6 +270,10 @@ npm run e2e:operator
 E2E_OPERATOR_EMAIL=<conta-operacional> \
 E2E_OPERATOR_PASSWORD=<senha> \
 npm run e2e:production
+
+E2E_OPERATOR_EMAIL=<conta-operacional> \
+E2E_OPERATOR_PASSWORD=<senha> \
+npm run e2e:maintenance
 ```
 
 ## Publicação no GitHub
@@ -250,7 +303,7 @@ Notificações usam conteúdo genérico. Preferências de acessibilidade, notifi
 
 Feedback da beta e adesão usam RLS. O log técnico local é desligado por padrão, limitado a eventos pré-definidos sem texto livre e nunca é enviado automaticamente. Diagnóstico e eventos só acompanham um relato quando o usuário seleciona essas opções.
 
-A operação usa RBAC por `app_metadata`, RLS, RPCs específicas e auditoria. Leituras de produção armazenam somente números e contagens agregadas. Nenhuma chave `service_role` é distribuída no aplicativo.
+A operação usa RBAC por `app_metadata`, RLS, RPCs específicas e auditoria. Leituras de produção armazenam somente números e contagens agregadas. Manifestos de hotfix não incluem dados clínicos, tokens ou certificados. Nenhuma chave `service_role` é distribuída no aplicativo.
 
 ## Assinatura
 
