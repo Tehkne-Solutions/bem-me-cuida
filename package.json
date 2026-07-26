@@ -30,9 +30,11 @@
     "sprint10:check": "node scripts/verify-sprint10-readiness.mjs",
     "sprint11:check": "node scripts/verify-sprint11-readiness.mjs",
     "sprint12:check": "node scripts/verify-sprint12-readiness.mjs",
+    "sprint13:check": "node scripts/verify-sprint13-readiness.mjs",
     "release:manifest": "node --env-file-if-exists=.env scripts/generate-release-manifest.mjs",
     "store:package": "node --env-file-if-exists=.env scripts/generate-store-submission-package.mjs",
     "hotfix:manifest": "node --env-file-if-exists=.env scripts/generate-hotfix-manifest.mjs",
+    "governance:report": "node --env-file-if-exists=.env scripts/generate-governance-report.mjs",
     "ota:publish:validation": "node --env-file-if-exists=.env scripts/verify-ota-readiness.mjs publish-validation && node --env-file-if-exists=.env scripts/execute-ota-operation.mjs publish-validation",
     "ota:promote:production": "node --env-file-if-exists=.env scripts/verify-ota-readiness.mjs promote-production && node --env-file-if-exists=.env scripts/execute-ota-operation.mjs promote-production",
     "ota:rollback:production": "node --env-file-if-exists=.env scripts/verify-ota-readiness.mjs rollback-production && node --env-file-if-exists=.env scripts/execute-ota-operation.mjs rollback-production",
@@ -53,7 +55,7 @@
     "submit:ios:production": "npm run submit:ios:production --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
-    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs && node scripts/verify-sprint10-readiness.mjs && node scripts/verify-sprint11-readiness.mjs && node scripts/verify-sprint12-readiness.mjs",
+    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs && node scripts/verify-sprint10-readiness.mjs && node scripts/verify-sprint11-readiness.mjs && node scripts/verify-sprint12-readiness.mjs && node scripts/verify-sprint13-readiness.mjs",
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",
@@ -66,6 +68,7 @@
     "e2e:beta": "maestro test .maestro/beta-center.yml",
     "e2e:operator": "maestro test .maestro/operator-console.yml",
     "e2e:production": "maestro test .maestro/production-console.yml",
-    "e2e:maintenance": "maestro test .maestro/maintenance-console.yml"
+    "e2e:maintenance": "maestro test .maestro/maintenance-console.yml",
+    "e2e:governance": "maestro test .maestro/governance-console.yml"
   }
 }
