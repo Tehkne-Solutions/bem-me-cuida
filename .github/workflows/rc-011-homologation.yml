@@ -76,6 +76,7 @@ jobs:
       - run: npm run release:check
       - run: npm run cycle:rc:check
       - run: npm run rc011:prebuild:check
+      - run: npm run rc011:infrastructure:external
       - run: npm run rc011:homologation:structure
       - name: Validate action inputs
         shell: bash
