@@ -18,9 +18,16 @@ export function getAppMetadata(): AppMetadata {
   const version = appJson.expo.version;
   const variant = normalizedPublicValue(process.env.EXPO_PUBLIC_APP_ENV, 'development');
   const candidate = process.env.EXPO_PUBLIC_RELEASE_CANDIDATE?.trim();
+  const productionRelease = process.env.EXPO_PUBLIC_PRODUCTION_RELEASE?.trim();
+  const releaseLabel = candidate
+    ? `${version}-rc.${candidate}`
+    : productionRelease
+      ? `${version}-production.${productionRelease}`
+      : version;
+
   return {
     version,
-    releaseLabel: candidate ? `${version}-rc.${candidate}` : version,
+    releaseLabel,
     variant,
     platform: `${Platform.OS}-${String(Platform.Version)}`,
   };
