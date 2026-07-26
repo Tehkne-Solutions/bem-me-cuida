@@ -76,7 +76,7 @@ if (existsSync(join(root, '.github/workflows/rc-011-evidence-pr.yml'))) {
   const workflow = read('.github/workflows/rc-011-evidence-pr.yml');
   for (const marker of [
     'workflow_dispatch',
-    'actions: read',
+    'actions: write',
     'contents: write',
     'pull-requests: write',
     'gh run download',
