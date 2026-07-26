@@ -17,9 +17,11 @@ const requiredFiles = [
   'docs/RC-0.11.0-DEVICE-MATRIX.md',
   'release/rc-0.11.0/device-matrix.json',
   'release/rc-0.11.0/test-results.json',
+  'release/rc-0.11.0/gate-map.json',
   'scripts/verify-rc011-readiness.mjs',
   'scripts/generate-rc011-manifest.mjs',
   'scripts/generate-rc011-validation-report.mjs',
+  'scripts/generate-rc011-gate-payload.mjs',
   '.github/workflows/rc-011-build.yml',
   '.maestro/rc011-smoke.yml',
   '.maestro/upgrade-010-to-011.yml',
@@ -44,7 +46,7 @@ if (profile?.env?.EXPO_PUBLIC_RELEASE_CANDIDATE !== '1') fail('Perfil rc011 sem 
 const rootPackage = readJson('package.json');
 for (const script of [
   'sprint15:check', 'rc011:prebuild:check', 'rc011:artifacts:check', 'rc011:promotion:check',
-  'rc011:manifest', 'rc011:validation:report', 'build:android:rc011', 'build:ios:rc011',
+  'rc011:manifest', 'rc011:validation:report', 'rc011:gates:payload', 'build:android:rc011', 'build:ios:rc011',
   'e2e:rc011', 'e2e:upgrade:rc011',
 ]) {
   if (!rootPackage.scripts?.[script]) fail(`Script obrigatório ausente: ${script}`);
@@ -72,6 +74,11 @@ for (const id of ['fresh-install', 'upgrade-010-011', 'local-database-regression
   if (!suites.has(id)) fail(`Registro de homologação sem suíte: ${id}`);
 }
 
+const gateMap = readJson('release/rc-0.11.0/gate-map.json');
+for (const gate of ['database', 'accessibility', 'privacy', 'rc_build', 'physical_device', 'ota_compatibility']) {
+  if (!(gateMap.gates ?? []).some((item) => item.gateKey === gate && item.required)) fail(`Mapeamento sem gate obrigatório: ${gate}`);
+}
+
 const workflow = read('.github/workflows/rc-011-build.yml');
 for (const marker of ['workflow_dispatch', 'rc-011-build', 'EXPO_TOKEN', 'cycle:rc:check', 'rc011:prebuild:check']) {
   if (!workflow.includes(marker)) fail(`Workflow protegido sem marcador: ${marker}`);
@@ -88,6 +95,6 @@ if (failures.length) {
 
 console.log('Sprint 15 check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
-console.log('- Variante nativa, build protegido, matriz, upgrade, banco local e OTA estão versionados.');
+console.log('- Variante nativa, build protegido, matriz, upgrade, banco local, OTA e gates estão versionados.');
 console.log('- A promoção continua bloqueada enquanto evidências obrigatórias estiverem pendentes.');
 console.log('- Tehkné Solutions');
