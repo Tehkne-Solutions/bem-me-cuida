@@ -62,7 +62,7 @@ jobs:
             [[ "$INPUT_SERVICES_EVIDENCE_URL" == https://* ]]
           fi
 
-  capture-build-environment:
+  capture_build_environment:
     needs: validate
     if: inputs.action == 'capture'
     runs-on: ubuntu-latest
@@ -100,7 +100,7 @@ jobs:
           path: /tmp/build-environment-capture.json
           retention-days: 90
 
-  capture-homologation-environment:
+  capture_homologation_environment:
     needs: validate
     if: inputs.action == 'capture'
     runs-on: ubuntu-latest
@@ -138,7 +138,7 @@ jobs:
           path: /tmp/homologation-environment-capture.json
           retention-days: 90
 
-  capture-services:
+  capture_services:
     needs: validate
     if: inputs.action == 'capture'
     runs-on: ubuntu-latest
@@ -174,10 +174,10 @@ jobs:
 
   consolidate:
     needs:
-      - capture-build-environment
-      - capture-homologation-environment
-      - capture-services
-    if: inputs.action == 'capture' && needs.capture-build-environment.result == 'success' && needs.capture-homologation-environment.result == 'success' && needs.capture-services.result == 'success'
+      - capture_build_environment
+      - capture_homologation_environment
+      - capture_services
+    if: inputs.action == 'capture' && needs.capture_build_environment.result == 'success' && needs.capture_homologation_environment.result == 'success' && needs.capture_services.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
