@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "usesSyntheticAccounts": true
+  },
+  "suites": [
+    { "id": "fresh-install", "name": "Instalação limpa e primeiro acesso", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "upgrade-010-011", "name": "Upgrade de 0.10.0 para 0.11.0-rc.1", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "local-database-regression", "name": "Regressão e integridade do banco local criptografado", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "authenticated-core-flows", "name": "Check-in, Diário, cuidados, apoio e relatórios", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "offline-sync", "name": "Operação offline, fila e reconciliação", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "notifications", "name": "Notificações, horário silencioso e reinício", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "biometrics", "name": "Biometria, código do aparelho e retorno do background", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "accessibility", "name": "TalkBack, VoiceOver, fontes e redução de movimento", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "ota-compatibility", "name": "Compatibilidade OTA no runtime 0.11.0", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "rollback", "name": "Rollback da RC e preservação de dados locais", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "performance", "name": "Inicialização, navegação e consumo de memória", "required": true, "status": "pending", "evidenceUrl": null, "notes": null },
+    { "id": "privacy", "name": "Conteúdo discreto, exportação e ausência de dados clínicos na telemetria", "required": true, "status": "pending", "evidenceUrl": null, "notes": null }
+  ]
+}

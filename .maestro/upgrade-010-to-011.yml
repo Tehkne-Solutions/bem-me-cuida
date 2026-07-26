@@ -1,0 +1,28 @@
+appId: com.tehknesolutions.bemmecuida
+name: Upgrade BemMeCuida 0.10.0 para 0.11.0-rc.1
+---
+# O harness externo deve instalar 0.10.0, preparar a conta sintética e instalar
+# 0.11.0-rc.1 sobre o mesmo package sem limpar dados antes deste fluxo.
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: home-title
+- tapOn: "Diário"
+- assertVisible: ${UPGRADE_JOURNAL_MARKER}
+- tapOn: "Insights"
+- assertVisible: "Entenda mudanças no seu padrão"
+- tapOn: "Início"
+- assertVisible:
+    id: home-open-settings
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-export
+    direction: DOWN
+- assertVisible:
+    id: settings-export
+# A verificação de contagens, tombstones, fila offline e vínculos de notificações
+# é registrada separadamente em release/rc-0.11.0/test-results.json.

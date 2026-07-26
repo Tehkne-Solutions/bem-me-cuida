@@ -1,0 +1,36 @@
+appId: com.tehknesolutions.bemmecuida.rc011
+name: BemMeCuida 0.11.0-rc.1 smoke
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- assertVisible:
+    id: home-open-settings
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-beta
+    direction: DOWN
+- tapOn:
+    id: settings-open-beta
+- assertVisible:
+    id: beta-center-title
+- assertVisible: 0.11.0-rc.1
+- tapOn:
+    text: "← Voltar"
+- assertVisible:
+    id: settings-title
