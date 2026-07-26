@@ -56,6 +56,21 @@
         "EXPO_PUBLIC_RELEASE_CANDIDATE": "2"
       }
     },
+    "rc011": {
+      "distribution": "internal",
+      "channel": "rc-0-11",
+      "environment": "preview",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "rc011",
+        "EXPO_PUBLIC_APP_ENV": "rc-0-11",
+        "EXPO_PUBLIC_APP_VERSION": "0.11.0",
+        "EXPO_PUBLIC_RELEASE_CANDIDATE": "1"
+      }
+    },
     "hotfix-validation": {
       "distribution": "internal",
       "channel": "hotfix-validation",
