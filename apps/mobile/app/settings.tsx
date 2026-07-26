@@ -265,27 +265,14 @@ export default function SettingsScreen() {
             <AppText variant="h2">Experiência do aplicativo</AppText>
             <AppText muted>Controle lembretes, leitura, contraste, movimento e a operação da versão de teste.</AppText>
             <View style={styles.buttonGroup}>
-              <SecondaryButton
-                testID="settings-open-notifications"
-                label="Notificações e horário silencioso"
-                onPress={() => router.push('/notifications-settings')}
-              />
-              <SecondaryButton
-                testID="settings-open-accessibility"
-                label="Acessibilidade"
-                onPress={() => router.push('/accessibility-settings')}
-              />
-              <SecondaryButton
-                testID="settings-open-beta"
-                label="Central da beta e feedback"
-                onPress={() => router.push('/beta-center')}
-              />
+              <SecondaryButton testID="settings-open-notifications" label="Notificações e horário silencioso" onPress={() => router.push('/notifications-settings')} />
+              <SecondaryButton testID="settings-open-accessibility" label="Acessibilidade" onPress={() => router.push('/accessibility-settings')} />
+              <SecondaryButton testID="settings-open-beta" label="Central da beta e feedback" onPress={() => router.push('/beta-center')} />
               {operatorAccess ? (
-                <SecondaryButton
-                  testID="settings-open-operator-console"
-                  label="Console operacional de releases"
-                  onPress={() => router.push('/operator-console')}
-                />
+                <>
+                  <SecondaryButton testID="settings-open-operator-console" label="Console operacional de releases" onPress={() => router.push('/operator-console')} />
+                  <SecondaryButton testID="settings-open-production-console" label="Produção, rollout e incidentes" onPress={() => router.push('/production-console')} />
+                </>
               ) : null}
             </View>
           </Surface>
