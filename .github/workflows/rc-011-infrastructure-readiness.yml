@@ -1,0 +1,218 @@
+name: RC 0.11 Infrastructure Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação de infraestrutura
+        required: true
+        type: choice
+        options:
+          - validate
+          - capture
+      source_commit:
+        description: SHA de 40 caracteres aprovado para a candidata
+        required: true
+        type: string
+      build_evidence_url:
+        description: Evidência HTTPS da configuração do environment de build
+        required: false
+        type: string
+      homologation_evidence_url:
+        description: Evidência HTTPS da configuração do environment de homologação
+        required: false
+        type: string
+      services_evidence_url:
+        description: Evidência HTTPS do EAS, Supabase e callbacks
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_BUILD_EVIDENCE_URL: ${{ inputs.build_evidence_url }}
+      INPUT_HOMOLOGATION_EVIDENCE_URL: ${{ inputs.homologation_evidence_url }}
+      INPUT_SERVICES_EVIDENCE_URL: ${{ inputs.services_evidence_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:infrastructure:structure
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          if [[ "$INPUT_ACTION" == "capture" ]]; then
+            [[ "$INPUT_BUILD_EVIDENCE_URL" == https://* ]]
+            [[ "$INPUT_HOMOLOGATION_EVIDENCE_URL" == https://* ]]
+            [[ "$INPUT_SERVICES_EVIDENCE_URL" == https://* ]]
+          fi
+
+  capture-build-environment:
+    needs: validate
+    if: inputs.action == 'capture'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: rc-011-build
+    env:
+      RC011_ENVIRONMENT_NAME: rc-011-build
+      EXPO_TOKEN_PRESENT: ${{ secrets.EXPO_TOKEN != '' }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      RC011_CYCLE_STATUS: ${{ vars.RC011_CYCLE_STATUS }}
+      RC011_MILESTONE_DONE: ${{ vars.RC011_MILESTONE_DONE }}
+      RC011_BLOCKER_COUNT: ${{ vars.RC011_BLOCKER_COUNT }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_EVIDENCE_URL: ${{ inputs.build_evidence_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Capture build environment
+        run: |
+          node scripts/capture-rc011-infrastructure.mjs \
+            --scope build \
+            --source-commit "$INPUT_SOURCE_COMMIT" \
+            --evidence-url "$INPUT_EVIDENCE_URL" \
+            --output /tmp/build-environment-capture.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-infrastructure-build-${{ github.run_id }}
+          path: /tmp/build-environment-capture.json
+          retention-days: 90
+
+  capture-homologation-environment:
+    needs: validate
+    if: inputs.action == 'capture'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: rc-011-homologation
+    env:
+      RC011_ENVIRONMENT_NAME: rc-011-homologation
+      EXPO_TOKEN_PRESENT: ${{ secrets.EXPO_TOKEN != '' }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      RC011_CYCLE_STATUS: ${{ vars.RC011_CYCLE_STATUS }}
+      RC011_MILESTONE_DONE: ${{ vars.RC011_MILESTONE_DONE }}
+      RC011_BLOCKER_COUNT: ${{ vars.RC011_BLOCKER_COUNT }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_EVIDENCE_URL: ${{ inputs.homologation_evidence_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Capture homologation environment
+        run: |
+          node scripts/capture-rc011-infrastructure.mjs \
+            --scope homologation \
+            --source-commit "$INPUT_SOURCE_COMMIT" \
+            --evidence-url "$INPUT_EVIDENCE_URL" \
+            --output /tmp/homologation-environment-capture.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-infrastructure-homologation-${{ github.run_id }}
+          path: /tmp/homologation-environment-capture.json
+          retention-days: 90
+
+  capture-services:
+    needs: validate
+    if: inputs.action == 'capture'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: rc-011-homologation
+    env:
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      RC011_AUTH_CALLBACKS: ${{ vars.RC011_AUTH_CALLBACKS }}
+      RC011_AUTH_CALLBACKS_CONFIGURED: ${{ vars.RC011_AUTH_CALLBACKS_CONFIGURED }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_EVIDENCE_URL: ${{ inputs.services_evidence_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Capture external services
+        run: |
+          node scripts/capture-rc011-infrastructure.mjs \
+            --scope services \
+            --source-commit "$INPUT_SOURCE_COMMIT" \
+            --evidence-url "$INPUT_EVIDENCE_URL" \
+            --output /tmp/services-capture.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-infrastructure-services-${{ github.run_id }}
+          path: /tmp/services-capture.json
+          retention-days: 90
+
+  consolidate:
+    needs:
+      - capture-build-environment
+      - capture-homologation-environment
+      - capture-services
+    if: inputs.action == 'capture' && needs.capture-build-environment.result == 'success' && needs.capture-homologation-environment.result == 'success' && needs.capture-services.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rc011-infrastructure-*-${{ github.run_id }}
+          path: /tmp/captures
+          merge-multiple: true
+      - name: Consolidate captures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp release/rc-0.11.0/infrastructure-readiness.json /tmp/infrastructure-0.json
+          node scripts/apply-rc011-infrastructure-capture.mjs --source /tmp/infrastructure-0.json --capture /tmp/captures/build-environment-capture.json --output /tmp/infrastructure-1.json
+          node scripts/apply-rc011-infrastructure-capture.mjs --source /tmp/infrastructure-1.json --capture /tmp/captures/homologation-environment-capture.json --output /tmp/infrastructure-2.json
+          node scripts/apply-rc011-infrastructure-capture.mjs --source /tmp/infrastructure-2.json --capture /tmp/captures/services-capture.json --output /tmp/infrastructure-readiness.updated.json
+          RC011_INFRASTRUCTURE_PATH=/tmp/infrastructure-readiness.updated.json npm run rc011:infrastructure:report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-infrastructure-decision-${{ github.run_id }}
+          path: |
+            /tmp/infrastructure-readiness.updated.json
+            artifacts/bemmecuida-0.11.0-rc.1-infrastructure.json
+            artifacts/bemmecuida-0.11.0-rc.1-infrastructure.md
+          retention-days: 90
+      - name: Record decision
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Capturas externas consolidadas sem expor secrets." >> "$GITHUB_STEP_SUMMARY"
+          echo "O registro atualizado exige revisão e PR antes de substituir a fonte oficial." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
