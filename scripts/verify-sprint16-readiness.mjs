@@ -68,11 +68,24 @@ for (const [name, document] of Object.entries({ builds, ota })) {
     fail(`${name} sem declaração de privacidade mínima.`);
   }
 }
-if (builds.platforms?.android?.status !== 'pending' || builds.platforms?.ios?.status !== 'pending') {
-  fail('O registro inicial de builds deve permanecer pending até captura real.');
+
+const allowedBuildStatuses = new Set(['pending', 'captured']);
+for (const platform of ['android', 'ios']) {
+  const build = builds.platforms?.[platform];
+  if (!build || !allowedBuildStatuses.has(build.status)) fail(`Status de build inválido para ${platform}.`);
+  if (build?.status === 'captured') {
+    if (!build.buildId || !build.buildNumber) fail(`Build ${platform} capturado sem identificação completa.`);
+    if (!build.artifactUrl?.startsWith('https://')) fail(`Build ${platform} capturado sem URL HTTPS.`);
+    if (!/^[a-f0-9]{64}$/i.test(build.artifactSha256 ?? '')) fail(`Build ${platform} capturado sem SHA-256 válido.`);
+  }
 }
-if (ota.publish?.status !== 'pending' || ota.rollback?.status !== 'pending') {
-  fail('O registro inicial de OTA deve permanecer pending até execução real.');
+
+const allowedOtaStatuses = new Set(['pending', 'captured', 'passed', 'failed', 'blocked']);
+for (const [name, item] of Object.entries({ publish: ota.publish, rollback: ota.rollback })) {
+  if (!item || !allowedOtaStatuses.has(item.status)) fail(`Status OTA inválido para ${name}.`);
+  if (item?.status === 'passed' && !item.evidenceUrl?.startsWith('https://')) {
+    fail(`OTA ${name} aprovada sem evidência HTTPS.`);
+  }
 }
 
 const collector = read('scripts/collect-eas-build-metadata.mjs');
@@ -88,5 +101,5 @@ if (failures.length) {
 console.log('Sprint 16 check aprovado:');
 for (const notice of notices) console.log(`- ${notice}`);
 console.log('- Captura de builds, OTA, evidências e pacote de decisão estão versionados.');
-console.log('- Resultados físicos permanecem pending até execução comprovada.');
+console.log('- Itens podem evoluir somente com identificadores, checksums e evidências válidas.');
 console.log('- Tehkné Solutions');
