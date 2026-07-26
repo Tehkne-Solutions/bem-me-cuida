@@ -67,8 +67,8 @@ select ok(exists(select 1 from pg_indexes where schemaname='public' and indexnam
 
 select col_default_is('public','product_experiments','consent_required','true','consentimento obrigatório por padrão');
 select col_default_is('public','cycle_release_gates','required','true','gate obrigatório por padrão');
-select col_default_is('public','product_experiments','status','''draft''::text','experimento começa em rascunho');
-select col_default_is('public','cycle_scope_changes','status','''pending''::text','mudança começa pendente');
+select col_default_is('public','product_experiments','status','draft','experimento começa em rascunho');
+select col_default_is('public','cycle_scope_changes','status','pending','mudança começa pendente');
 
 select * from finish();
 rollback;
