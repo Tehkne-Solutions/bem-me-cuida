@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -57,6 +58,12 @@ jobs:
       - run: npm run rc011:decision:package
       - run: npm run rc011:infrastructure:structure
       - run: npm run rc011:infrastructure:report
+      - run: npm run rc011:bootstrap:check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-bootstrap-${{ github.run_id }}
+          path: artifacts/rc011-bootstrap
+          retention-days: 7
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:
