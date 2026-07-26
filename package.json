@@ -40,6 +40,7 @@
     "release:manifest": "node --env-file-if-exists=.env scripts/generate-release-manifest.mjs",
     "rc011:manifest": "node --env-file-if-exists=.env scripts/generate-rc011-manifest.mjs",
     "rc011:validation:report": "node --env-file-if-exists=.env scripts/generate-rc011-validation-report.mjs",
+    "rc011:gates:payload": "node --env-file-if-exists=.env scripts/generate-rc011-gate-payload.mjs",
     "store:package": "node --env-file-if-exists=.env scripts/generate-store-submission-package.mjs",
     "hotfix:manifest": "node --env-file-if-exists=.env scripts/generate-hotfix-manifest.mjs",
     "governance:report": "node --env-file-if-exists=.env scripts/generate-governance-report.mjs",
