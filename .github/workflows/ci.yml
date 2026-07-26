@@ -74,6 +74,15 @@ jobs:
           name: rc011-bootstrap-${{ github.run_id }}
           path: artifacts/rc011-bootstrap
           retention-days: 7
+      - name: Validate RC 0.11 issue commands
+        run: npm run rc011:command:test
+      - name: Generate factual RC 0.11 issue status
+        run: npm run rc011:command:status
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-command-status-${{ github.run_id }}
+          path: artifacts/rc011-issue-status.md
+          retention-days: 7
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:
