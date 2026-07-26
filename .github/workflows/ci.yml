@@ -47,6 +47,13 @@ jobs:
           EXPO_PUBLIC_PRODUCTION_RELEASE: '1'
           EXPO_PUBLIC_EAS_PROJECT_ID: 00000000-0000-4000-8000-000000000000
         run: npm run config:public --workspace @bemmecuida/mobile
+      - name: Validate hotfix Expo config
+        env:
+          APP_VARIANT: rc
+          EXPO_PUBLIC_APP_ENV: hotfix-validation
+          EXPO_PUBLIC_RELEASE_CANDIDATE: hotfix
+          EXPO_PUBLIC_EAS_PROJECT_ID: 00000000-0000-4000-8000-000000000000
+        run: npm run config:public --workspace @bemmecuida/mobile
 
   database:
     runs-on: ubuntu-latest

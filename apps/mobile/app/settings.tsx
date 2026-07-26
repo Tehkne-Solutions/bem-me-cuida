@@ -272,6 +272,7 @@ export default function SettingsScreen() {
                 <>
                   <SecondaryButton testID="settings-open-operator-console" label="Console operacional de releases" onPress={() => router.push('/operator-console')} />
                   <SecondaryButton testID="settings-open-production-console" label="Produção, rollout e incidentes" onPress={() => router.push('/production-console')} />
+                  <SecondaryButton testID="settings-open-maintenance-console" label="Sustentação, hotfix e OTA" onPress={() => router.push('/maintenance-console')} />
                 </>
               ) : null}
             </View>

@@ -1,0 +1,122 @@
+name: Maintenance Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação OTA
+        required: true
+        type: choice
+        options:
+          - validate
+          - publish-validation
+          - promote-production
+          - rollback-production
+          - cancel-rollout
+      hotfix_id:
+        description: UUID do hotfix
+        required: true
+        type: string
+      approval_id:
+        description: UUID da aprovação independente
+        required: false
+        type: string
+      runtime_version:
+        description: Runtime alvo
+        required: true
+        default: 0.10.0
+        type: string
+      message:
+        description: Mensagem técnica sem dados sensíveis
+        required: true
+        type: string
+      fingerprint_sha256:
+        description: Fingerprint SHA-256
+        required: true
+        type: string
+      source_commit:
+        description: Commit Git de origem
+        required: true
+        type: string
+      rollout_percentage:
+        description: Percentual de rollout
+        required: true
+        default: '5'
+        type: choice
+        options: ['1', '5', '10', '25', '50', '100']
+      validated_group_id:
+        description: Group ID homologado para promoção
+        required: false
+        type: string
+      rollback_group_id:
+        description: Group ID estável para rollback
+        required: false
+        type: string
+      current_group_id:
+        description: Group ID com rollout ativo
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  OTA_ACTION: ${{ inputs.action }}
+  OTA_HOTFIX_ID: ${{ inputs.hotfix_id }}
+  OTA_APPROVAL_ID: ${{ inputs.approval_id }}
+  OTA_RUNTIME_VERSION: ${{ inputs.runtime_version }}
+  OTA_MESSAGE: ${{ inputs.message }}
+  OTA_FINGERPRINT_SHA256: ${{ inputs.fingerprint_sha256 }}
+  OTA_SOURCE_COMMIT: ${{ inputs.source_commit }}
+  OTA_ASSET_COUNT: '1'
+  OTA_ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage }}
+  OTA_NATIVE_CHANGES: 'false'
+  OTA_VALIDATED_GROUP_ID: ${{ inputs.validated_group_id }}
+  OTA_ROLLBACK_GROUP_ID: ${{ inputs.rollback_group_id }}
+  OTA_CURRENT_GROUP_ID: ${{ inputs.current_group_id }}
+  EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
+  APP_VARIANT: ${{ inputs.action == 'publish-validation' && 'rc' || inputs.action == 'validate' && 'rc' || 'production' }}
+  EXPO_PUBLIC_APP_ENV: ${{ inputs.action == 'publish-validation' && 'hotfix-validation' || inputs.action == 'validate' && 'hotfix-validation' || 'production' }}
+  OTA_CHANNEL: ${{ inputs.action == 'publish-validation' && 'hotfix-validation' || inputs.action == 'validate' && 'hotfix-validation' || 'production' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: node scripts/verify-ota-readiness.mjs "${{ inputs.action }}"
+
+  execute:
+    if: inputs.action != 'validate'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production-operations
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: node scripts/verify-ota-readiness.mjs "${{ inputs.action }}"
+      - run: node scripts/execute-ota-operation.mjs "${{ inputs.action }}"
+      - name: Generate operational manifest
+        if: always()
+        env:
+          HOTFIX_MANIFEST_OUTPUT: artifacts/maintenance-operation.json
+        run: npm run hotfix:manifest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maintenance-operation-manifest
+          path: artifacts/maintenance-operation.json
+          retention-days: 90
