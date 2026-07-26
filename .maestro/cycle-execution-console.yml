@@ -1,0 +1,58 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Console de execução do ciclo 0.11.0
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_OPERATOR_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_OPERATOR_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- openLink: bemmecuida-dev://cycle-execution-console
+- assertVisible:
+    id: cycle-execution-title
+- scrollUntilVisible:
+    element:
+      id: cycle-priority-preview
+    direction: DOWN
+- assertVisible:
+    id: cycle-create-backlog
+- scrollUntilVisible:
+    element:
+      id: cycle-objective-title
+    direction: DOWN
+- assertVisible:
+    id: cycle-create-objective
+- scrollUntilVisible:
+    element:
+      id: cycle-scope-reason
+    direction: DOWN
+- assertVisible:
+    id: cycle-request-scope
+- scrollUntilVisible:
+    element:
+      id: cycle-experiment-key
+    direction: DOWN
+- assertVisible:
+    id: cycle-create-experiment
+- scrollUntilVisible:
+    element:
+      id: cycle-milestone-title
+    direction: DOWN
+- assertVisible:
+    id: cycle-create-milestone
+- assertVisible:
+    id: cycle-init-gates
+- scrollUntilVisible:
+    element:
+      id: cycle-freeze-readiness
+    direction: DOWN
+- assertVisible:
+    id: cycle-freeze-readiness
