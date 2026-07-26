@@ -1,0 +1,51 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Console de sustentação e hotfix
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_OPERATOR_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_OPERATOR_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-maintenance-console
+    direction: DOWN
+- tapOn:
+    id: settings-open-maintenance-console
+- assertVisible:
+    id: maintenance-console-title
+- scrollUntilVisible:
+    element:
+      id: maintenance-version
+    direction: DOWN
+- assertVisible:
+    id: maintenance-version
+- assertVisible:
+    id: maintenance-title
+- assertVisible:
+    id: maintenance-summary
+- assertVisible:
+    id: maintenance-runtime
+- assertVisible:
+    id: maintenance-source-commit
+- assertVisible:
+    id: maintenance-create-hotfix
+- scrollUntilVisible:
+    element:
+      id: maintenance-retention-dry-run
+    direction: DOWN
+- assertVisible:
+    id: maintenance-retention-dry-run
