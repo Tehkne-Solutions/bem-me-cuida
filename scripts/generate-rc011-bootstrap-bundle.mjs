@@ -117,7 +117,7 @@ const checklist = [
   '## Segurança',
   '',
   '- Não cole `EXPO_TOKEN` em issues, PRs, logs ou arquivos.',
-  '- Não use `service_role` no aplicativo ou nos workflows.',
+  '- Não use chaves administrativas privilegiadas no aplicativo ou nos workflows.',
   '- Evidências devem ser HTTPS e não podem conter dados pessoais ou clínicos.',
   '',
   '**Tehkné Solutions**',
