@@ -1,0 +1,347 @@
+name: RC 0.11 Android Physical Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Capturar sessão, abrir PR ou empacotar revisão Android
+        required: true
+        default: package-android-review
+        type: choice
+        options:
+          - capture-session
+          - open-session-pr
+          - package-android-review
+      source_commit:
+        description: SHA de 40 caracteres do build Android capturado
+        required: true
+        type: string
+      build_id:
+        description: Build ID do APK para captura de sessão
+        required: false
+        type: string
+      profile_id:
+        description: Perfil da matriz Android
+        required: false
+        type: string
+      device_status:
+        description: passed, failed ou blocked
+        required: false
+        type: string
+      installation_mode:
+        description: fresh, upgrade ou retest
+        required: false
+        type: string
+      os_version:
+        description: Versão Android sem espaços ou identificadores do aparelho
+        required: false
+        type: string
+      evidence_url:
+        description: Evidência HTTPS sanitizada
+        required: false
+        type: string
+      suite_results:
+        description: Lista suite=status separada por vírgulas
+        required: false
+        type: string
+      capture_run_id:
+        description: Run ID da sessão revisada para abertura do PR
+        required: false
+        default: '0'
+        type: string
+      tracking_issue:
+        description: Issue operacional
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rc011-android-physical-${{ inputs.action }}-${{ inputs.source_commit }}-${{ inputs.capture_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_PROFILE_ID: ${{ inputs.profile_id }}
+      INPUT_DEVICE_STATUS: ${{ inputs.device_status }}
+      INPUT_INSTALLATION_MODE: ${{ inputs.installation_mode }}
+      INPUT_OS_VERSION: ${{ inputs.os_version }}
+      INPUT_EVIDENCE_URL: ${{ inputs.evidence_url }}
+      INPUT_SUITE_RESULTS: ${{ inputs.suite_results }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:infrastructure:external
+      - run: npm run rc011:android-physical:structure
+      - name: Validate operation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          case "$INPUT_ACTION" in
+            capture-session)
+              [[ "$INPUT_BUILD_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]
+              [[ "$INPUT_PROFILE_ID" =~ ^android-[a-z0-9-]{2,48}$ ]]
+              [[ "$INPUT_DEVICE_STATUS" =~ ^(passed|failed|blocked)$ ]]
+              [[ "$INPUT_INSTALLATION_MODE" =~ ^(fresh|upgrade|retest)$ ]]
+              [[ "$INPUT_OS_VERSION" =~ ^[A-Za-z0-9._-]{1,24}$ ]]
+              [[ "$INPUT_EVIDENCE_URL" =~ ^https://[^[:space:]]+$ ]]
+              [[ "$INPUT_SUITE_RESULTS" =~ ^[a-z0-9-]+=(passed|failed|blocked)(,[a-z0-9-]+=(passed|failed|blocked))*$ ]]
+              ;;
+            open-session-pr)
+              [[ "$INPUT_CAPTURE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              ;;
+            package-android-review)
+              ;;
+            *)
+              echo "Operação desconhecida." >&2
+              exit 1
+              ;;
+          esac
+
+  capture-session:
+    needs: validate
+    if: inputs.action == 'capture-session'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: rc-011-homologation
+    env:
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_PROFILE_ID: ${{ inputs.profile_id }}
+      INPUT_DEVICE_STATUS: ${{ inputs.device_status }}
+      INPUT_INSTALLATION_MODE: ${{ inputs.installation_mode }}
+      INPUT_OS_VERSION: ${{ inputs.os_version }}
+      INPUT_EVIDENCE_URL: ${{ inputs.evidence_url }}
+      INPUT_SUITE_RESULTS: ${{ inputs.suite_results }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:android-physical:capture
+      - run: mkdir -p /tmp/rc011-android-session
+      - name: Capture sanitized physical session
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/capture-rc011-android-session.mjs \
+            --builds release/rc-0.11.0/builds.json \
+            --plan release/rc-0.11.0/android-homologation-plan.json \
+            --source-commit "$INPUT_SOURCE_COMMIT" \
+            --build-id "$INPUT_BUILD_ID" \
+            --profile-id "$INPUT_PROFILE_ID" \
+            --device-status "$INPUT_DEVICE_STATUS" \
+            --installation-mode "$INPUT_INSTALLATION_MODE" \
+            --os-version "$INPUT_OS_VERSION" \
+            --suite-results "$INPUT_SUITE_RESULTS" \
+            --evidence-url "$INPUT_EVIDENCE_URL" \
+            --output /tmp/rc011-android-session/android-session.json
+          SESSION_ID=$(jq -r '.sessionId' /tmp/rc011-android-session/android-session.json)
+          echo "SESSION_ID=$SESSION_ID" >> "$GITHUB_ENV"
+          cat > /tmp/rc011-android-session/session-summary.md <<EOF
+          # Sessão física Android capturada
+
+          - Session ID: \`$SESSION_ID\`
+          - Build ID: \`$INPUT_BUILD_ID\`
+          - Perfil: \`$INPUT_PROFILE_ID\`
+          - Status do aparelho: **$INPUT_DEVICE_STATUS**
+          - Modo: **$INPUT_INSTALLATION_MODE**
+          - Evidência: $INPUT_EVIDENCE_URL
+          - automaticApproval: **false**
+
+          Nenhum gate global foi aprovado automaticamente.
+
+          **Tehkné Solutions**
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-android-session-${{ github.run_id }}
+          path: /tmp/rc011-android-session
+          retention-days: 90
+      - name: Publish next operation
+        shell: bash
+        run: |
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body "Sessão Android capturada: \`$SESSION_ID\`\n\nRun: \`${{ github.run_id }}\`\n\nApós revisar o artefato, use:\n\n\`/rc011 android-session-pr $INPUT_SOURCE_COMMIT ${{ github.run_id }}\`\n\nNenhum gate global foi aprovado automaticamente.\n\nTehkné Solutions"
+
+  open-session-pr:
+    needs: validate
+    if: inputs.action == 'open-session-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Download reviewed session artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-android-session-pr
+          gh run download "$INPUT_CAPTURE_RUN_ID" \
+            --name "rc011-android-session-$INPUT_CAPTURE_RUN_ID" \
+            --dir /tmp/rc011-android-session-pr
+          test -f /tmp/rc011-android-session-pr/android-session.json
+          SESSION_COMMIT=$(jq -r '.sourceCommit' /tmp/rc011-android-session-pr/android-session.json)
+          [[ "$SESSION_COMMIT" == "$INPUT_SOURCE_COMMIT" ]]
+          SESSION_ID=$(jq -r '.sessionId' /tmp/rc011-android-session-pr/android-session.json)
+          [[ "$SESSION_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          echo "SESSION_ID=$SESSION_ID" >> "$GITHUB_ENV"
+      - name: Apply session to reviewable records
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release/rc-0.11.0/android-homologation-plan.json
+          mkdir -p release/rc-0.11.0/android-sessions
+          node scripts/apply-rc011-android-session.mjs \
+            --plan release/rc-0.11.0/android-homologation-plan.json \
+            --matrix release/rc-0.11.0/device-matrix.json \
+            --tests release/rc-0.11.0/test-results.json \
+            --session /tmp/rc011-android-session-pr/android-session.json \
+            --gate-map release/rc-0.11.0/gate-map.json \
+            --output-plan release/rc-0.11.0/android-homologation-plan.json \
+            --output-matrix release/rc-0.11.0/device-matrix.json \
+            --output-tests release/rc-0.11.0/test-results.json \
+            --output-session "release/rc-0.11.0/android-sessions/$SESSION_ID.json" \
+            --output-proposal release/rc-0.11.0/android-gate-proposal.json \
+            --output-report-json release/rc-0.11.0/android-homologation-report.json \
+            --output-report-md release/rc-0.11.0/android-homologation-report.md
+          npm run rc011:homologation:structure
+          npm run rc011:android-physical:structure
+      - name: Create or reuse session pull request
+        id: pull
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-android-session-$SESSION_ID"
+          EXISTING_URL=$(gh pr list --state all --head "$BRANCH" --json url --jq '.[0].url // ""')
+          if [[ -n "$EXISTING_URL" ]]; then
+            echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "Tehkné Solutions Automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add \
+            release/rc-0.11.0/android-homologation-plan.json \
+            release/rc-0.11.0/device-matrix.json \
+            release/rc-0.11.0/test-results.json \
+            release/rc-0.11.0/android-gate-proposal.json \
+            release/rc-0.11.0/android-homologation-report.json \
+            release/rc-0.11.0/android-homologation-report.md \
+            "release/rc-0.11.0/android-sessions/$SESSION_ID.json"
+          git commit -m "test(rc011): registrar sessão física Android $SESSION_ID"
+          git push origin "$BRANCH"
+
+          BUILD_ID=$(jq -r '.build.buildId' "release/rc-0.11.0/android-sessions/$SESSION_ID.json")
+          PROFILE_ID=$(jq -r '.device.profileId' "release/rc-0.11.0/android-sessions/$SESSION_ID.json")
+          DEVICE_STATUS=$(jq -r '.device.status' "release/rc-0.11.0/android-sessions/$SESSION_ID.json")
+          cat > /tmp/rc011-android-session-pr/body.md <<EOF
+          ## Sessão física Android da RC 0.11.0-rc.1
+
+          - Session ID: \`$SESSION_ID\`
+          - Build ID: \`$BUILD_ID\`
+          - Commit: \`$INPUT_SOURCE_COMMIT\`
+          - Perfil: \`$PROFILE_ID\`
+          - Resultado do aparelho: **$DEVICE_STATUS**
+          - Run da captura: \`$INPUT_CAPTURE_RUN_ID\`
+          - Contas sintéticas: sim
+          - Dados pessoais, clínicos, secrets ou identificadores únicos: não
+          - Aprovação automática: não
+
+          O PR atualiza registros e recomendações Android. Gates globais permanecem sob revisão humana.
+
+          Tehkné Solutions
+          EOF
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "test: registrar sessão física Android da RC 0.11" \
+            --body-file /tmp/rc011-android-session-pr/body.md)
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+      - name: Link operational issue
+        shell: bash
+        run: |
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body "PR da sessão Android \`$SESSION_ID\`: ${{ steps.pull.outputs.url }}\n\nO PR exige revisão humana e não aprova gates globais automaticamente.\n\nTehkné Solutions"
+
+  package-android-review:
+    needs: validate
+    if: inputs.action == 'package-android-review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:android-physical:capture
+      - run: mkdir -p /tmp/rc011-android-review
+      - name: Generate Android review package
+        run: |
+          node scripts/generate-rc011-android-review-package.mjs \
+            --plan release/rc-0.11.0/android-homologation-plan.json \
+            --gate-map release/rc-0.11.0/gate-map.json \
+            --output-proposal /tmp/rc011-android-review/android-gate-proposal.json \
+            --output-report-json /tmp/rc011-android-review/android-homologation-report.json \
+            --output-report-md /tmp/rc011-android-review/android-homologation-report.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-android-review-${{ github.run_id }}
+          path: /tmp/rc011-android-review
+          retention-days: 90
+      - name: Record review package
+        shell: bash
+        run: |
+          READY=$(jq -r '.readyForAndroidReview' /tmp/rc011-android-review/android-gate-proposal.json)
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body "Pacote de revisão Android gerado no run \`${{ github.run_id }}\`.\n\nPronto para revisão Android: **$READY**.\n\nNenhum gate global foi aprovado automaticamente.\n\nTehkné Solutions"
