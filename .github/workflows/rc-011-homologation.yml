@@ -40,6 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
       APP_VARIANT: rc011
       EXPO_PUBLIC_APP_ENV: rc-0-11
       EXPO_PUBLIC_APP_VERSION: 0.11.0
@@ -77,12 +81,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "${{ inputs.source_commit }}" =~ ^[a-fA-F0-9]{40}$ ]]
-          if [[ "${{ inputs.action }}" == collect-* && -z "${{ inputs.build_id }}" ]]; then
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          if [[ "$INPUT_ACTION" == collect-* && -z "$INPUT_BUILD_ID" ]]; then
             echo "build_id é obrigatório para coleta." >&2
             exit 1
           fi
-          if [[ "${{ inputs.action }}" == rollback-ota-validation && -z "${{ inputs.update_group_id }}" ]]; then
+          if [[ "$INPUT_ACTION" == rollback-ota-validation && -z "$INPUT_UPDATE_GROUP_ID" ]]; then
             echo "update_group_id é obrigatório para rollback." >&2
             exit 1
           fi
@@ -95,6 +99,11 @@ jobs:
     environment: rc-011-homologation
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+      INPUT_MESSAGE: ${{ inputs.message }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
       APP_VARIANT: rc011
       EXPO_PUBLIC_APP_ENV: rc-0-11
       EXPO_PUBLIC_APP_VERSION: 0.11.0
@@ -114,11 +123,11 @@ jobs:
 
       - name: Inspect EAS build
         if: startsWith(inputs.action, 'collect-')
-        run: npx eas-cli@latest build:view "${{ inputs.build_id }}" --json > /tmp/rc011/build-view.json
+        run: npx eas-cli@latest build:view "$INPUT_BUILD_ID" --json > /tmp/rc011/build-view.json
 
       - name: Download EAS build
         if: startsWith(inputs.action, 'collect-')
-        run: npx eas-cli@latest build:download --build-id "${{ inputs.build_id }}" --json --non-interactive > /tmp/rc011/build-download.json
+        run: npx eas-cli@latest build:download --build-id "$INPUT_BUILD_ID" --json --non-interactive > /tmp/rc011/build-download.json
 
       - name: Capture Android build metadata
         if: inputs.action == 'collect-android-build'
@@ -128,7 +137,7 @@ jobs:
             --view /tmp/rc011/build-view.json \
             --download /tmp/rc011/build-download.json \
             --output /tmp/rc011/android-build-capture.json \
-            --source-commit "${{ inputs.source_commit }}"
+            --source-commit "$INPUT_SOURCE_COMMIT"
 
       - name: Capture iOS build metadata
         if: inputs.action == 'collect-ios-build'
@@ -138,32 +147,32 @@ jobs:
             --view /tmp/rc011/build-view.json \
             --download /tmp/rc011/build-download.json \
             --output /tmp/rc011/ios-build-capture.json \
-            --source-commit "${{ inputs.source_commit }}"
+            --source-commit "$INPUT_SOURCE_COMMIT"
 
       - name: Publish OTA validation update
         if: inputs.action == 'publish-ota-validation'
         run: |
           npx eas-cli@latest update --channel rc-0-11 --environment preview \
-            --message "${{ inputs.message }}" --platform all --json --non-interactive \
+            --message "$INPUT_MESSAGE" --platform all --json --non-interactive \
             > /tmp/rc011/ota-publish.json
           node scripts/collect-eas-update-metadata.mjs \
             --action publish \
             --input /tmp/rc011/ota-publish.json \
             --output /tmp/rc011/ota-publish-capture.json \
-            --source-commit "${{ inputs.source_commit }}"
+            --source-commit "$INPUT_SOURCE_COMMIT"
 
       - name: Roll back OTA validation update
         if: inputs.action == 'rollback-ota-validation'
         run: |
-          npx eas-cli@latest update:rollback "${{ inputs.update_group_id }}" \
-            --message "${{ inputs.message }}" --platform all --json --non-interactive \
+          npx eas-cli@latest update:rollback "$INPUT_UPDATE_GROUP_ID" \
+            --message "$INPUT_MESSAGE" --platform all --json --non-interactive \
             > /tmp/rc011/ota-rollback.json
           node scripts/collect-eas-update-metadata.mjs \
             --action rollback \
             --input /tmp/rc011/ota-rollback.json \
-            --source-group-id "${{ inputs.update_group_id }}" \
+            --source-group-id "$INPUT_UPDATE_GROUP_ID" \
             --output /tmp/rc011/ota-rollback-capture.json \
-            --source-commit "${{ inputs.source_commit }}"
+            --source-commit "$INPUT_SOURCE_COMMIT"
 
       - name: Generate decision package
         if: inputs.action == 'package-decision'
@@ -183,7 +192,7 @@ jobs:
       - name: Record protected operation
         run: |
           echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
-          echo "Operação: **${{ inputs.action }}**" >> "$GITHUB_STEP_SUMMARY"
-          echo "Commit: \`${{ inputs.source_commit }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Operação: **$INPUT_ACTION**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`$INPUT_SOURCE_COMMIT\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Os artefatos exigem revisão e versionamento por PR antes de alterar gates." >> "$GITHUB_STEP_SUMMARY"
           echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
