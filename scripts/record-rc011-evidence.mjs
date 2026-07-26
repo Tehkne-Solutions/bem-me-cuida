@@ -22,8 +22,10 @@ function safeText(value, field) {
 
 const args = argsMap(process.argv.slice(2));
 const kind = args.kind;
-if (!['device', 'suite'].includes(kind)) throw new Error('--kind deve ser device ou suite.');
-if (!args.id || !args.status || !args.output) throw new Error('Use --id, --status e --output.');
+const allowedKinds = ['device', 'suite', 'ota-publish', 'ota-rollback'];
+if (!allowedKinds.includes(kind)) throw new Error(`--kind deve ser ${allowedKinds.join(', ')}.`);
+if (!args.status || !args.output) throw new Error('Use --status e --output.');
+if (['device', 'suite'].includes(kind) && !args.id) throw new Error('--id é obrigatório para device e suite.');
 const allowedStatuses = ['pending', 'passed', 'failed', 'blocked', 'skipped'];
 if (!allowedStatuses.includes(args.status)) throw new Error(`Status inválido: ${args.status}.`);
 if (args.status === 'passed' && !args['evidence-url']?.startsWith('https://')) {
@@ -33,25 +35,50 @@ if (args['evidence-url'] && !args['evidence-url'].startsWith('https://')) {
   throw new Error('A URL de evidência deve usar HTTPS.');
 }
 
-const source = resolve(args.source ?? (kind === 'device'
+const defaultSource = kind === 'device'
   ? 'release/rc-0.11.0/device-matrix.json'
-  : 'release/rc-0.11.0/test-results.json'));
+  : kind === 'suite'
+    ? 'release/rc-0.11.0/test-results.json'
+    : 'release/rc-0.11.0/ota-validation.json';
+const source = resolve(args.source ?? defaultSource);
 const document = JSON.parse(readFileSync(source, 'utf8'));
-const collectionName = kind === 'device' ? 'profiles' : 'suites';
-const items = document[collectionName];
-if (!Array.isArray(items)) throw new Error(`Coleção ${collectionName} ausente em ${source}.`);
-const index = items.findIndex((item) => item.id === args.id);
-if (index < 0) throw new Error(`Identificador não encontrado: ${args.id}.`);
+const validatedAt = new Date().toISOString();
+const validatedBy = safeText(args.operator, 'operator') ?? 'operador-autorizado';
+const notes = safeText(args.notes, 'notes');
 
-items[index] = {
-  ...items[index],
-  status: args.status,
-  evidenceUrl: args['evidence-url'] ?? null,
-  notes: safeText(args.notes, 'notes'),
-  validatedAt: new Date().toISOString(),
-  validatedBy: safeText(args.operator, 'operator') ?? 'operador-autorizado',
-};
-document.updatedAt = new Date().toISOString();
+if (kind === 'device' || kind === 'suite') {
+  const collectionName = kind === 'device' ? 'profiles' : 'suites';
+  const items = document[collectionName];
+  if (!Array.isArray(items)) throw new Error(`Coleção ${collectionName} ausente em ${source}.`);
+  const index = items.findIndex((item) => item.id === args.id);
+  if (index < 0) throw new Error(`Identificador não encontrado: ${args.id}.`);
+  items[index] = {
+    ...items[index],
+    status: args.status,
+    evidenceUrl: args['evidence-url'] ?? null,
+    notes,
+    validatedAt,
+    validatedBy,
+  };
+} else {
+  const key = kind === 'ota-publish' ? 'publish' : 'rollback';
+  const current = document[key];
+  if (!current) throw new Error(`Registro OTA ${key} ausente.`);
+  if (args.status === 'passed') {
+    if (key === 'publish' && !current.groupId) throw new Error('A publicação OTA precisa ser capturada antes da aprovação.');
+    if (key === 'rollback' && !current.rollbackGroupId) throw new Error('O rollback OTA precisa ser capturado antes da aprovação.');
+  }
+  document[key] = {
+    ...current,
+    status: args.status,
+    evidenceUrl: args['evidence-url'] ?? null,
+    notes,
+    validatedAt,
+    validatedBy,
+  };
+}
+
+document.updatedAt = validatedAt;
 document.generatedBy = 'Tehkné Solutions';
 document.privacy = {
   ...(document.privacy ?? {}),
@@ -62,6 +89,6 @@ document.privacy = {
 const output = resolve(args.output);
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
-console.log(`Evidência ${kind}/${args.id} registrada em ${output}.`);
+console.log(`Evidência ${kind}${args.id ? `/${args.id}` : ''} registrada em ${output}.`);
 console.log('O arquivo gerado exige revisão antes de substituir a fonte versionada.');
 console.log('Tehkné Solutions');
