@@ -43,16 +43,50 @@ RC011_CYCLE_STATUS
 RC011_MILESTONE_DONE
 RC011_BLOCKER_COUNT
 RC011_FREEZE_READY
+RC011_BACKLOG_BLOCKED
 RC011_SCOPE_PENDING
 RC011_EXPERIMENTS_RUNNING
 RC011_REQUIRED_GATES
 RC011_PASSED_GATES
+RC011_CYCLE_EVIDENCE_URL
 RC011_AUTH_CALLBACKS
 RC011_AUTH_CALLBACKS_CONFIGURED
-RC011_CYCLE_EVIDENCE_URL
 ```
 
 Use os valores reais aprovados pelo console operacional. Não preencha gates como aprovados sem evidência.
+
+### Escopo de repositório
+
+As variables públicas necessárias aos jobs de validação são cadastradas também no escopo do repositório:
+
+```text
+EAS_PROJECT_ID
+RC011_SUPABASE_URL
+RC011_SUPABASE_PUBLISHABLE_KEY
+RC011_CYCLE_STATUS
+RC011_MILESTONE_DONE
+RC011_BLOCKER_COUNT
+RC011_FREEZE_READY
+RC011_BACKLOG_BLOCKED
+RC011_SCOPE_PENDING
+RC011_EXPERIMENTS_RUNNING
+RC011_REQUIRED_GATES
+RC011_PASSED_GATES
+RC011_CYCLE_EVIDENCE_URL
+```
+
+Isso é necessário porque os jobs públicos de preflight executam antes de entrar nos environments protegidos. São valores públicos e operacionais; nenhum secret é duplicado nesse escopo.
+
+### Escopo dos environments
+
+As mesmas variables são cadastradas nos environments correspondentes. O environment de homologação também recebe:
+
+```text
+RC011_AUTH_CALLBACKS
+RC011_AUTH_CALLBACKS_CONFIGURED
+```
+
+O `EXPO_TOKEN` permanece somente como secret dos environments.
 
 ## 3. Executar no Windows
 
@@ -107,35 +141,34 @@ RC011_AUTH_CALLBACKS=bemmecuida-rc011://auth/callback,bemmecuida-rc011://reset-p
 RC011_AUTH_CALLBACKS_CONFIGURED=true
 ```
 
-## 7. Criar a issue operacional
+## 7. Usar a issue operacional
 
-Use o formulário:
+A trilha oficial é a issue #24. Ela deve conter apenas estados, comandos controlados e links HTTPS de evidência.
+
+Comandos de consulta:
 
 ```text
-Configurar infraestrutura da RC 0.11
+/rc011 help
+/rc011 status
 ```
 
-A issue deve conter apenas checkboxes e links HTTPS de evidência. Nunca inclua valores de secrets.
+O guia completo está em `docs/RC-0.11.0-COMMAND-CENTER.md`.
 
 ## 8. Capturar a prontidão externa
 
-Execute o workflow:
+Pela interface do Actions, execute:
 
 ```text
 RC 0.11 Infrastructure Readiness
 ```
 
-Parâmetros:
+Ou, após o Sprint 19, use na issue #24:
 
 ```text
-action=capture
-source_commit=<SHA aprovado>
-build_evidence_url=https://...
-homologation_evidence_url=https://...
-services_evidence_url=https://...
+/rc011 capture-infrastructure <source_sha> <build_evidence_https> <homologation_evidence_https> <services_evidence_https>
 ```
 
-O workflow deve produzir:
+A captura exige permissão administrativa e produz:
 
 ```text
 rc011-infrastructure-decision-<RUN_ID>
@@ -143,29 +176,16 @@ rc011-infrastructure-decision-<RUN_ID>
 
 ## 9. Inspecionar antes do PR
 
-Execute:
-
 ```text
-RC 0.11 Evidence PR
-```
-
-Com:
-
-```text
-action=inspect
-infrastructure_run_id=<RUN_ID>
-source_commit=<SHA aprovado>
-tracking_issue=<issue opcional>
+/rc011 evidence-inspect <RUN_ID> <source_sha>
 ```
 
 A inspeção falha quando qualquer escopo estiver `pending` ou `blocked`.
 
 ## 10. Abrir o PR de evidências
 
-Repita o workflow com:
-
 ```text
-action=open-pr
+/rc011 evidence-pr <RUN_ID> <source_sha>
 ```
 
 O workflow:
@@ -176,7 +196,7 @@ O workflow:
 - altera somente o registro oficial de infraestrutura;
 - abre o PR;
 - dispara o CI da branch;
-- comenta a issue operacional, quando informada.
+- comenta a issue operacional.
 
 ## 11. Revisar e mesclar
 
@@ -194,11 +214,18 @@ Antes do merge, confirme:
 
 Após o merge do PR de evidências:
 
-1. execute `RC 0.11 Build` com `action=validate`;
-2. execute com `action=build-android`;
-3. aguarde o EAS concluir;
-4. use `RC 0.11 Homologation` para capturar o build;
-5. registre build ID, número, URL e SHA-256 por PR.
+```text
+/rc011 validate-build <source_sha> <cycle_evidence_https>
+/rc011 build-android <source_sha> <cycle_evidence_https>
+```
+
+Depois que o EAS concluir:
+
+```text
+/rc011 collect-android <source_sha> <eas_build_uuid>
+```
+
+A captura ainda precisa ser revisada e versionada por PR antes de alterar gates.
 
 ## Rollback operacional
 
@@ -206,7 +233,7 @@ Quando uma captura estiver errada:
 
 - não edite a evidência para parecer aprovada;
 - marque o escopo como `blocked` em novo PR;
-- revogue ou rotacione o token comprometido, se aplicável;
+- revogue ou rotacione o token comprometido, quando aplicável;
 - corrija o environment;
 - execute nova captura com novo run ID;
 - preserve o histórico anterior.

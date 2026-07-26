@@ -1,0 +1,211 @@
+name: RC 0.11 Command Center
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: rc011-command-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  command:
+    if: >-
+      github.event.issue.number == 24 &&
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/rc011') &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RC011_COMMENT_BODY: ${{ github.event.comment.body }}
+      RC011_ACTOR: ${{ github.actor }}
+      RC011_ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+
+      - name: Parse command
+        id: parse
+        run: node scripts/parse-rc011-issue-command.mjs --output "$GITHUB_OUTPUT"
+
+      - name: Resolve repository permission
+        id: permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$RC011_ACTOR/permission" --jq '.user.permission' 2>/dev/null || echo none)
+          echo "permission=$PERMISSION" >> "$GITHUB_OUTPUT"
+
+      - name: Authorize command
+        env:
+          REQUIRED_PRIVILEGE: ${{ steps.parse.outputs.privilege }}
+          REPOSITORY_PERMISSION: ${{ steps.permission.outputs.permission }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REQUIRED_PRIVILEGE" in
+            admin)
+              [[ "$REPOSITORY_PERMISSION" == "admin" ]]
+              ;;
+            write)
+              [[ "$REPOSITORY_PERMISSION" == "admin" || "$REPOSITORY_PERMISSION" == "maintain" || "$REPOSITORY_PERMISSION" == "write" ]]
+              ;;
+            *)
+              echo "Privilégio desconhecido." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Show help
+        if: steps.parse.outputs.command == 'help'
+        shell: bash
+        run: |
+          cat > /tmp/rc011-help.md <<'EOF'
+          ## Comandos da RC 0.11
+
+          Use uma única linha por comentário.
+
+          ```text
+          /rc011 status
+          /rc011 validate-infrastructure <source_sha>
+          /rc011 capture-infrastructure <source_sha> <build_evidence_https> <homologation_evidence_https> <services_evidence_https>
+          /rc011 evidence-inspect <infrastructure_run_id> <source_sha>
+          /rc011 evidence-pr <infrastructure_run_id> <source_sha>
+          /rc011 validate-build <source_sha> <cycle_evidence_https>
+          /rc011 build-android <source_sha> <cycle_evidence_https>
+          /rc011 collect-android <source_sha> <eas_build_uuid>
+          /rc011 package-decision <source_sha>
+          ```
+
+          `capture-infrastructure`, `evidence-pr`, `build-android` e `collect-android` exigem permissão administrativa. Os demais exigem permissão de escrita.
+
+          Nunca inclua tokens, senhas, chaves administrativas ou dados pessoais/clínicos.
+
+          **Tehkné Solutions**
+          EOF
+          gh issue comment "$RC011_ISSUE_NUMBER" --body-file /tmp/rc011-help.md
+
+      - name: Publish factual status
+        if: steps.parse.outputs.command == 'status'
+        shell: bash
+        run: |
+          node scripts/generate-rc011-issue-status.mjs --output /tmp/rc011-status.md
+          gh issue comment "$RC011_ISSUE_NUMBER" --body-file /tmp/rc011-status.md
+
+      - name: Dispatch protected operation
+        if: steps.parse.outputs.command != 'help' && steps.parse.outputs.command != 'status'
+        env:
+          COMMAND: ${{ steps.parse.outputs.command }}
+          SOURCE_COMMIT: ${{ steps.parse.outputs.sourceCommit }}
+          RUN_ID: ${{ steps.parse.outputs.runId }}
+          BUILD_ID: ${{ steps.parse.outputs.buildId }}
+          BUILD_EVIDENCE_URL: ${{ steps.parse.outputs.buildEvidenceUrl }}
+          HOMOLOGATION_EVIDENCE_URL: ${{ steps.parse.outputs.homologationEvidenceUrl }}
+          SERVICES_EVIDENCE_URL: ${{ steps.parse.outputs.servicesEvidenceUrl }}
+          CYCLE_EVIDENCE_URL: ${{ steps.parse.outputs.cycleEvidenceUrl }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOW=''
+          OPERATION=''
+
+          case "$COMMAND" in
+            validate-infrastructure)
+              WORKFLOW='rc-011-infrastructure-readiness.yml'
+              OPERATION='validate'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=validate \
+                -f source_commit="$SOURCE_COMMIT"
+              ;;
+            capture-infrastructure)
+              WORKFLOW='rc-011-infrastructure-readiness.yml'
+              OPERATION='capture'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=capture \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f build_evidence_url="$BUILD_EVIDENCE_URL" \
+                -f homologation_evidence_url="$HOMOLOGATION_EVIDENCE_URL" \
+                -f services_evidence_url="$SERVICES_EVIDENCE_URL"
+              ;;
+            evidence-inspect)
+              WORKFLOW='rc-011-evidence-pr.yml'
+              OPERATION='inspect'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=inspect \
+                -f infrastructure_run_id="$RUN_ID" \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            evidence-pr)
+              WORKFLOW='rc-011-evidence-pr.yml'
+              OPERATION='open-pr'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=open-pr \
+                -f infrastructure_run_id="$RUN_ID" \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            validate-build)
+              WORKFLOW='rc-011-build.yml'
+              OPERATION='validate'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=validate \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f cycle_evidence_url="$CYCLE_EVIDENCE_URL"
+              ;;
+            build-android)
+              WORKFLOW='rc-011-build.yml'
+              OPERATION='build-android'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=build-android \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f cycle_evidence_url="$CYCLE_EVIDENCE_URL"
+              ;;
+            collect-android)
+              WORKFLOW='rc-011-homologation.yml'
+              OPERATION='collect-android-build'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=collect-android-build \
+                -f source_commit="$SOURCE_COMMIT" \
+                -f build_id="$BUILD_ID"
+              ;;
+            package-decision)
+              WORKFLOW='rc-011-homologation.yml'
+              OPERATION='package-decision'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=package-decision \
+                -f source_commit="$SOURCE_COMMIT"
+              ;;
+            *)
+              echo "Comando não mapeado." >&2
+              exit 1
+              ;;
+          esac
+
+          cat > /tmp/rc011-dispatch.md <<EOF
+          ## Operação RC 0.11 aceita
+
+          - Comando: \`$COMMAND\`
+          - Workflow: \`$WORKFLOW\`
+          - Operação: \`$OPERATION\`
+          - Commit de origem: \`$SOURCE_COMMIT\`
+          - Solicitante: \`$RC011_ACTOR\`
+
+          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado foi marcado como aprovado por este comentário.
+
+          [Abrir GitHub Actions](https://github.com/$GITHUB_REPOSITORY/actions)
+
+          **Tehkné Solutions**
+          EOF
+          gh issue comment "$RC011_ISSUE_NUMBER" --body-file /tmp/rc011-dispatch.md

@@ -4,6 +4,21 @@
   "repository": "Tehkne-Solutions/bem-me-cuida",
   "status": "pending",
   "sourceCommit": null,
+  "repositoryVariables": [
+    "EAS_PROJECT_ID",
+    "RC011_SUPABASE_URL",
+    "RC011_SUPABASE_PUBLISHABLE_KEY",
+    "RC011_CYCLE_STATUS",
+    "RC011_MILESTONE_DONE",
+    "RC011_BLOCKER_COUNT",
+    "RC011_FREEZE_READY",
+    "RC011_BACKLOG_BLOCKED",
+    "RC011_SCOPE_PENDING",
+    "RC011_EXPERIMENTS_RUNNING",
+    "RC011_REQUIRED_GATES",
+    "RC011_PASSED_GATES",
+    "RC011_CYCLE_EVIDENCE_URL"
+  ],
   "environments": [
     {
       "name": "rc-011-build",
@@ -19,10 +34,12 @@
         "RC011_MILESTONE_DONE",
         "RC011_BLOCKER_COUNT",
         "RC011_FREEZE_READY",
+        "RC011_BACKLOG_BLOCKED",
         "RC011_SCOPE_PENDING",
         "RC011_EXPERIMENTS_RUNNING",
         "RC011_REQUIRED_GATES",
-        "RC011_PASSED_GATES"
+        "RC011_PASSED_GATES",
+        "RC011_CYCLE_EVIDENCE_URL"
       ],
       "status": "pending"
     },
@@ -40,6 +57,7 @@
         "RC011_MILESTONE_DONE",
         "RC011_BLOCKER_COUNT",
         "RC011_FREEZE_READY",
+        "RC011_BACKLOG_BLOCKED",
         "RC011_SCOPE_PENDING",
         "RC011_EXPERIMENTS_RUNNING",
         "RC011_REQUIRED_GATES",

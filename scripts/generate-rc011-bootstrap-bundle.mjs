@@ -13,6 +13,9 @@ const fail = (message) => {
 
 if (manifest.release !== '0.11.0-rc.1') fail('release divergente.');
 if (manifest.repository !== 'Tehkne-Solutions/bem-me-cuida') fail('repositório divergente.');
+if (!Array.isArray(manifest.repositoryVariables) || manifest.repositoryVariables.length === 0) {
+  fail('repositoryVariables são obrigatórias para os jobs públicos de validação.');
+}
 if (!Array.isArray(manifest.environments) || manifest.environments.length !== 2) {
   fail('dois environments são obrigatórios.');
 }
@@ -28,6 +31,24 @@ for (const environment of manifest.environments) {
   }
 }
 
+for (const requiredVariable of [
+  'EAS_PROJECT_ID',
+  'RC011_SUPABASE_URL',
+  'RC011_SUPABASE_PUBLISHABLE_KEY',
+  'RC011_CYCLE_STATUS',
+  'RC011_MILESTONE_DONE',
+  'RC011_BLOCKER_COUNT',
+  'RC011_FREEZE_READY',
+  'RC011_BACKLOG_BLOCKED',
+  'RC011_SCOPE_PENDING',
+  'RC011_EXPERIMENTS_RUNNING',
+  'RC011_REQUIRED_GATES',
+  'RC011_PASSED_GATES',
+  'RC011_CYCLE_EVIDENCE_URL',
+]) {
+  if (!manifest.repositoryVariables.includes(requiredVariable)) fail(`repositoryVariable ausente: ${requiredVariable}`);
+}
+
 const quoteShell = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 const shell = [
   '#!/usr/bin/env bash',
@@ -37,6 +58,7 @@ const shell = [
   `REPOSITORY=${quoteShell(manifest.repository)}`,
   'gh auth status',
   '',
+  '# Variables públicas no escopo do repositório para jobs de validação sem environment.',
 ];
 
 const powershell = [
@@ -47,7 +69,17 @@ const powershell = [
   `$Repository = '${manifest.repository}'`,
   'gh auth status',
   '',
+  '# Variables públicas no escopo do repositório para jobs de validação sem environment.',
 ];
+
+for (const variable of manifest.repositoryVariables) {
+  shell.push(`: "\${${variable}:?Defina ${variable} no ambiente local antes de executar}"`);
+  shell.push(`gh variable set ${variable} --body "\${${variable}}"`);
+  powershell.push(`if (-not $env:${variable}) { throw 'Defina ${variable} antes de executar.' }`);
+  powershell.push(`gh variable set ${variable} --body $env:${variable}`);
+}
+shell.push('');
+powershell.push('');
 
 for (const environment of manifest.environments) {
   shell.push(`# Environment: ${environment.name}`);
@@ -99,6 +131,12 @@ const checklist = [
   '7. Revisar o artefato consolidado e abrir o PR de evidências.',
   '8. Somente após o registro oficial ficar `ready`, solicitar os builds.',
   '',
+  '## Variables do repositório',
+  '',
+  'Estas variables públicas alimentam os jobs de validação que executam antes de entrar nos environments protegidos:',
+  '',
+  ...manifest.repositoryVariables.map((variable) => `- \`${variable}\``),
+  '',
   '## Environments',
   '',
   ...manifest.environments.flatMap((environment) => [
@@ -130,6 +168,7 @@ const bundle = {
   repository: manifest.repository,
   generatedAt: new Date().toISOString(),
   files: ['bootstrap.sh', 'bootstrap.ps1', 'CHECKLIST.md'],
+  repositoryVariableCount: manifest.repositoryVariables.length,
   secretValuesIncluded: false,
   recommendation: 'operator_action_required',
   generatedBy: 'Tehkné Solutions',
@@ -148,6 +187,7 @@ write('CHECKLIST.md', checklist);
 write('bundle.json', `${JSON.stringify(bundle, null, 2)}\n`);
 
 console.log(`Pacote de bootstrap gerado em ${outputDir}.`);
+console.log(`- ${manifest.repositoryVariables.length} variables públicas também serão cadastradas no repositório.`);
 console.log('- Nenhum valor de secret foi incorporado.');
 console.log('- A execução exige revisão humana e gh autenticado.');
 console.log('- Tehkné Solutions');

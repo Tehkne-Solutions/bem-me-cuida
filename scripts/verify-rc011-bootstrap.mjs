@@ -12,6 +12,22 @@ const ok = (message) => notices.push(message);
 const read = (path) => readFileSync(join(root, path), 'utf8');
 const readJson = (path) => JSON.parse(read(path));
 
+const requiredRepositoryVariables = [
+  'EAS_PROJECT_ID',
+  'RC011_SUPABASE_URL',
+  'RC011_SUPABASE_PUBLISHABLE_KEY',
+  'RC011_CYCLE_STATUS',
+  'RC011_MILESTONE_DONE',
+  'RC011_BLOCKER_COUNT',
+  'RC011_FREEZE_READY',
+  'RC011_BACKLOG_BLOCKED',
+  'RC011_SCOPE_PENDING',
+  'RC011_EXPERIMENTS_RUNNING',
+  'RC011_REQUIRED_GATES',
+  'RC011_PASSED_GATES',
+  'RC011_CYCLE_EVIDENCE_URL',
+];
+
 if (!['structure', 'bundle'].includes(mode)) fail(`modo inválido: ${mode}`);
 if (!existsSync(join(root, manifestPath))) fail(`manifesto ausente: ${manifestPath}`);
 
@@ -27,6 +43,11 @@ if (!failures.length) {
   if (manifest.privacy?.containsClinicalData !== false) fail('declaração de dados clínicos ausente.');
   if (manifest.privacy?.containsSecrets !== false) fail('declaração de secrets ausente.');
 
+  if (!Array.isArray(manifest.repositoryVariables)) fail('repositoryVariables ausentes.');
+  for (const variable of requiredRepositoryVariables) {
+    if (!manifest.repositoryVariables?.includes(variable)) fail(`repositoryVariable ausente: ${variable}`);
+  }
+
   const environments = new Map((manifest.environments ?? []).map((item) => [item.name, item]));
   for (const name of ['rc-011-build', 'rc-011-homologation']) {
     const environment = environments.get(name);
@@ -38,8 +59,11 @@ if (!failures.length) {
     if (!environment.protectionRequired || !environment.reviewersRequired) {
       fail(`${name} precisa exigir proteção e revisores.`);
     }
-    if (!Array.isArray(environment.variables) || environment.variables.length < 10) {
+    if (!Array.isArray(environment.variables) || environment.variables.length < 12) {
       fail(`${name} possui lista insuficiente de variables.`);
+    }
+    for (const variable of requiredRepositoryVariables) {
+      if (!environment.variables.includes(variable)) fail(`${name} sem variable exigida: ${variable}`);
     }
     if (!['pending', 'ready', 'blocked'].includes(environment.status)) fail(`status inválido em ${name}.`);
   }
@@ -110,9 +134,15 @@ if (mode === 'bundle') {
     }
     if (!shell.includes('gh secret set EXPO_TOKEN --env rc-011-build')) fail('bootstrap shell não cadastra secret de build por entrada segura.');
     if (!powershell.includes('gh secret set EXPO_TOKEN --env rc-011-homologation')) fail('bootstrap PowerShell não cadastra secret de homologação por entrada segura.');
+    for (const variable of requiredRepositoryVariables) {
+      if (!shell.includes(`gh variable set ${variable} --body`)) fail(`bootstrap shell não cadastra repository variable: ${variable}`);
+      if (!powershell.includes(`gh variable set ${variable} --body`)) fail(`bootstrap PowerShell não cadastra repository variable: ${variable}`);
+    }
+    if (!checklist.includes('Variables do repositório')) fail('checklist não explica o escopo das repository variables.');
+    if (bundle.repositoryVariableCount !== requiredRepositoryVariables.length) fail('bundle possui contagem incorreta de repository variables.');
     if (bundle.secretValuesIncluded !== false) fail('bundle não declara ausência de valores secretos.');
     if (bundle.generatedBy !== 'Tehkné Solutions') fail('bundle sem assinatura Tehkné Solutions.');
-    ok('Pacote gerado sem valores de secrets.');
+    ok('Pacote gerado sem valores de secrets e com variables públicas nos dois escopos.');
   }
 }
 
