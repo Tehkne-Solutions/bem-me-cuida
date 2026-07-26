@@ -25,7 +25,17 @@ jobs:
       - run: npm install
       - run: npm run config:check
       - run: npm run security:check
-      - run: npm run release:check
+      - name: Run release check
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run release:check 2>&1 | tee /tmp/release-check.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-check-failure-log
+          path: /tmp/release-check.log
+          retention-days: 1
       - name: Run TypeScript
         shell: bash
         run: |
