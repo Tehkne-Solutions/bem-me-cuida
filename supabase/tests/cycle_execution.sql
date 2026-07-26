@@ -1,5 +1,5 @@
 begin;
-select plan(62);
+select plan(61);
 
 select has_table('public','cycle_backlog_items','cycle_backlog_items existe');
 select has_table('public','cycle_objectives','cycle_objectives existe');
