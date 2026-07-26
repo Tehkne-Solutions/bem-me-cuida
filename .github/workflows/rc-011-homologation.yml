@@ -1,0 +1,189 @@
+name: RC 0.11 Homologation
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação de homologação
+        required: true
+        type: choice
+        options:
+          - validate
+          - collect-android-build
+          - collect-ios-build
+          - publish-ota-validation
+          - rollback-ota-validation
+          - package-decision
+      source_commit:
+        description: SHA aprovado da candidata
+        required: true
+        type: string
+      build_id:
+        description: Build ID do EAS para ações de coleta
+        required: false
+        type: string
+      update_group_id:
+        description: Group ID mais recente para rollback OTA
+        required: false
+        type: string
+      message:
+        description: Mensagem técnica sem dados pessoais ou clínicos
+        required: false
+        default: Homologação BemMeCuida 0.11.0-rc.1
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      CYCLE_VERSION: 0.11.0
+      CYCLE_RC_VERSION: 0.11.0-rc.1
+      CYCLE_STATUS: ${{ vars.RC011_CYCLE_STATUS }}
+      CYCLE_FREEZE_READY: ${{ vars.RC011_FREEZE_READY }}
+      CYCLE_RC_MILESTONE_DONE: ${{ vars.RC011_MILESTONE_DONE }}
+      CYCLE_BLOCKER_COUNT: ${{ vars.RC011_BLOCKER_COUNT }}
+      CYCLE_BACKLOG_BLOCKED: ${{ vars.RC011_BACKLOG_BLOCKED }}
+      CYCLE_SCOPE_CHANGES_PENDING: ${{ vars.RC011_SCOPE_PENDING }}
+      CYCLE_EXPERIMENTS_RUNNING: ${{ vars.RC011_EXPERIMENTS_RUNNING }}
+      CYCLE_REQUIRED_GATES: ${{ vars.RC011_REQUIRED_GATES }}
+      CYCLE_PASSED_GATES: ${{ vars.RC011_PASSED_GATES }}
+      CYCLE_EVIDENCE_URL: ${{ vars.RC011_CYCLE_EVIDENCE_URL }}
+      CYCLE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run cycle:rc:check
+      - run: npm run rc011:prebuild:check
+      - run: npm run rc011:homologation:structure
+      - name: Validate action inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.source_commit }}" =~ ^[a-fA-F0-9]{40}$ ]]
+          if [[ "${{ inputs.action }}" == collect-* && -z "${{ inputs.build_id }}" ]]; then
+            echo "build_id é obrigatório para coleta." >&2
+            exit 1
+          fi
+          if [[ "${{ inputs.action }}" == rollback-ota-validation && -z "${{ inputs.update_group_id }}" ]]; then
+            echo "update_group_id é obrigatório para rollback." >&2
+            exit 1
+          fi
+
+  execute:
+    needs: validate
+    if: inputs.action != 'validate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: rc-011-homologation
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: mkdir -p /tmp/rc011
+
+      - name: Inspect EAS build
+        if: startsWith(inputs.action, 'collect-')
+        run: npx eas-cli@latest build:view "${{ inputs.build_id }}" --json > /tmp/rc011/build-view.json
+
+      - name: Download EAS build
+        if: startsWith(inputs.action, 'collect-')
+        run: npx eas-cli@latest build:download --build-id "${{ inputs.build_id }}" --json --non-interactive > /tmp/rc011/build-download.json
+
+      - name: Capture Android build metadata
+        if: inputs.action == 'collect-android-build'
+        run: |
+          node scripts/collect-eas-build-metadata.mjs \
+            --platform android \
+            --view /tmp/rc011/build-view.json \
+            --download /tmp/rc011/build-download.json \
+            --output /tmp/rc011/android-build-capture.json \
+            --source-commit "${{ inputs.source_commit }}"
+
+      - name: Capture iOS build metadata
+        if: inputs.action == 'collect-ios-build'
+        run: |
+          node scripts/collect-eas-build-metadata.mjs \
+            --platform ios \
+            --view /tmp/rc011/build-view.json \
+            --download /tmp/rc011/build-download.json \
+            --output /tmp/rc011/ios-build-capture.json \
+            --source-commit "${{ inputs.source_commit }}"
+
+      - name: Publish OTA validation update
+        if: inputs.action == 'publish-ota-validation'
+        run: |
+          npx eas-cli@latest update --channel rc-0-11 --environment preview \
+            --message "${{ inputs.message }}" --platform all --json --non-interactive \
+            > /tmp/rc011/ota-publish.json
+          node scripts/collect-eas-update-metadata.mjs \
+            --action publish \
+            --input /tmp/rc011/ota-publish.json \
+            --output /tmp/rc011/ota-publish-capture.json \
+            --source-commit "${{ inputs.source_commit }}"
+
+      - name: Roll back OTA validation update
+        if: inputs.action == 'rollback-ota-validation'
+        run: |
+          npx eas-cli@latest update:rollback "${{ inputs.update_group_id }}" \
+            --message "${{ inputs.message }}" --platform all --json --non-interactive \
+            > /tmp/rc011/ota-rollback.json
+          node scripts/collect-eas-update-metadata.mjs \
+            --action rollback \
+            --input /tmp/rc011/ota-rollback.json \
+            --source-group-id "${{ inputs.update_group_id }}" \
+            --output /tmp/rc011/ota-rollback-capture.json \
+            --source-commit "${{ inputs.source_commit }}"
+
+      - name: Generate decision package
+        if: inputs.action == 'package-decision'
+        run: npm run rc011:decision:package
+
+      - name: Upload homologation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc011-${{ inputs.action }}-${{ github.run_id }}
+          path: |
+            /tmp/rc011/*.json
+            artifacts/bemmecuida-0.11.0-rc.1-decision.json
+            artifacts/bemmecuida-0.11.0-rc.1-decision.md
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record protected operation
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Operação: **${{ inputs.action }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${{ inputs.source_commit }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Os artefatos exigem revisão e versionamento por PR antes de alterar gates." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
