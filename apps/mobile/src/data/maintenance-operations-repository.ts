@@ -38,7 +38,7 @@ export type MaintenanceHotfix = {
 };
 
 export type OperationApproval = {
-  id: number;
+  id: string;
   entityType: 'hotfix' | 'ota_update' | 'retention_run';
   entityId: string;
   decision: ApprovalDecision;
@@ -193,7 +193,7 @@ export async function listOperationApprovals(entityId?: string): Promise<Operati
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row) => ({
-    id: Number(row.id),
+    id: row.id,
     entityType: row.entity_type as OperationApproval['entityType'],
     entityId: row.entity_id,
     decision: row.decision as ApprovalDecision,
