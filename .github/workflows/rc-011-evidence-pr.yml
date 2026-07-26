@@ -1,0 +1,159 @@
+name: RC 0.11 Evidence PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Inspecionar o artefato ou abrir o PR de evidências
+        required: true
+        type: choice
+        options:
+          - inspect
+          - open-pr
+      infrastructure_run_id:
+        description: Run ID do workflow RC 0.11 Infrastructure Readiness
+        required: true
+        type: string
+      source_commit:
+        description: SHA de 40 caracteres usado na captura
+        required: true
+        type: string
+      tracking_issue:
+        description: Número da issue operacional, quando existir
+        required: false
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_RUN_ID: ${{ inputs.infrastructure_run_id }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_ACTION" == "inspect" || "$INPUT_ACTION" == "open-pr" ]]
+          [[ "$INPUT_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          if [[ -n "$INPUT_TRACKING_ISSUE" ]]; then
+            [[ "$INPUT_TRACKING_ISSUE" =~ ^[0-9]+$ ]]
+          fi
+
+  prepare:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_RUN_ID: ${{ inputs.infrastructure_run_id }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Download consolidated infrastructure artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-evidence
+          gh run download "$INPUT_RUN_ID" \
+            --name "rc011-infrastructure-decision-$INPUT_RUN_ID" \
+            --dir /tmp/rc011-evidence
+          test -f /tmp/rc011-evidence/infrastructure-readiness.updated.json
+      - name: Validate captured infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/rc011-evidence/infrastructure-readiness.updated.json \
+            release/rc-0.11.0/infrastructure-readiness.json
+          RC011_INFRASTRUCTURE_PATH=release/rc-0.11.0/infrastructure-readiness.json \
+            npm run rc011:infrastructure:external
+          npm run rc011:infrastructure:report
+          npm run release:check
+      - name: Upload inspected evidence
+        if: inputs.action == 'inspect'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc011-evidence-inspection-${{ github.run_id }}
+          path: |
+            release/rc-0.11.0/infrastructure-readiness.json
+            artifacts/bemmecuida-0.11.0-rc.1-infrastructure.json
+            artifacts/bemmecuida-0.11.0-rc.1-infrastructure.md
+          retention-days: 90
+      - name: Create evidence branch and pull request
+        if: inputs.action == 'open-pr'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-infrastructure-$INPUT_RUN_ID"
+          git config user.name "Tehkné Solutions Automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add release/rc-0.11.0/infrastructure-readiness.json
+          git commit -m "chore(rc011): registrar evidências da infraestrutura externa"
+          git push origin "$BRANCH"
+
+          cat > /tmp/pr-body.md <<EOF
+          ## Evidência externa da RC 0.11.0-rc.1
+
+          Esta alteração aplica a captura consolidada do workflow de prontidão externa.
+
+          - Run de infraestrutura: \`$INPUT_RUN_ID\`
+          - Commit de origem: \`$INPUT_SOURCE_COMMIT\`
+          - Escopos exigidos: build, homologação e serviços externos
+          - Validação executada: \`rc011:infrastructure:external\`
+          - Secrets persistidos: não
+          - Dados pessoais ou clínicos: não
+
+          Após o merge, os workflows de build e homologação podem avançar para a próxima camada de gates. O Supabase e os controles do ciclo continuam sendo a autoridade final.
+
+          Tehkné Solutions
+          EOF
+
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: registrar prontidão externa da RC 0.11" \
+            --body-file /tmp/pr-body.md)
+          echo "EVIDENCE_PR_URL=$PR_URL" >> "$GITHUB_ENV"
+          gh workflow run ci.yml --ref "$BRANCH"
+      - name: Link tracking issue
+        if: inputs.action == 'open-pr' && inputs.tracking_issue != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment "$INPUT_TRACKING_ISSUE" --body "PR de evidências criado: $EVIDENCE_PR_URL\n\nRun de infraestrutura: $INPUT_RUN_ID\n\nTehkné Solutions"
+      - name: Record summary
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ação: **$INPUT_ACTION**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Run de infraestrutura: \`$INPUT_RUN_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Nenhum secret foi persistido." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
