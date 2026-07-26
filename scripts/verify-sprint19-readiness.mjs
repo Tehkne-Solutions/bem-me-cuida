@@ -7,6 +7,7 @@ const notices = [];
 const fail = (message) => failures.push(message);
 const ok = (message) => notices.push(message);
 const read = (path) => readFileSync(join(root, path), 'utf8');
+const readJson = (path) => JSON.parse(read(path));
 
 const requiredFiles = [
   '.github/workflows/rc-011-command-center.yml',
@@ -85,6 +86,45 @@ if (existsSync(join(root, 'scripts/generate-rc011-issue-status.mjs'))) {
   }
   if (!status.includes('Não consulta ou revela valores de secrets')) fail('status sem declaração de privacidade operacional.');
   ok('Status usa somente registros versionados da RC.');
+}
+
+if (existsSync(join(root, 'release/rc-0.11.0/external-bootstrap.json'))) {
+  const manifest = readJson('release/rc-0.11.0/external-bootstrap.json');
+  const requiredVariables = [
+    'EAS_PROJECT_ID',
+    'RC011_SUPABASE_URL',
+    'RC011_SUPABASE_PUBLISHABLE_KEY',
+    'RC011_CYCLE_STATUS',
+    'RC011_MILESTONE_DONE',
+    'RC011_BLOCKER_COUNT',
+    'RC011_FREEZE_READY',
+    'RC011_BACKLOG_BLOCKED',
+    'RC011_SCOPE_PENDING',
+    'RC011_EXPERIMENTS_RUNNING',
+    'RC011_REQUIRED_GATES',
+    'RC011_PASSED_GATES',
+    'RC011_CYCLE_EVIDENCE_URL',
+  ];
+  for (const variable of requiredVariables) {
+    if (!manifest.repositoryVariables?.includes(variable)) fail(`manifesto sem repository variable: ${variable}`);
+    for (const environment of manifest.environments ?? []) {
+      if (!environment.variables?.includes(variable)) fail(`${environment.name} sem variable: ${variable}`);
+    }
+  }
+  if (manifest.evidence?.trackingIssue !== 24) fail('manifesto externo não está vinculado à issue #24.');
+  ok('Manifesto cobre jobs públicos e environments protegidos.');
+}
+
+if (existsSync(join(root, 'scripts/generate-rc011-bootstrap-bundle.mjs'))) {
+  const generator = read('scripts/generate-rc011-bootstrap-bundle.mjs');
+  for (const marker of [
+    'manifest.repositoryVariables',
+    'gh variable set ${variable} --body',
+    'Variables públicas no escopo do repositório',
+    'repositoryVariableCount',
+  ]) {
+    if (!generator.includes(marker)) fail(`gerador do bootstrap sem marcador: ${marker}`);
+  }
 }
 
 if (existsSync(join(root, 'package.json'))) {
