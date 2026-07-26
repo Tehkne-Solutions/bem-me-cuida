@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false
+  },
+  "profiles": [
+    {
+      "id": "android-minimum",
+      "platform": "android",
+      "class": "minimum-supported",
+      "osRange": "mínimo suportado pelo Expo SDK 57",
+      "formFactor": "phone",
+      "memoryClass": "low",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "android-mainstream",
+      "platform": "android",
+      "class": "mainstream",
+      "osRange": "versão intermediária suportada",
+      "formFactor": "phone",
+      "memoryClass": "standard",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "android-latest",
+      "platform": "android",
+      "class": "latest-supported",
+      "osRange": "versão estável mais recente homologada",
+      "formFactor": "phone",
+      "memoryClass": "high",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "android-tablet",
+      "platform": "android",
+      "class": "large-screen",
+      "osRange": "versão suportada",
+      "formFactor": "tablet",
+      "memoryClass": "standard",
+      "required": false,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "ios-minimum",
+      "platform": "ios",
+      "class": "minimum-supported",
+      "osRange": "mínimo suportado pelo Expo SDK 57",
+      "formFactor": "phone",
+      "memoryClass": "standard",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "ios-mainstream",
+      "platform": "ios",
+      "class": "mainstream",
+      "osRange": "versão intermediária suportada",
+      "formFactor": "phone",
+      "memoryClass": "standard",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "ios-latest",
+      "platform": "ios",
+      "class": "latest-supported",
+      "osRange": "versão estável mais recente homologada",
+      "formFactor": "phone",
+      "memoryClass": "high",
+      "required": true,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    },
+    {
+      "id": "ios-tablet",
+      "platform": "ios",
+      "class": "large-screen",
+      "osRange": "versão suportada",
+      "formFactor": "tablet",
+      "memoryClass": "standard",
+      "required": false,
+      "status": "pending",
+      "evidenceUrl": null,
+      "notes": null
+    }
+  ]
+}
