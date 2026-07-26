@@ -67,7 +67,9 @@ else {
   if (rc.channel !== 'rc') fail('RC deve usar canal rc.');
   if (rc.env?.APP_VARIANT !== 'rc') fail('RC deve definir APP_VARIANT=rc.');
   if (rc.env?.EXPO_PUBLIC_APP_ENV !== 'rc') fail('RC deve definir EXPO_PUBLIC_APP_ENV=rc.');
-  if (rc.env?.EXPO_PUBLIC_RELEASE_CANDIDATE !== '1') fail('RC 1 deve definir EXPO_PUBLIC_RELEASE_CANDIDATE=1.');
+  const rcNumber = rc.env?.EXPO_PUBLIC_RELEASE_CANDIDATE;
+  if (!/^[1-9]\d*$/.test(rcNumber ?? '')) fail('A RC deve definir um número positivo em EXPO_PUBLIC_RELEASE_CANDIDATE.');
+  else ok(`Perfil de release candidate ${rcNumber} preserva os controles do Sprint 09.`);
 }
 
 const configSource = read('apps/mobile/app.config.ts');

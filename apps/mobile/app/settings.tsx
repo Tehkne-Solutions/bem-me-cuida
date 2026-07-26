@@ -22,6 +22,7 @@ import {
   type AccountDeletionRequest,
   type ConsentState,
 } from '@/data/account-repository';
+import { isReleaseOperator } from '@/data/release-operations-repository';
 import {
   defaultAppSecurityPreferences,
   readAppSecurityPreferences,
@@ -30,7 +31,7 @@ import {
   type LockAfterSeconds,
 } from '@/security/account-preferences';
 import { buildAccountExport, formatAccountExport } from '@/services/account-export';
-import { colors, radius, spacing } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 const emptyConsents: ConsentState = {
   terms: false,
@@ -54,6 +55,7 @@ function deletionDate(value: AccountDeletionRequest): string {
 
 export default function SettingsScreen() {
   const { session, profile, refreshProfile, signOut } = useAuth();
+  const operatorAccess = isReleaseOperator(session);
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [consents, setConsents] = useState<ConsentState>(emptyConsents);
   const [security, setSecurity] = useState<AppSecurityPreferences>(defaultAppSecurityPreferences);
@@ -278,6 +280,13 @@ export default function SettingsScreen() {
                 label="Central da beta e feedback"
                 onPress={() => router.push('/beta-center')}
               />
+              {operatorAccess ? (
+                <SecondaryButton
+                  testID="settings-open-operator-console"
+                  label="Console operacional de releases"
+                  onPress={() => router.push('/operator-console')}
+                />
+              ) : null}
             </View>
           </Surface>
 

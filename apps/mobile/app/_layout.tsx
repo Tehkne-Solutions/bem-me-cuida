@@ -56,6 +56,7 @@ function RootNavigator() {
         <Stack.Screen name="notifications-settings" />
         <Stack.Screen name="accessibility-settings" />
         <Stack.Screen name="beta-center" />
+        <Stack.Screen name="operator-console" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />

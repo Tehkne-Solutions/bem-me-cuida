@@ -20,7 +20,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 07 implementado: central de perfil e privacidade, consentimentos opcionais, exportação integral, solicitação de exclusão e bloqueio biométrico configurável.
 - Sprint 08 implementado: notificações por categoria, horário silencioso, acessibilidade e preparação da beta fechada.
 - Sprint 09 implementado: operação da beta, feedback rastreável, observabilidade local consentida e preparação da primeira release candidate.
-- Versão atual: `0.10.0` — **RC 1**.
+- Sprint 10 implementado: console operacional com RBAC, gates, builds, triagem, auditoria, bloqueadores de promoção e preparação editorial das lojas.
+- Versão-base atual: `0.10.0` — **RC 2 (`0.10.0-rc.2`)**.
 
 ## Stack
 
@@ -44,7 +45,7 @@ bem-me-cuida/
 ├── packages/domain/           # Contratos de domínio compartilhados
 ├── supabase/migrations/       # Banco remoto e políticas RLS
 ├── docs/                      # ADRs, segurança e especificação do sprint
-├── scripts/                   # Publicação e bootstrap
+├── scripts/                   # Publicação, verificação e manifesto
 └── .github/workflows/         # CI
 ```
 
@@ -106,11 +107,14 @@ A variante beta utiliza:
 - canal EAS `beta`;
 - distribuição interna.
 
-## Release Candidate 1
+## Release Candidate 2
 
-Consulte [docs/RELEASE-CANDIDATE-01.md](docs/RELEASE-CANDIDATE-01.md).
+Consulte [docs/RELEASE-CANDIDATE-02.md](docs/RELEASE-CANDIDATE-02.md) e [docs/STORE-READINESS.md](docs/STORE-READINESS.md).
 
 ```bash
+npm run release:check
+npm run sprint10:check
+npm run supabase:push:staging
 APP_VARIANT=rc npm run config:check
 APP_VARIANT=rc npm run staging:check
 APP_VARIANT=rc npm run rc:check
@@ -120,13 +124,56 @@ npm run build:android:rc
 A variante RC utiliza:
 
 - aplicativo `BemMeCuida RC`;
-- release exibida `0.10.0-rc.1`;
+- release exibida `0.10.0-rc.2`;
 - scheme `bemmecuida-rc`;
 - Android package `com.tehknesolutions.bemmecuida.rc`;
 - canal EAS `rc`;
 - distribuição interna.
 
-O workflow E2E Android público é executado sob demanda ao adicionar a label `e2e` em um pull request. Os fluxos autenticados de check-in, plano de cuidado, diário, insights, apoio, relatórios, privacidade, notificações, acessibilidade e central da beta usam `E2E_EMAIL` e `E2E_PASSWORD` protegidos.
+Depois do build, gere um manifesto sem segredos:
+
+```bash
+RELEASE_BUILD_NUMBER=<numero> \
+RELEASE_ARTIFACT_URL=https://<artefato> \
+RELEASE_ARTIFACT_SHA256=<sha256> \
+RELEASE_MANIFEST_OUTPUT=artifacts/bemmecuida-0.10.0-rc.2.json \
+npm run release:manifest
+```
+
+## Console operacional
+
+O console é visível somente quando o token autenticado contém um papel administrativo assinado:
+
+```json
+{
+  "app_metadata": {
+    "role": "release_operator"
+  }
+}
+```
+
+Também é aceito `release_admin`. O papel deve ser atribuído fora do aplicativo, em ambiente administrativo seguro. `user_metadata` não concede acesso.
+
+O cliente não recebe permissões genéricas de escrita nas tabelas de release. Criação, gates, builds, triagem, testers, aprovação e promoção passam por RPCs auditadas no Supabase.
+
+A promoção exige:
+
+- candidata aprovada;
+- todos os gates obrigatórios aprovados;
+- build Android disponível;
+- nenhum feedback urgente ou bloqueador em aberto.
+
+## Testes E2E
+
+O workflow Android público pode ser executado sob demanda com a label `e2e`. Os fluxos autenticados comuns usam `E2E_EMAIL` e `E2E_PASSWORD`.
+
+O console operacional usa uma conta sintética separada:
+
+```bash
+E2E_OPERATOR_EMAIL=<conta-operacional> \
+E2E_OPERATOR_PASSWORD=<senha> \
+npm run e2e:operator
+```
 
 ## Publicação no GitHub
 
@@ -145,21 +192,17 @@ No Windows PowerShell, execute `./scripts/publicar-github.ps1` após autenticar 
 
 ## Segurança
 
-Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, logs ou sincronização. Dados emocionais e de saúde são tratados como sensíveis por padrão.
+Leia [SECURITY.md](SECURITY.md) antes de alterar persistência, autenticação, logs, sincronização ou operação de releases. Dados emocionais e de saúde são tratados como sensíveis por padrão.
 
-Entradas do diário são armazenadas no banco local criptografado, sincronizadas somente no escopo da conta autenticada e protegidas por RLS no Supabase. Nenhum texto do diário é enviado a modelos de IA.
+Entradas do Diário são armazenadas no banco local criptografado, sincronizadas somente no escopo da conta autenticada e protegidas por RLS no Supabase. Nenhum texto do Diário é enviado a modelos de IA.
 
-O plano de apoio da versão `0.5.0` permanece disponível offline no aparelho e não realiza avaliação automática de risco. Contatos de confiança e orientações pessoais são sincronizados somente no escopo da conta autenticada.
+O plano de apoio permanece disponível offline no aparelho e não realiza avaliação automática de risco. Relatórios são calculados sob demanda no aparelho e não são enviados automaticamente.
 
-O relatório da versão `0.6.0` é calculado sob demanda no aparelho, não inclui textos do diário e não é salvo ou enviado automaticamente.
+Notificações usam conteúdo genérico. Preferências de acessibilidade, notificações, bloqueio e observabilidade permanecem separadas por conta e aparelho.
 
-Na versão `0.7.0`, edição e exclusão do Diário continuam local-first. Exclusões usam tombstones sincronizados para impedir que registros antigos reapareçam, e comparações de contexto são calculadas apenas no aparelho com linguagem não causal.
+Feedback da beta e adesão usam RLS. O log técnico local é desligado por padrão, limitado a eventos pré-definidos sem texto livre e nunca é enviado automaticamente. Diagnóstico e eventos só acompanham um relato quando o usuário seleciona essas opções.
 
-Na versão `0.8.0`, o titular pode revisar consentimentos opcionais, exportar todos os dados locais, registrar uma solicitação de exclusão e ativar bloqueio biométrico com intervalo configurável. A exclusão da conta é uma solicitação controlada, não uma remoção imediata executada pelo aplicativo.
-
-Na versão `0.9.0`, notificações usam conteúdo genérico, categorias opcionais e horário silencioso. Preferências de acessibilidade e notificações permanecem locais por aparelho e separadas por conta no SecureStore.
-
-Na versão `0.10.0`, feedback da beta e adesão usam RLS. O log técnico local é desligado por padrão, limitado a eventos pré-definidos sem texto livre e nunca é enviado automaticamente. Diagnóstico e eventos só acompanham um relato quando o usuário seleciona essas opções.
+A operação de releases usa RBAC por `app_metadata`, RLS, RPCs específicas e auditoria. Nenhuma chave `service_role` é distribuída no aplicativo.
 
 ## Assinatura
 

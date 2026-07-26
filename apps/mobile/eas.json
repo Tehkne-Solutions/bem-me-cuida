@@ -53,7 +53,7 @@
       "env": {
         "APP_VARIANT": "rc",
         "EXPO_PUBLIC_APP_ENV": "rc",
-        "EXPO_PUBLIC_RELEASE_CANDIDATE": "1"
+        "EXPO_PUBLIC_RELEASE_CANDIDATE": "2"
       }
     },
     "e2e-test": {
