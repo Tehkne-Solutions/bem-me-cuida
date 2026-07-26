@@ -42,6 +42,7 @@ jobs:
       - run: npm run governance:report
       - run: npm run cycle:report
       - run: npm run rc011:validation:report
+      - run: npm run rc011:gates:payload
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:
