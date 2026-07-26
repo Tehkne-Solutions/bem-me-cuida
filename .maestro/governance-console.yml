@@ -1,0 +1,61 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Console executivo de governança
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_OPERATOR_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_OPERATOR_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-governance-console
+    direction: DOWN
+- tapOn:
+    id: settings-open-governance-console
+- assertVisible:
+    id: governance-console-title
+- scrollUntilVisible:
+    element:
+      id: governance-slo-service-key
+    direction: DOWN
+- assertVisible:
+    id: governance-upsert-slo
+- assertVisible:
+    id: governance-postmortem-title
+- scrollUntilVisible:
+    element:
+      id: governance-estimated-cost
+    direction: DOWN
+- assertVisible:
+    id: governance-record-cost
+- scrollUntilVisible:
+    element:
+      id: governance-maintenance-title
+    direction: DOWN
+- assertVisible:
+    id: governance-create-maintenance
+- scrollUntilVisible:
+    element:
+      id: governance-package-name
+    direction: DOWN
+- assertVisible:
+    id: governance-create-dependency
+- scrollUntilVisible:
+    element:
+      id: governance-cycle-version
+    direction: DOWN
+- assertVisible:
+    id: governance-create-cycle
