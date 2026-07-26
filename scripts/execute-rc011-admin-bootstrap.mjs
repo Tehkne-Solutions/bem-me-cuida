@@ -123,6 +123,7 @@ try {
     const result = sanitizeBootstrapResult({
       mode,
       applied: false,
+      recommendation: plan.recommendation,
       sourceCommit: process.env.GITHUB_SHA,
       runId: process.env.GITHUB_RUN_ID,
       operations: [
