@@ -1,0 +1,99 @@
+name: RC 0.11 External Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      tracking_issue:
+        description: Issue que receberá o relatório factual
+        required: false
+        default: '27'
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rc-011-external-audit.yml'
+      - 'scripts/generate-rc011-external-audit.mjs'
+      - 'scripts/lib/rc011-external-audit.mjs'
+      - 'scripts/test-rc011-external-audit.mjs'
+      - 'release/rc-0.11.0/external-bootstrap.json'
+
+permissions:
+  actions: read
+  contents: read
+  deployments: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TRACKING_ISSUE: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || '27' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:external-audit:test
+
+      - name: Capture external configuration metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-audit
+
+          capture_api() {
+            local endpoint="$1"
+            local output="$2"
+            local data="${output}.data"
+            if gh api "$endpoint" > "$data" 2>/dev/null; then
+              jq -n --slurpfile data "$data" '{accessible:true,data:$data[0]}' > "$output"
+            else
+              jq -n '{accessible:false,data:null}' > "$output"
+            fi
+            rm -f "$data"
+          }
+
+          capture_api "repos/$GITHUB_REPOSITORY/actions/variables" /tmp/rc011-audit/repository-variables.json
+          capture_api "repos/$GITHUB_REPOSITORY/environments" /tmp/rc011-audit/environments.json
+
+          for environment in rc-011-build rc-011-homologation; do
+            capture_api "repos/$GITHUB_REPOSITORY/environments/$environment" "/tmp/rc011-audit/$environment-details.json"
+            capture_api "repos/$GITHUB_REPOSITORY/environments/$environment/variables" "/tmp/rc011-audit/$environment-variables.json"
+            capture_api "repos/$GITHUB_REPOSITORY/environments/$environment/secrets" "/tmp/rc011-audit/$environment-secrets.json"
+          done
+
+      - name: Generate external audit report
+        run: |
+          node scripts/generate-rc011-external-audit.mjs \
+            --manifest release/rc-0.11.0/external-bootstrap.json \
+            --repository-variables /tmp/rc011-audit/repository-variables.json \
+            --environments /tmp/rc011-audit/environments.json \
+            --build-details /tmp/rc011-audit/rc-011-build-details.json \
+            --build-variables /tmp/rc011-audit/rc-011-build-variables.json \
+            --build-secrets /tmp/rc011-audit/rc-011-build-secrets.json \
+            --homologation-details /tmp/rc011-audit/rc-011-homologation-details.json \
+            --homologation-variables /tmp/rc011-audit/rc-011-homologation-variables.json \
+            --homologation-secrets /tmp/rc011-audit/rc-011-homologation-secrets.json \
+            --run-id "$GITHUB_RUN_ID" \
+            --output-json artifacts/bemmecuida-0.11.0-rc.1-external-audit.json \
+            --output-md artifacts/bemmecuida-0.11.0-rc.1-external-audit.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-external-audit-${{ github.run_id }}
+          path: |
+            artifacts/bemmecuida-0.11.0-rc.1-external-audit.json
+            artifacts/bemmecuida-0.11.0-rc.1-external-audit.md
+          retention-days: 90
+
+      - name: Publish factual audit
+        if: env.TRACKING_ISSUE != '' && env.TRACKING_ISSUE != '0'
+        shell: bash
+        run: gh issue comment "$TRACKING_ISSUE" --body-file artifacts/bemmecuida-0.11.0-rc.1-external-audit.md
+
+      - name: Record summary
+        shell: bash
+        run: cat artifacts/bemmecuida-0.11.0-rc.1-external-audit.md >> "$GITHUB_STEP_SUMMARY"
