@@ -56,6 +56,20 @@
         "EXPO_PUBLIC_RELEASE_CANDIDATE": "2"
       }
     },
+    "hotfix-validation": {
+      "distribution": "internal",
+      "channel": "hotfix-validation",
+      "environment": "preview",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "rc",
+        "EXPO_PUBLIC_APP_ENV": "hotfix-validation",
+        "EXPO_PUBLIC_RELEASE_CANDIDATE": "hotfix"
+      }
+    },
     "e2e-test": {
       "withoutCredentials": true,
       "distribution": "internal",
