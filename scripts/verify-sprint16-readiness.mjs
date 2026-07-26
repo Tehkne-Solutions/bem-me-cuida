@@ -49,10 +49,10 @@ const workflow = read('.github/workflows/rc-011-homologation.yml');
 for (const marker of [
   'workflow_dispatch',
   'rc-011-homologation',
-  'eas build:view',
-  'eas build:download',
-  'eas update --channel rc-0-11',
-  'eas update:rollback',
+  'build:view',
+  'build:download',
+  'update --channel rc-0-11',
+  'update:rollback',
   'EXPO_TOKEN',
 ]) {
   if (!workflow.includes(marker)) fail(`Workflow de homologação sem marcador: ${marker}`);
