@@ -41,6 +41,7 @@ jobs:
       - run: npm run test
       - run: npm run governance:report
       - run: npm run cycle:report
+      - run: npm run rc011:validation:report
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:
@@ -54,6 +55,16 @@ jobs:
           APP_VARIANT: rc
           EXPO_PUBLIC_APP_ENV: hotfix-validation
           EXPO_PUBLIC_RELEASE_CANDIDATE: hotfix
+          EXPO_PUBLIC_EAS_PROJECT_ID: 00000000-0000-4000-8000-000000000000
+        run: npm run config:public --workspace @bemmecuida/mobile
+      - name: Validate RC 0.11 Expo config
+        env:
+          APP_VARIANT: rc011
+          EXPO_PUBLIC_APP_ENV: rc-0-11
+          EXPO_PUBLIC_APP_VERSION: 0.11.0
+          EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+          EXPO_PUBLIC_ANDROID_VERSION_CODE: '11001'
+          EXPO_PUBLIC_IOS_BUILD_NUMBER: '11001'
           EXPO_PUBLIC_EAS_PROJECT_ID: 00000000-0000-4000-8000-000000000000
         run: npm run config:public --workspace @bemmecuida/mobile
 
