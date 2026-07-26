@@ -59,6 +59,7 @@ function RootNavigator() {
         <Stack.Screen name="operator-console" />
         <Stack.Screen name="production-console" />
         <Stack.Screen name="maintenance-console" />
+        <Stack.Screen name="governance-console" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />
