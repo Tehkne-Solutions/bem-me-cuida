@@ -39,6 +39,7 @@ jobs:
           retention-days: 1
       - run: npm run lint
       - run: npm run test
+      - run: npm run governance:report
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:
