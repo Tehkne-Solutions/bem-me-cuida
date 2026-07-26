@@ -163,13 +163,24 @@ export function buildBootstrapPlan({ config, reviewerConfigured = false }) {
   };
 }
 
-export function sanitizeBootstrapResult({ mode, applied, sourceCommit, runId, operations, blockers = [] }) {
+export function sanitizeBootstrapResult({
+  mode,
+  applied,
+  recommendation,
+  sourceCommit,
+  runId,
+  operations,
+  blockers = [],
+}) {
+  const resolvedRecommendation =
+    recommendation ?? (applied && blockers.length === 0 ? 'capture-infrastructure' : 'hold');
+
   return {
     schemaVersion: '1.0',
     release: '0.11.0-rc.1',
     mode,
     applied,
-    recommendation: applied && blockers.length === 0 ? 'capture-infrastructure' : 'hold',
+    recommendation: resolvedRecommendation,
     sourceCommit: /^[a-f0-9]{40}$/i.test(sourceCommit ?? '') ? sourceCommit : null,
     workflowRun: /^[1-9][0-9]{0,19}$/.test(String(runId ?? '')) ? String(runId) : null,
     operations,
