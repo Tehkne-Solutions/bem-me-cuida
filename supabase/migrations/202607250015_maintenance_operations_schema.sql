@@ -54,7 +54,7 @@ before update on public.maintenance_hotfixes
 for each row execute function public.set_updated_at();
 
 create table public.operation_approvals (
-  id bigint generated always as identity primary key,
+  id uuid primary key default gen_random_uuid(),
   entity_type text not null check (entity_type in ('hotfix','ota_update','retention_run')),
   entity_id uuid not null,
   decision text not null check (decision in ('approved','rejected')),
