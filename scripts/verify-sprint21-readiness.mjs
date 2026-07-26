@@ -45,7 +45,6 @@ if (existsSync(join(root, '.github/workflows/rc-011-admin-bootstrap.yml'))) {
 if (existsSync(join(root, 'scripts/lib/rc011-admin-bootstrap.mjs'))) {
   const core = read('scripts/lib/rc011-admin-bootstrap.mjs');
   for (const marker of [
-    'prevent_self_review',
     'ready-to-apply',
     'containsSecretValues: false',
     'containsVariableValues: false',
@@ -63,8 +62,8 @@ if (existsSync(join(root, 'scripts/execute-rc011-admin-bootstrap.mjs'))) {
     "spawnSync('gh'",
     "['secret', 'set', 'EXPO_TOKEN'",
     "['variable', 'set'",
-    "prevent_self_review: true",
-    "custom_branch_policies: true",
+    'prevent_self_review: true',
+    'custom_branch_policies: true',
     "JSON.stringify({ name: 'main' })",
     'RC011_ADMIN_TOKEN ausente',
     'RC011_EXPO_TOKEN ausente',
@@ -75,10 +74,15 @@ if (existsSync(join(root, 'scripts/execute-rc011-admin-bootstrap.mjs'))) {
   if (executor.includes('console.log(rawConfig)') || executor.includes('console.log(expoToken)') || executor.includes('console.log(adminToken)')) {
     fail('executor não pode registrar valores de configuração ou tokens.');
   }
-  if (executor.includes('result.stderr') || executor.includes('result.stdout')) {
-    fail('erros administrativos não podem incluir stdout ou stderr brutos.');
+  for (const forbidden of [
+    'console.log(result.stdout',
+    'console.log(result.stderr',
+    'console.error(result.stdout',
+    'console.error(result.stderr',
+  ]) {
+    if (executor.includes(forbidden)) fail('executor não pode publicar stdout ou stderr brutos.');
   }
-  ok('Executor usa argumentos separados, falha fechada e relatório sanitizado.');
+  ok('Executor usa argumentos separados, leitura controlada de IDs, falha fechada e relatório sanitizado.');
 }
 
 if (existsSync(join(root, 'release/rc-0.11.0/admin-bootstrap-config.example.json'))) {
