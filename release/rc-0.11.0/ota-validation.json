@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "runtimeVersion": "0.11.0",
+  "channel": "rc-0-11",
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false
+  },
+  "publish": {
+    "status": "pending",
+    "groupId": null,
+    "sourceCommit": null,
+    "publishedAt": null,
+    "evidenceUrl": null
+  },
+  "rollback": {
+    "status": "pending",
+    "sourceGroupId": null,
+    "rollbackGroupId": null,
+    "validatedAt": null,
+    "evidenceUrl": null
+  }
+}
