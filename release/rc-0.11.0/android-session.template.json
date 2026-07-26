@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "platform": "android",
+  "sessionId": "00000000-0000-4000-8000-000000000000",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "build": {
+    "buildId": "00000000-0000-4000-8000-000000000000",
+    "buildNumber": "pending",
+    "artifactSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "device": {
+    "profileId": "android-mainstream",
+    "class": "mainstream",
+    "formFactor": "phone",
+    "memoryClass": "standard",
+    "osVersion": "pending",
+    "installationMode": "fresh",
+    "status": "pending"
+  },
+  "suiteResults": [
+    { "id": "fresh-install", "status": "pending" }
+  ],
+  "evidenceUrl": null,
+  "capturedAt": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false,
+    "containsDeviceIdentifiers": false,
+    "usesSyntheticAccounts": true
+  },
+  "controls": {
+    "automaticApproval": false,
+    "requiresPullRequestReview": true
+  },
+  "generatedBy": "Tehkné Solutions"
+}
