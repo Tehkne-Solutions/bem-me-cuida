@@ -75,13 +75,21 @@
       }
     },
     "production": {
+      "distribution": "store",
       "autoIncrement": true,
       "channel": "production",
       "environment": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_PRODUCTION_RELEASE": "1"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
