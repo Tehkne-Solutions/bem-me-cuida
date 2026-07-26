@@ -1,6 +1,20 @@
 name: RC 0.11 Build
 
 on:
+  workflow_call:
+    inputs:
+      action:
+        description: Operação protegida
+        required: true
+        type: string
+      source_commit:
+        description: SHA de 40 caracteres aprovado para a RC
+        required: true
+        type: string
+      cycle_evidence_url:
+        description: Evidência HTTPS dos gates do ciclo
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       action:
