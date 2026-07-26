@@ -11,6 +11,13 @@
 - environment GitHub `rc-011-build` com aprovação obrigatória;
 - secret `EXPO_TOKEN` somente no environment protegido.
 
+Cadastre no Supabase Auth:
+
+```text
+bemmecuida-rc011://auth/callback
+bemmecuida-rc011://reset-password
+```
+
 ## Validação local
 
 ```bash
@@ -75,8 +82,11 @@ Cada item obrigatório precisa de `status: passed` e `evidenceUrl` HTTPS. Em seg
 
 ```bash
 npm run rc011:validation:report
+npm run rc011:gates:payload
 npm run rc011:promotion:check
 ```
+
+O payload de gates é apenas uma recomendação auditável. A atualização efetiva continua exigindo revisão no console operacional e autoridade das RPCs do Supabase.
 
 ## Rollback
 
