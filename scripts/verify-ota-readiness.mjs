@@ -10,7 +10,7 @@ function ok(message) { notices.push(message); }
 function value(name) { return process.env[name]?.trim() ?? ''; }
 function readJson(path) { return JSON.parse(readFileSync(join(root, path), 'utf8')); }
 
-const action = value('OTA_ACTION') || 'validate';
+const action = process.argv[2]?.trim() || value('OTA_ACTION') || 'validate';
 const allowedActions = new Set(['validate', 'publish-validation', 'promote-production', 'rollback-production', 'cancel-rollout']);
 if (!allowedActions.has(action)) fail(`OTA_ACTION inválida: ${action}.`);
 
