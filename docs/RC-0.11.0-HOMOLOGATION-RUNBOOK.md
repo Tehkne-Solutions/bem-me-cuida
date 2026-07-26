@@ -70,19 +70,48 @@ Para suítes, use `--kind suite`. Nunca inclua nomes, e-mails, registros emocion
 
 No workflow `RC 0.11 Homologation`, execute `publish-ota-validation`. O comando publica no canal `rc-0-11`, ambiente EAS `preview` e runtime `0.11.0`.
 
-Instale ou reinicie a RC, confirme o recebimento e registre a evidência. Aplique a captura ao registro OTA:
+Instale ou reinicie a RC, confirme o recebimento e aplique a captura ao registro OTA:
 
 ```bash
 npm run rc011:capture:apply -- \
   --kind ota \
   --capture artifacts/ota-publish-capture.json \
-  --evidence-url https://<evidencia> \
-  --output artifacts/ota-validation.updated.json
+  --evidence-url https://<captura-do-workflow> \
+  --output artifacts/ota-validation.captured.json
+```
+
+Depois do teste físico, registre a decisão separadamente:
+
+```bash
+npm run rc011:evidence:record -- \
+  --kind ota-publish \
+  --status passed \
+  --source artifacts/ota-validation.captured.json \
+  --evidence-url https://<evidencia-do-aparelho> \
+  --operator release-operator \
+  --output artifacts/ota-validation.published.json
 ```
 
 ## 6. Validar rollback
 
-Execute `rollback-ota-validation` informando o group ID publicado. Confirme que a versão anterior ou embedded volta a carregar sem perda de dados e aplique a captura do rollback.
+Execute `rollback-ota-validation` informando o group ID publicado. Confirme que a versão anterior ou embedded volta a carregar sem perda de dados, aplique a captura e registre o resultado:
+
+```bash
+npm run rc011:capture:apply -- \
+  --kind ota \
+  --capture artifacts/ota-rollback-capture.json \
+  --source artifacts/ota-validation.published.json \
+  --evidence-url https://<captura-do-workflow> \
+  --output artifacts/ota-validation.rollback-captured.json
+
+npm run rc011:evidence:record -- \
+  --kind ota-rollback \
+  --status passed \
+  --source artifacts/ota-validation.rollback-captured.json \
+  --evidence-url https://<evidencia-do-aparelho> \
+  --operator release-operator \
+  --output artifacts/ota-validation.approved.json
+```
 
 ## 7. Consolidar decisão
 
