@@ -17,6 +17,9 @@ assert.equal(parseRc011Command(`/rc011 evidence-inspect 30213916990 ${sha}`).run
 assert.equal(parseRc011Command(`/rc011 evidence-pr 30213916990 ${sha}`).privilege, 'admin');
 assert.equal(parseRc011Command(`/rc011 validate-build ${sha} https://evidence.example/cycle`).cycleEvidenceUrl, 'https://evidence.example/cycle');
 assert.equal(parseRc011Command(`/rc011 build-android ${sha} https://evidence.example/cycle`).privilege, 'admin');
+assert.equal(parseRc011Command(`/rc011 discover-android ${sha}`).command, 'discover-android');
+assert.equal(parseRc011Command(`/rc011 capture-android-latest ${sha}`).privilege, 'admin');
+assert.equal(parseRc011Command(`/rc011 android-artifact-pr ${sha} 30213916990`).runId, '30213916990');
 assert.equal(parseRc011Command(`/rc011 collect-android ${sha} ${buildId}`).buildId, buildId);
 assert.equal(parseRc011Command(`/rc011 package-decision ${sha}`).command, 'package-decision');
 
@@ -26,6 +29,7 @@ assert.throws(() => parseRc011Command('/rc011 status extra'), /espera 0 argument
 assert.throws(() => parseRc011Command('/rc011 validate-infrastructure abc'), /SHA Git/);
 assert.throws(() => parseRc011Command(`/rc011 validate-build ${sha} http://inseguro.example`), /URL HTTPS/);
 assert.throws(() => parseRc011Command(`/rc011 collect-android ${sha} build-invalido`), /buildId/);
+assert.throws(() => parseRc011Command(`/rc011 android-artifact-pr ${sha} zero`), /runId/);
 assert.throws(() => parseRc011Command('/rc011 status\nsegunda linha'), /exatamente uma linha/);
 assert.throws(() => parseRc011Command('/rc011 status expo_123456789012345678901234567890'), /material que parece secreto/);
 

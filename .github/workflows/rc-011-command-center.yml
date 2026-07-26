@@ -100,11 +100,14 @@ jobs:
           /rc011 evidence-pr <infrastructure_run_id> <source_sha>
           /rc011 validate-build <source_sha> <cycle_evidence_https>
           /rc011 build-android <source_sha> <cycle_evidence_https>
+          /rc011 discover-android <source_sha>
+          /rc011 capture-android-latest <source_sha>
+          /rc011 android-artifact-pr <source_sha> <capture_run_id>
           /rc011 collect-android <source_sha> <eas_build_uuid>
           /rc011 package-decision <source_sha>
           ```
 
-          `audit-external`, `capture-infrastructure`, `evidence-pr`, `build-android` e `collect-android` exigem permissão administrativa. Os demais exigem permissão de escrita.
+          As operações que acessam environments, builds ou abrem PR exigem permissão administrativa. Os demais comandos exigem permissão de escrita.
 
           Nunca inclua tokens, senhas, chaves administrativas ou dados pessoais/clínicos.
 
@@ -145,68 +148,62 @@ jobs:
             validate-infrastructure)
               WORKFLOW='rc-011-infrastructure-readiness.yml'
               OPERATION='validate'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=validate \
-                -f source_commit="$SOURCE_COMMIT"
+              gh workflow run "$WORKFLOW" --ref main -f action=validate -f source_commit="$SOURCE_COMMIT"
               ;;
             capture-infrastructure)
               WORKFLOW='rc-011-infrastructure-readiness.yml'
               OPERATION='capture'
               gh workflow run "$WORKFLOW" --ref main \
-                -f action=capture \
-                -f source_commit="$SOURCE_COMMIT" \
+                -f action=capture -f source_commit="$SOURCE_COMMIT" \
                 -f build_evidence_url="$BUILD_EVIDENCE_URL" \
                 -f homologation_evidence_url="$HOMOLOGATION_EVIDENCE_URL" \
                 -f services_evidence_url="$SERVICES_EVIDENCE_URL"
               ;;
-            evidence-inspect)
+            evidence-inspect|evidence-pr)
               WORKFLOW='rc-011-evidence-pr.yml'
-              OPERATION='inspect'
+              if [[ "$COMMAND" == "evidence-inspect" ]]; then OPERATION='inspect'; else OPERATION='open-pr'; fi
               gh workflow run "$WORKFLOW" --ref main \
-                -f action=inspect \
-                -f infrastructure_run_id="$RUN_ID" \
-                -f source_commit="$SOURCE_COMMIT" \
-                -f tracking_issue="$RC011_ISSUE_NUMBER"
+                -f action="$OPERATION" -f infrastructure_run_id="$RUN_ID" \
+                -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER"
               ;;
-            evidence-pr)
-              WORKFLOW='rc-011-evidence-pr.yml'
-              OPERATION='open-pr'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=open-pr \
-                -f infrastructure_run_id="$RUN_ID" \
-                -f source_commit="$SOURCE_COMMIT" \
-                -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            validate-build)
+            validate-build|build-android)
               WORKFLOW='rc-011-build.yml'
-              OPERATION='validate'
+              if [[ "$COMMAND" == "validate-build" ]]; then OPERATION='validate'; else OPERATION='build-android'; fi
               gh workflow run "$WORKFLOW" --ref main \
-                -f action=validate \
-                -f source_commit="$SOURCE_COMMIT" \
+                -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" \
                 -f cycle_evidence_url="$CYCLE_EVIDENCE_URL"
               ;;
-            build-android)
-              WORKFLOW='rc-011-build.yml'
-              OPERATION='build-android'
+            discover-android)
+              WORKFLOW='rc-011-android-artifact.yml'
+              OPERATION='discover-android'
               gh workflow run "$WORKFLOW" --ref main \
-                -f action=build-android \
-                -f source_commit="$SOURCE_COMMIT" \
-                -f cycle_evidence_url="$CYCLE_EVIDENCE_URL"
+                -f action=discover-android -f source_commit="$SOURCE_COMMIT" \
+                -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            capture-android-latest)
+              WORKFLOW='rc-011-android-artifact.yml'
+              OPERATION='capture-android'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=capture-android -f source_commit="$SOURCE_COMMIT" \
+                -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            android-artifact-pr)
+              WORKFLOW='rc-011-android-artifact.yml'
+              OPERATION='open-artifact-pr'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=open-artifact-pr -f source_commit="$SOURCE_COMMIT" \
+                -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER"
               ;;
             collect-android)
               WORKFLOW='rc-011-homologation.yml'
               OPERATION='collect-android-build'
               gh workflow run "$WORKFLOW" --ref main \
-                -f action=collect-android-build \
-                -f source_commit="$SOURCE_COMMIT" \
-                -f build_id="$BUILD_ID"
+                -f action=collect-android-build -f source_commit="$SOURCE_COMMIT" -f build_id="$BUILD_ID"
               ;;
             package-decision)
               WORKFLOW='rc-011-homologation.yml'
               OPERATION='package-decision'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=package-decision \
-                -f source_commit="$SOURCE_COMMIT"
+              gh workflow run "$WORKFLOW" --ref main -f action=package-decision -f source_commit="$SOURCE_COMMIT"
               ;;
             *)
               echo "Comando não mapeado." >&2

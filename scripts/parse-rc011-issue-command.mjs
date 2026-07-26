@@ -21,6 +21,9 @@ const commandDefinitions = {
   'evidence-pr': { privilege: 'admin', args: ['runId', 'sourceCommit'] },
   'validate-build': { privilege: 'write', args: ['sourceCommit', 'cycleEvidenceUrl'] },
   'build-android': { privilege: 'admin', args: ['sourceCommit', 'cycleEvidenceUrl'] },
+  'discover-android': { privilege: 'admin', args: ['sourceCommit'] },
+  'capture-android-latest': { privilege: 'admin', args: ['sourceCommit'] },
+  'android-artifact-pr': { privilege: 'admin', args: ['sourceCommit', 'runId'] },
   'collect-android': { privilege: 'admin', args: ['sourceCommit', 'buildId'] },
   'package-decision': { privilege: 'write', args: ['sourceCommit'] },
 };
