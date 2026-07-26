@@ -60,6 +60,7 @@ function RootNavigator() {
         <Stack.Screen name="production-console" />
         <Stack.Screen name="maintenance-console" />
         <Stack.Screen name="governance-console" />
+        <Stack.Screen name="cycle-execution-console" />
       </Stack.Protected>
 
       <Stack.Screen name="crisis" options={{ presentation: 'modal' }} />
