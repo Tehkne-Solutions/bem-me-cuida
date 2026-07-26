@@ -44,8 +44,8 @@ assert.throws(() => parseRc011Command(`/rc011 android-session ${sha} ${buildId} 
 assert.throws(() => parseRc011Command(`/rc011 android-session ${sha} ${buildId} android-mainstream passed clean 14 ${evidence} fresh-install=passed`), /installationMode/);
 assert.throws(() => parseRc011Command(`/rc011 android-session ${sha} ${buildId} android-mainstream passed fresh Android 14 ${evidence} fresh-install=passed`), /espera 8 argumento/);
 assert.throws(() => parseRc011Command(`/rc011 android-session ${sha} ${buildId} android-mainstream passed fresh 14 ${evidence} fresh-install=pending`), /suiteResults/);
-assert.throws(() => parseRc011Command('/rc011 status
-segunda linha'), /exatamente uma linha/);
+assert.throws(() => parseRc011Command(`/rc011 status
+segunda linha`), /exatamente uma linha/);
 assert.throws(() => parseRc011Command('/rc011 status expo_123456789012345678901234567890'), /material que parece secreto/);
 assert.throws(() => parseRc011Command('/rc011 status tester@example.com'), /e-mail/);
 
