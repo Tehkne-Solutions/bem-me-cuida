@@ -1,0 +1,104 @@
+name: RC 0.11 Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação protegida
+        required: true
+        type: choice
+        options:
+          - validate
+          - build-android
+          - build-ios
+      source_commit:
+        description: SHA de 40 caracteres aprovado para a RC
+        required: true
+        type: string
+      cycle_evidence_url:
+        description: Evidência HTTPS dos gates do ciclo
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      CYCLE_VERSION: 0.11.0
+      CYCLE_RC_VERSION: 0.11.0-rc.1
+      CYCLE_STATUS: ${{ vars.RC011_CYCLE_STATUS }}
+      CYCLE_FREEZE_READY: ${{ vars.RC011_FREEZE_READY }}
+      CYCLE_RC_MILESTONE_DONE: ${{ vars.RC011_MILESTONE_DONE }}
+      CYCLE_BLOCKER_COUNT: ${{ vars.RC011_BLOCKER_COUNT }}
+      CYCLE_BACKLOG_BLOCKED: ${{ vars.RC011_BACKLOG_BLOCKED }}
+      CYCLE_SCOPE_CHANGES_PENDING: ${{ vars.RC011_SCOPE_PENDING }}
+      CYCLE_EXPERIMENTS_RUNNING: ${{ vars.RC011_EXPERIMENTS_RUNNING }}
+      CYCLE_REQUIRED_GATES: ${{ vars.RC011_REQUIRED_GATES }}
+      CYCLE_PASSED_GATES: ${{ vars.RC011_PASSED_GATES }}
+      CYCLE_EVIDENCE_URL: ${{ inputs.cycle_evidence_url }}
+      CYCLE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run cycle:rc:check
+      - run: npm run rc011:prebuild:check
+      - name: Validate public Expo config
+        run: npm run config:public --workspace @bemmecuida/mobile
+      - name: Record validation summary
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Validação de prebuild aprovada para \`${{ inputs.source_commit }}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: validate
+    if: inputs.action != 'validate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: rc-011-build
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Start Android build
+        if: inputs.action == 'build-android'
+        run: npm run build:android:rc011 -- --non-interactive --no-wait
+      - name: Start iOS build
+        if: inputs.action == 'build-ios'
+        run: npm run build:ios:rc011 -- --non-interactive --no-wait
+      - name: Record protected operation
+        run: |
+          echo "Build solicitado no environment protegido \`rc-011-build\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Registre build ID, número, URL e SHA-256 antes da promoção." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
