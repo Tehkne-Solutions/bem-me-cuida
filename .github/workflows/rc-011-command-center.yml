@@ -3,6 +3,18 @@ name: RC 0.11 Command Center
 on:
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Comando completo iniciado por /rc011
+        required: true
+        default: /rc011 status
+        type: string
+      tracking_issue:
+        description: Issue que receberá a resposta
+        required: true
+        default: '24'
+        type: string
 
 permissions:
   actions: write
@@ -10,23 +22,26 @@ permissions:
   issues: write
 
 concurrency:
-  group: rc011-command-${{ github.event.comment.id }}
+  group: rc011-command-${{ github.event.comment.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   command:
     if: >-
-      github.event.issue.number == 24 &&
-      github.event.issue.pull_request == null &&
-      startsWith(github.event.comment.body, '/rc011') &&
-      github.actor != 'github-actions[bot]'
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.issue.number == 24 &&
+        github.event.issue.pull_request == null &&
+        startsWith(github.event.comment.body, '/rc011') &&
+        github.actor != 'github-actions[bot]'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
-      RC011_COMMENT_BODY: ${{ github.event.comment.body }}
+      RC011_COMMENT_BODY: ${{ github.event_name == 'workflow_dispatch' && inputs.command || github.event.comment.body }}
       RC011_ACTOR: ${{ github.actor }}
-      RC011_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      RC011_ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,10 +89,11 @@ jobs:
           cat > /tmp/rc011-help.md <<'EOF'
           ## Comandos da RC 0.11
 
-          Use uma única linha por comentário.
+          Use uma única linha por comentário ou pelo `workflow_dispatch` da central.
 
           ```text
           /rc011 status
+          /rc011 audit-external
           /rc011 validate-infrastructure <source_sha>
           /rc011 capture-infrastructure <source_sha> <build_evidence_https> <homologation_evidence_https> <services_evidence_https>
           /rc011 evidence-inspect <infrastructure_run_id> <source_sha>
@@ -88,7 +104,7 @@ jobs:
           /rc011 package-decision <source_sha>
           ```
 
-          `capture-infrastructure`, `evidence-pr`, `build-android` e `collect-android` exigem permissão administrativa. Os demais exigem permissão de escrita.
+          `audit-external`, `capture-infrastructure`, `evidence-pr`, `build-android` e `collect-android` exigem permissão administrativa. Os demais exigem permissão de escrita.
 
           Nunca inclua tokens, senhas, chaves administrativas ou dados pessoais/clínicos.
 
@@ -121,6 +137,11 @@ jobs:
           OPERATION=''
 
           case "$COMMAND" in
+            audit-external)
+              WORKFLOW='rc-011-external-audit.yml'
+              OPERATION='audit'
+              gh workflow run "$WORKFLOW" --ref main -f tracking_issue=27
+              ;;
             validate-infrastructure)
               WORKFLOW='rc-011-infrastructure-readiness.yml'
               OPERATION='validate'
@@ -199,10 +220,10 @@ jobs:
           - Comando: \`$COMMAND\`
           - Workflow: \`$WORKFLOW\`
           - Operação: \`$OPERATION\`
-          - Commit de origem: \`$SOURCE_COMMIT\`
+          - Commit de origem: \`${SOURCE_COMMIT:-não aplicável}\`
           - Solicitante: \`$RC011_ACTOR\`
 
-          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado foi marcado como aprovado por este comentário.
+          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado foi marcado como aprovado por esta solicitação.
 
           [Abrir GitHub Actions](https://github.com/$GITHUB_REPOSITORY/actions)
 

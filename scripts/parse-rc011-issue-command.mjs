@@ -11,6 +11,7 @@ const SENSITIVE_PATTERN = /(expo_[a-z0-9_-]{20,}|sb_secret_[a-z0-9_-]+|service[_
 const commandDefinitions = {
   help: { privilege: 'write', args: [] },
   status: { privilege: 'write', args: [] },
+  'audit-external': { privilege: 'admin', args: [] },
   'validate-infrastructure': { privilege: 'write', args: ['sourceCommit'] },
   'capture-infrastructure': {
     privilege: 'admin',

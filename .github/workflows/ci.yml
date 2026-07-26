@@ -76,6 +76,8 @@ jobs:
           retention-days: 7
       - name: Validate RC 0.11 issue commands
         run: npm run rc011:command:test
+      - name: Validate RC 0.11 external audit
+        run: npm run rc011:external-audit:test
       - name: Generate factual RC 0.11 issue status
         run: npm run rc011:command:status
       - uses: actions/upload-artifact@v4

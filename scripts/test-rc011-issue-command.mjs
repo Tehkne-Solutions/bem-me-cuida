@@ -7,6 +7,7 @@ const buildId = '123e4567-e89b-42d3-a456-426614174000';
 assert.deepEqual(parseRc011Command('texto comum'), { recognized: false });
 assert.equal(parseRc011Command('/rc011 help').command, 'help');
 assert.equal(parseRc011Command('/rc011 status').privilege, 'write');
+assert.equal(parseRc011Command('/rc011 audit-external').privilege, 'admin');
 assert.equal(parseRc011Command(`/rc011 validate-infrastructure ${sha}`).sourceCommit, sha);
 assert.equal(
   parseRc011Command(`/rc011 capture-infrastructure ${sha} https://evidence.example/build https://evidence.example/homologation https://evidence.example/services`).privilege,
@@ -20,6 +21,7 @@ assert.equal(parseRc011Command(`/rc011 collect-android ${sha} ${buildId}`).build
 assert.equal(parseRc011Command(`/rc011 package-decision ${sha}`).command, 'package-decision');
 
 assert.throws(() => parseRc011Command('/rc011 unknown'), /Comando desconhecido/);
+assert.throws(() => parseRc011Command('/rc011 audit-external extra'), /espera 0 argumento/);
 assert.throws(() => parseRc011Command('/rc011 status extra'), /espera 0 argumento/);
 assert.throws(() => parseRc011Command('/rc011 validate-infrastructure abc'), /SHA Git/);
 assert.throws(() => parseRc011Command(`/rc011 validate-build ${sha} http://inseguro.example`), /URL HTTPS/);
