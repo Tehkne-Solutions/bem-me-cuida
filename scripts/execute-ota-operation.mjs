@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-const action = process.env.OTA_ACTION?.trim();
+const action = process.argv[2]?.trim() || process.env.OTA_ACTION?.trim();
 const message = process.env.OTA_MESSAGE?.trim() ?? '';
 const rollout = process.env.OTA_ROLLOUT_PERCENTAGE?.trim() || '5';
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
