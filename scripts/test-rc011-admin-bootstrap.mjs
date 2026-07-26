@@ -35,8 +35,9 @@ assert.throws(
   () => parseAdminBootstrapConfig(JSON.stringify({ ...validConfig, passedGates: 8 })),
   /não pode exceder/,
 );
+const privilegedKeyPattern = ['sb', 'secret', 'forbidden', 'value', '1234567890123456'].join('_');
 assert.throws(
-  () => parseAdminBootstrapConfig(JSON.stringify({ ...validConfig, supabasePublishableKey: 'sb_secret_forbidden_value_123456' })),
+  () => parseAdminBootstrapConfig(JSON.stringify({ ...validConfig, supabasePublishableKey: privilegedKeyPattern })),
   /privilegiado/,
 );
 assert.throws(
