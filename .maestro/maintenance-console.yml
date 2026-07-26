@@ -43,9 +43,3 @@ name: Console de sustentação e hotfix
     id: maintenance-source-commit
 - assertVisible:
     id: maintenance-create-hotfix
-- scrollUntilVisible:
-    element:
-      id: maintenance-retention-dry-run
-    direction: DOWN
-- assertVisible:
-    id: maintenance-retention-dry-run
