@@ -1,0 +1,55 @@
+appId: com.tehknesolutions.bemmecuida.dev
+name: Console de produção e incidentes
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: sign-in-title
+- tapOn:
+    id: sign-in-email
+- inputText: ${E2E_OPERATOR_EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${E2E_OPERATOR_PASSWORD}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: home-title
+- tapOn:
+    id: home-open-settings
+- assertVisible:
+    id: settings-title
+- scrollUntilVisible:
+    element:
+      id: settings-open-production-console
+    direction: DOWN
+- tapOn:
+    id: settings-open-production-console
+- assertVisible:
+    id: production-console-title
+- scrollUntilVisible:
+    element:
+      id: production-register-submission
+    direction: DOWN
+- assertVisible:
+    id: production-register-submission
+- scrollUntilVisible:
+    element:
+      id: production-start-rollout
+    direction: DOWN
+- assertVisible:
+    id: production-start-rollout
+- scrollUntilVisible:
+    element:
+      id: production-record-health
+    direction: DOWN
+- assertVisible:
+    id: production-record-health
+- scrollUntilVisible:
+    element:
+      id: production-incident-title
+    direction: DOWN
+- assertVisible:
+    id: production-incident-title
+- assertVisible:
+    id: production-open-incident
