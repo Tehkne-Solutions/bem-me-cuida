@@ -1,0 +1,16 @@
+{
+  "easProjectId": "00000000-0000-4000-8000-000000000000",
+  "supabaseUrl": "https://example.supabase.co",
+  "supabasePublishableKey": "sb_publishable_replace_with_real_public_key",
+  "cycleStatus": "active",
+  "milestoneDone": true,
+  "blockerCount": 0,
+  "freezeReady": true,
+  "backlogBlocked": 0,
+  "scopePending": 0,
+  "experimentsRunning": 0,
+  "requiredGates": 7,
+  "passedGates": 7,
+  "cycleEvidenceUrl": "https://github.com/Tehkne-Solutions/bem-me-cuida/actions",
+  "authCallbacksConfigured": true
+}
