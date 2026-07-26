@@ -34,6 +34,7 @@ for (const path of requiredFiles) {
 if (!failures.length) ok(`${requiredFiles.length} arquivos do Sprint 12 encontrados.`);
 
 const rootPackage = readJson('package.json');
+const mobilePackage = readJson('apps/mobile/package.json');
 for (const script of [
   'ota:check',
   'ota:publish:validation',
@@ -46,6 +47,11 @@ for (const script of [
   'e2e:maintenance',
 ]) {
   if (!rootPackage.scripts?.[script]) fail(`Script obrigatório ausente: ${script}`);
+}
+if (mobilePackage.dependencies?.['expo-updates'] !== '~57.0.8') {
+  fail('Sprint 12 exige expo-updates ~57.0.8 para o Expo SDK 57.');
+} else {
+  ok('expo-updates ~57.0.8 instalado.');
 }
 
 const eas = readJson('apps/mobile/eas.json');
