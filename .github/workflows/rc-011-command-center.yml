@@ -103,13 +103,16 @@ jobs:
           /rc011 discover-android <source_sha>
           /rc011 capture-android-latest <source_sha>
           /rc011 android-artifact-pr <source_sha> <capture_run_id>
+          /rc011 android-session <source_sha> <build_uuid> <profile_id> <passed|failed|blocked> <fresh|upgrade|retest> <android_version> <evidence_https> <suite=status,suite=status>
+          /rc011 android-session-pr <source_sha> <capture_run_id>
+          /rc011 android-review <source_sha>
           /rc011 collect-android <source_sha> <eas_build_uuid>
           /rc011 package-decision <source_sha>
           ```
 
-          As operações que acessam environments, builds ou abrem PR exigem permissão administrativa. Os demais comandos exigem permissão de escrita.
+          As operações que acessam environments, builds, sessões físicas ou abrem PR exigem permissão administrativa. Os demais comandos exigem permissão de escrita.
 
-          Nunca inclua tokens, senhas, chaves administrativas ou dados pessoais/clínicos.
+          Nunca inclua tokens, senhas, chaves administrativas, dados pessoais, dados clínicos, IMEI, número de série ou identificadores únicos do aparelho.
 
           **Tehkné Solutions**
           EOF
@@ -129,6 +132,12 @@ jobs:
           SOURCE_COMMIT: ${{ steps.parse.outputs.sourceCommit }}
           RUN_ID: ${{ steps.parse.outputs.runId }}
           BUILD_ID: ${{ steps.parse.outputs.buildId }}
+          PROFILE_ID: ${{ steps.parse.outputs.profileId }}
+          RESULT_STATUS: ${{ steps.parse.outputs.resultStatus }}
+          INSTALLATION_MODE: ${{ steps.parse.outputs.installationMode }}
+          OS_VERSION: ${{ steps.parse.outputs.osVersion }}
+          SUITE_RESULTS: ${{ steps.parse.outputs.suiteResults }}
+          EVIDENCE_URL: ${{ steps.parse.outputs.evidenceUrl }}
           BUILD_EVIDENCE_URL: ${{ steps.parse.outputs.buildEvidenceUrl }}
           HOMOLOGATION_EVIDENCE_URL: ${{ steps.parse.outputs.homologationEvidenceUrl }}
           SERVICES_EVIDENCE_URL: ${{ steps.parse.outputs.servicesEvidenceUrl }}
@@ -194,6 +203,30 @@ jobs:
                 -f action=open-artifact-pr -f source_commit="$SOURCE_COMMIT" \
                 -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER"
               ;;
+            android-session)
+              WORKFLOW='rc-011-android-physical-validation.yml'
+              OPERATION='capture-session'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=capture-session -f source_commit="$SOURCE_COMMIT" \
+                -f build_id="$BUILD_ID" -f profile_id="$PROFILE_ID" \
+                -f device_status="$RESULT_STATUS" -f installation_mode="$INSTALLATION_MODE" \
+                -f os_version="$OS_VERSION" -f evidence_url="$EVIDENCE_URL" \
+                -f suite_results="$SUITE_RESULTS" -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            android-session-pr)
+              WORKFLOW='rc-011-android-physical-validation.yml'
+              OPERATION='open-session-pr'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=open-session-pr -f source_commit="$SOURCE_COMMIT" \
+                -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
+            android-review)
+              WORKFLOW='rc-011-android-physical-validation.yml'
+              OPERATION='package-android-review'
+              gh workflow run "$WORKFLOW" --ref main \
+                -f action=package-android-review -f source_commit="$SOURCE_COMMIT" \
+                -f tracking_issue="$RC011_ISSUE_NUMBER"
+              ;;
             collect-android)
               WORKFLOW='rc-011-homologation.yml'
               OPERATION='collect-android-build'
@@ -220,7 +253,7 @@ jobs:
           - Commit de origem: \`${SOURCE_COMMIT:-não aplicável}\`
           - Solicitante: \`$RC011_ACTOR\`
 
-          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado foi marcado como aprovado por esta solicitação.
+          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado ou gate foi marcado como aprovado por esta solicitação.
 
           [Abrir GitHub Actions](https://github.com/$GITHUB_REPOSITORY/actions)
 
