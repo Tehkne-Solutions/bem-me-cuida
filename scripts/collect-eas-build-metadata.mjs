@@ -74,7 +74,9 @@ const status = firstValue(view, [/^status$/i]);
 const detectedPlatform = firstValue(view, [/^platform$/i]);
 const appVersion = firstValue(view, [/^appVersion$/i, /^version$/i]);
 const buildNumber = firstValue(view, [/^appBuildVersion$/i, /^versionCode$/i, /^buildNumber$/i]);
-const artifactUrl = firstValue(view, [/^buildUrl$/i, /^artifactUrl$/i, /^url$/i]);
+const artifactUrl = view?.artifacts?.buildUrl
+  ?? view?.artifactUrl
+  ?? firstValue(view, [/^buildUrl$/i, /^artifactUrl$/i]);
 
 if (!buildId) throw new Error('Build ID ausente no retorno do EAS.');
 if (status && !['FINISHED', 'finished', 'complete', 'completed'].includes(status)) {
@@ -84,7 +86,7 @@ if (detectedPlatform && detectedPlatform.toLowerCase() !== platform) {
   throw new Error(`Plataforma divergente: esperado ${platform}, recebido ${detectedPlatform}.`);
 }
 if (appVersion && appVersion !== '0.11.0') throw new Error(`Versão divergente no build: ${appVersion}.`);
-if (artifactUrl && !artifactUrl.startsWith('https://')) throw new Error('A URL do artefato deve usar HTTPS.');
+if (!artifactUrl?.startsWith('https://')) throw new Error('A URL HTTPS do artefato não foi localizada no retorno do EAS.');
 
 const output = resolve(args.output);
 mkdirSync(dirname(output), { recursive: true });
