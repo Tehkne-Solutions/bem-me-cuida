@@ -51,6 +51,15 @@ function resolveVariant(): AppVariant {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = resolveVariant();
   const selected = variants[variant];
+  const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
+  const updates = projectId
+    ? {
+        ...config.updates,
+        url: `https://u.expo.dev/${projectId}`,
+        checkAutomatically: 'ON_LOAD' as const,
+        fallbackToCacheTimeout: 0,
+      }
+    : config.updates;
 
   return {
     ...config,
@@ -58,13 +67,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'bem-me-cuida',
     scheme: selected.scheme,
     version: config.version ?? '0.10.0',
+    runtimeVersion: { policy: 'appVersion' },
+    ...(updates ? { updates } : {}),
     extra: {
       ...config.extra,
       appVariant: variant,
       releaseCandidate: process.env.EXPO_PUBLIC_RELEASE_CANDIDATE?.trim() || null,
-      eas: process.env.EXPO_PUBLIC_EAS_PROJECT_ID
-        ? { projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID }
-        : config.extra?.eas,
+      productionRelease: process.env.EXPO_PUBLIC_PRODUCTION_RELEASE?.trim() || null,
+      eas: projectId ? { projectId } : config.extra?.eas,
     },
     ios: {
       ...config.ios,
