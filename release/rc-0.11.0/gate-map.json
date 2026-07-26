@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "gates": [
+    { "gateKey": "database", "sourceType": "suite", "sourceIds": ["local-database-regression", "upgrade-010-011"], "required": true },
+    { "gateKey": "accessibility", "sourceType": "suite", "sourceIds": ["accessibility"], "required": true },
+    { "gateKey": "privacy", "sourceType": "suite", "sourceIds": ["privacy"], "required": true },
+    { "gateKey": "rc_build", "sourceType": "suite", "sourceIds": ["fresh-install", "authenticated-core-flows", "offline-sync", "performance"], "required": true },
+    { "gateKey": "physical_device", "sourceType": "device-matrix", "sourceIds": [], "required": true },
+    { "gateKey": "ota_compatibility", "sourceType": "suite", "sourceIds": ["ota-compatibility", "rollback"], "required": true },
+    { "gateKey": "notifications", "sourceType": "suite", "sourceIds": ["notifications", "biometrics"], "required": true }
+  ]
+}
