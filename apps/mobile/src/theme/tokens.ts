@@ -16,6 +16,7 @@ export const colors = {
   danger: '#C95D58',
   dangerSoft: '#FCE5E2',
   warning: '#C78A43',
+  warningSoft: '#FFF2DC',
   success: '#4F8069',
   white: '#FFFFFF',
 } as const;
