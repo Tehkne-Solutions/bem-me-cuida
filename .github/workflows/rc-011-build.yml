@@ -60,12 +60,13 @@ jobs:
       - run: npm run release:check
       - run: npm run cycle:rc:check
       - run: npm run rc011:prebuild:check
+      - run: npm run rc011:infrastructure:external
       - name: Validate public Expo config
         run: npm run config:public --workspace @bemmecuida/mobile
       - name: Record validation summary
         run: |
           echo "## BemMeCuida 0.11.0-rc.1" >> "$GITHUB_STEP_SUMMARY"
-          echo "Validação de prebuild aprovada para \`${{ inputs.source_commit }}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Validação de prebuild e infraestrutura aprovada para \`${{ inputs.source_commit }}\`." >> "$GITHUB_STEP_SUMMARY"
           echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
 
   build:

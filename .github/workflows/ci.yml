@@ -55,6 +55,8 @@ jobs:
       - run: npm run rc011:gates:payload
       - run: npm run rc011:homologation:structure
       - run: npm run rc011:decision:package
+      - run: npm run rc011:infrastructure:structure
+      - run: npm run rc011:infrastructure:report
       - run: npm run config:public --workspace @bemmecuida/mobile
       - name: Validate production Expo config
         env:

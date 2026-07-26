@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false
+  },
+  "scopes": {
+    "buildEnvironment": {
+      "required": true,
+      "environment": "rc-011-build",
+      "status": "pending",
+      "sourceCommit": null,
+      "checkedAt": null,
+      "evidenceUrl": null,
+      "checks": []
+    },
+    "homologationEnvironment": {
+      "required": true,
+      "environment": "rc-011-homologation",
+      "status": "pending",
+      "sourceCommit": null,
+      "checkedAt": null,
+      "evidenceUrl": null,
+      "checks": []
+    },
+    "services": {
+      "required": true,
+      "status": "pending",
+      "sourceCommit": null,
+      "checkedAt": null,
+      "evidenceUrl": null,
+      "checks": [],
+      "expectedCallbacks": [
+        "bemmecuida-rc011://auth/callback",
+        "bemmecuida-rc011://reset-password"
+      ]
+    }
+  }
+}
