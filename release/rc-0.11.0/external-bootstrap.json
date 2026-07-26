@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "release": "0.11.0-rc.1",
+  "repository": "Tehkne-Solutions/bem-me-cuida",
+  "status": "pending",
+  "sourceCommit": null,
+  "environments": [
+    {
+      "name": "rc-011-build",
+      "purpose": "Builds Android e iOS da candidata",
+      "protectionRequired": true,
+      "reviewersRequired": true,
+      "secrets": ["EXPO_TOKEN"],
+      "variables": [
+        "EAS_PROJECT_ID",
+        "RC011_SUPABASE_URL",
+        "RC011_SUPABASE_PUBLISHABLE_KEY",
+        "RC011_CYCLE_STATUS",
+        "RC011_MILESTONE_DONE",
+        "RC011_BLOCKER_COUNT",
+        "RC011_FREEZE_READY",
+        "RC011_SCOPE_PENDING",
+        "RC011_EXPERIMENTS_RUNNING",
+        "RC011_REQUIRED_GATES",
+        "RC011_PASSED_GATES"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "rc-011-homologation",
+      "purpose": "Captura de builds, OTA, rollback e evidências",
+      "protectionRequired": true,
+      "reviewersRequired": true,
+      "secrets": ["EXPO_TOKEN"],
+      "variables": [
+        "EAS_PROJECT_ID",
+        "RC011_SUPABASE_URL",
+        "RC011_SUPABASE_PUBLISHABLE_KEY",
+        "RC011_CYCLE_STATUS",
+        "RC011_MILESTONE_DONE",
+        "RC011_BLOCKER_COUNT",
+        "RC011_FREEZE_READY",
+        "RC011_SCOPE_PENDING",
+        "RC011_EXPERIMENTS_RUNNING",
+        "RC011_REQUIRED_GATES",
+        "RC011_PASSED_GATES",
+        "RC011_AUTH_CALLBACKS",
+        "RC011_AUTH_CALLBACKS_CONFIGURED",
+        "RC011_CYCLE_EVIDENCE_URL"
+      ],
+      "status": "pending"
+    }
+  ],
+  "externalServices": {
+    "eas": {
+      "projectIdConfigured": false,
+      "updatesConfigured": false,
+      "status": "pending"
+    },
+    "supabase": {
+      "projectConfigured": false,
+      "callbacks": [
+        "bemmecuida-rc011://auth/callback",
+        "bemmecuida-rc011://reset-password"
+      ],
+      "callbacksConfigured": false,
+      "status": "pending"
+    }
+  },
+  "evidence": {
+    "trackingIssue": null,
+    "infrastructureWorkflowRun": null,
+    "evidencePullRequest": null,
+    "status": "pending"
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false
+  },
+  "generatedBy": "Tehkné Solutions"
+}
