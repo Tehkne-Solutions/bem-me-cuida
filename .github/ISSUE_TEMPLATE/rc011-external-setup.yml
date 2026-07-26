@@ -1,0 +1,107 @@
+name: Configurar infraestrutura da RC 0.11
+
+description: Rastrear environments, variables, callbacks e captura externa sem compartilhar secrets.
+title: "[RC 0.11] Configurar infraestrutura externa"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este formulário somente para estados e links de evidência. Não cole tokens, senhas, chaves administrativas ou dados pessoais.
+
+        **Tehkné Solutions**
+
+  - type: input
+    id: source_commit
+    attributes:
+      label: Commit aprovado da candidata
+      description: SHA de 40 caracteres usado na configuração e na captura.
+      placeholder: 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: environments
+    attributes:
+      label: Environments GitHub
+      options:
+        - label: O environment `rc-011-build` foi criado.
+          required: true
+        - label: O environment `rc-011-build` possui revisores obrigatórios.
+          required: true
+        - label: O environment `rc-011-homologation` foi criado.
+          required: true
+        - label: O environment `rc-011-homologation` possui revisores obrigatórios.
+          required: true
+
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Secrets
+      description: Marque somente a presença. Nunca informe o valor.
+      options:
+        - label: `EXPO_TOKEN` está presente em `rc-011-build`.
+          required: true
+        - label: `EXPO_TOKEN` está presente em `rc-011-homologation`.
+          required: true
+        - label: Nenhum valor de secret foi incluído nesta issue.
+          required: true
+
+  - type: checkboxes
+    id: variables
+    attributes:
+      label: Variables e serviços
+      options:
+        - label: O project ID do EAS está configurado nos dois environments.
+          required: true
+        - label: URL e publishable key do Supabase estão configuradas nos dois environments.
+          required: true
+        - label: Variables de ciclo, marco, bloqueadores e gates estão configuradas.
+          required: true
+        - label: O projeto EAS está associado à variante `rc011`.
+          required: true
+
+  - type: checkboxes
+    id: callbacks
+    attributes:
+      label: Callbacks Supabase Auth
+      options:
+        - label: `bemmecuida-rc011://auth/callback` está configurado.
+          required: true
+        - label: `bemmecuida-rc011://reset-password` está configurado.
+          required: true
+
+  - type: input
+    id: build_evidence
+    attributes:
+      label: Evidência HTTPS do environment de build
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: input
+    id: homologation_evidence
+    attributes:
+      label: Evidência HTTPS do environment de homologação
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: input
+    id: services_evidence
+    attributes:
+      label: Evidência HTTPS do EAS, Supabase e callbacks
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capture
+    attributes:
+      label: Captura protegida
+      options:
+        - label: O workflow `RC 0.11 Infrastructure Readiness` foi executado com `action=capture`.
+          required: true
+        - label: O artefato consolidado foi revisado e não contém secrets.
+          required: true
+        - label: O workflow `RC 0.11 Evidence PR` foi executado para abrir o PR de evidências.
+          required: true
