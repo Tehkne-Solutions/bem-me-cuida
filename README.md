@@ -21,7 +21,8 @@ BemMeCuida transforma a lembrança de “bem-me-quer” em uma prática contínu
 - Sprint 08 implementado: notificações por categoria, horário silencioso, acessibilidade e preparação da beta fechada.
 - Sprint 09 implementado: operação da beta, feedback rastreável, observabilidade local consentida e preparação da primeira release candidate.
 - Sprint 10 implementado: console operacional com RBAC, gates, builds, triagem, auditoria, bloqueadores de promoção e preparação editorial das lojas.
-- Versão-base atual: `0.10.0` — **RC 2 (`0.10.0-rc.2`)**.
+- Sprint 11 implementado: produção isolada, pacote de submissão, rollout gradual, saúde técnica agregada, incidentes e rollback auditado.
+- Versão-base atual: `0.10.0` — **Produção 1 preparada, ainda dependente de build e submissão externos**.
 
 ## Stack
 
@@ -45,7 +46,7 @@ bem-me-cuida/
 ├── packages/domain/           # Contratos de domínio compartilhados
 ├── supabase/migrations/       # Banco remoto e políticas RLS
 ├── docs/                      # ADRs, segurança e especificação do sprint
-├── scripts/                   # Publicação, verificação e manifesto
+├── scripts/                   # Publicação, verificação e manifestos
 └── .github/workflows/         # CI
 ```
 
@@ -140,9 +141,46 @@ RELEASE_MANIFEST_OUTPUT=artifacts/bemmecuida-0.10.0-rc.2.json \
 npm run release:manifest
 ```
 
-## Console operacional
+## Produção 1
 
-O console é visível somente quando o token autenticado contém um papel administrativo assinado:
+Consulte [docs/PRODUCTION-RELEASE-01.md](docs/PRODUCTION-RELEASE-01.md), [docs/POST-RELEASE-MONITORING.md](docs/POST-RELEASE-MONITORING.md) e [docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md).
+
+```bash
+npm run release:check
+npm run sprint11:check
+
+APP_VARIANT=production \
+EXPO_PUBLIC_APP_ENV=production \
+EXPO_PUBLIC_PRODUCTION_RELEASE=1 \
+npm run production:check
+
+npm run build:android:production
+npm run build:ios:production
+```
+
+A variante de produção utiliza:
+
+- aplicativo `BemMeCuida`;
+- scheme `bemmecuida`;
+- Android package `com.tehknesolutions.bemmecuida`;
+- canal EAS `production`;
+- distribuição `store`;
+- AAB no Android;
+- runtime associado à versão do aplicativo.
+
+Após gerar e conferir os artefatos:
+
+```bash
+npm run store:package
+npm run submit:android:production
+npm run submit:ios:production
+```
+
+Os comandos de submissão dependem das credenciais reais configuradas no EAS e nos consoles das lojas. Eles não são executados pelo CI público.
+
+## Consoles operacionais
+
+Os consoles aparecem somente quando o token autenticado contém um papel administrativo assinado:
 
 ```json
 {
@@ -154,25 +192,35 @@ O console é visível somente quando o token autenticado contém um papel admini
 
 Também é aceito `release_admin`. O papel deve ser atribuído fora do aplicativo, em ambiente administrativo seguro. `user_metadata` não concede acesso.
 
-O cliente não recebe permissões genéricas de escrita nas tabelas de release. Criação, gates, builds, triagem, testers, aprovação e promoção passam por RPCs auditadas no Supabase.
+O console de releases administra candidata, gates, builds, testers e promoção. O console de produção administra submissões, rollout, leituras agregadas, incidentes e rollback.
 
-A promoção exige:
+O cliente não recebe permissões genéricas de escrita. As ações passam por RPCs auditadas no Supabase.
 
-- candidata aprovada;
-- todos os gates obrigatórios aprovados;
-- build Android disponível;
-- nenhum feedback urgente ou bloqueador em aberto.
+### Regras de produção
+
+- rollout inicial em 1%;
+- ondas de 5%, 10%, 25%, 50% e 100%;
+- leitura agregada com até 24 horas;
+- sessões sem falha ≥ 99%;
+- sincronização ≥ 97%;
+- autenticação ≥ 98%;
+- zero bloqueadores;
+- zero SEV1 ou SEV2 abertos.
 
 ## Testes E2E
 
-O workflow Android público pode ser executado sob demanda com a label `e2e`. Os fluxos autenticados comuns usam `E2E_EMAIL` e `E2E_PASSWORD`.
+Os fluxos autenticados comuns usam `E2E_EMAIL` e `E2E_PASSWORD`.
 
-O console operacional usa uma conta sintética separada:
+Os consoles usam uma conta sintética operacional separada:
 
 ```bash
 E2E_OPERATOR_EMAIL=<conta-operacional> \
 E2E_OPERATOR_PASSWORD=<senha> \
 npm run e2e:operator
+
+E2E_OPERATOR_EMAIL=<conta-operacional> \
+E2E_OPERATOR_PASSWORD=<senha> \
+npm run e2e:production
 ```
 
 ## Publicação no GitHub
@@ -202,7 +250,7 @@ Notificações usam conteúdo genérico. Preferências de acessibilidade, notifi
 
 Feedback da beta e adesão usam RLS. O log técnico local é desligado por padrão, limitado a eventos pré-definidos sem texto livre e nunca é enviado automaticamente. Diagnóstico e eventos só acompanham um relato quando o usuário seleciona essas opções.
 
-A operação de releases usa RBAC por `app_metadata`, RLS, RPCs específicas e auditoria. Nenhuma chave `service_role` é distribuída no aplicativo.
+A operação usa RBAC por `app_metadata`, RLS, RPCs específicas e auditoria. Leituras de produção armazenam somente números e contagens agregadas. Nenhuma chave `service_role` é distribuída no aplicativo.
 
 ## Assinatura
 
@@ -210,4 +258,4 @@ Desenvolvido por **Tehkné Solutions**.
 
 ## Configuração de autenticação
 
-No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://`, `bemmecuida-beta://`, `bemmecuida-rc://` e `bemmecuida://`. As URLs exatas e os roteiros de validação estão nos guias de staging, beta e RC.
+No Supabase Auth, configure os callbacks `bemmecuida-dev://`, `bemmecuida-preview://`, `bemmecuida-beta://`, `bemmecuida-rc://` e `bemmecuida://`. As URLs exatas e os roteiros de validação estão nos guias de staging, beta, RC e produção.
