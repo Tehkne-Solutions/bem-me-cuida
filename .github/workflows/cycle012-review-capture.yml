@@ -1,0 +1,121 @@
+name: Cycle 0.12 Human Review Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Review track
+        required: true
+        type: choice
+        options:
+          - architecture
+          - security
+          - privacy
+          - accessibility
+          - database
+      verdict:
+        description: Review verdict
+        required: true
+        type: choice
+        options:
+          - pass
+          - pass-with-residual-risk
+          - changes-required
+      source_commit:
+        description: Full 40-character commit SHA reviewed
+        required: true
+        type: string
+      evidence_url:
+        description: Sanitized HTTPS evidence URL
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cycle012-review-${{ inputs.track }}-${{ inputs.source_commit }}-${{ github.actor_id }}
+  cancel-in-progress: false
+
+jobs:
+  capture-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      REVIEW_TRACK: ${{ inputs.track }}
+      REVIEW_VERDICT: ${{ inputs.verdict }}
+      REVIEW_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      REVIEW_EVIDENCE_URL: ${{ inputs.evidence_url }}
+      GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+      GITHUB_ACTOR_ID: ${{ github.actor_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+
+      - name: Resolve reviewed commit author
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$REVIEW_SOURCE_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "source_commit must be a full SHA" >&2
+            exit 1
+          fi
+          author_id="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${REVIEW_SOURCE_COMMIT}" --jq '.author.id // .committer.id // empty')"
+          if [[ ! "$author_id" =~ ^[0-9]+$ ]]; then
+            echo "Unable to resolve a numeric author id for the reviewed commit" >&2
+            exit 1
+          fi
+          echo "author_id=$author_id" >> "$GITHUB_OUTPUT"
+
+      - name: Create pseudonymized review record
+        id: record
+        env:
+          REVIEW_SOURCE_AUTHOR_ID: ${{ steps.source.outputs.author_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export REVIEWED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          node scripts/create-cycle012-review-record.mjs | tee /tmp/cycle012-review.out
+          record_path="$(awk -F= '$1 == "record_path" { print substr($0, index($0, "=") + 1) }' /tmp/cycle012-review.out)"
+          test -n "$record_path"
+          test -f "$record_path"
+          echo "path=$record_path" >> "$GITHUB_OUTPUT"
+
+      - name: Validate fail-closed review state
+        run: |
+          node scripts/verify-cycle012-human-review-capture.mjs structure
+          node scripts/verify-cycle012-human-review-capture.mjs report
+
+      - name: Open evidence pull request
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="evidence/cycle012-review-${REVIEW_TRACK}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add "${{ steps.record.outputs.path }}"
+          git commit -m "chore(cycle012): registrar revisão humana ${REVIEW_TRACK}"
+          git push --set-upstream origin "$branch"
+          {
+            printf '## Human review evidence\n\n'
+            printf -- '- Track: `%s`\n' "$REVIEW_TRACK"
+            printf -- '- Verdict: `%s`\n' "$REVIEW_VERDICT"
+            printf -- '- Reviewed commit: `%s`\n' "$REVIEW_SOURCE_COMMIT"
+            printf -- '- Evidence: %s\n\n' "$REVIEW_EVIDENCE_URL"
+            printf 'This PR records one pseudonymized human review. It does not activate cycle 0.12.0, authorize migrations, or authorize implementation.\n\n'
+            printf '**Tehkné Solutions**\n'
+          } > /tmp/cycle012-review-pr.md
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(cycle012): registrar revisão humana ${REVIEW_TRACK}" \
+            --body-file /tmp/cycle012-review-pr.md
