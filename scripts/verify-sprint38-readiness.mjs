@@ -4,6 +4,7 @@ import { join } from 'node:path';
 const root = process.cwd();
 const failures = [];
 const required = [
+  '.github/workflows/ci.yml',
   '.github/workflows/cycle012-queue-reconciliation.yml',
   '.github/workflows/sprint38.yml',
   'release/cycle-0.12.0/queue-reconciliation-policy.json',
@@ -33,23 +34,23 @@ const operationsWorkflow = existsSync(operationsWorkflowPath) ? readFileSync(ope
 for (const marker of ['workflow_dispatch', 'permissions:', 'contents: read', 'reconcile-cycle012-queue-updates.mjs', 'upload-artifact@v4']) {
   if (!operationsWorkflow.includes(marker)) failures.push(`workflow operacional sem marcador: ${marker}`);
 }
+
+const ciWorkflowPath = join(root, '.github/workflows/ci.yml');
+const ciWorkflow = existsSync(ciWorkflowPath) ? readFileSync(ciWorkflowPath, 'utf8') : '';
+for (const marker of [
+  'Validate Sprint 38 reconciliation',
+  'verify-sprint38-readiness.mjs',
+  'test-cycle012-queue-reconciliation.mjs',
+  'verify-cycle012-queue-reconciliation.mjs structure',
+]) {
+  if (!ciWorkflow.includes(marker)) failures.push(`CI principal sem integração do Sprint 38: ${marker}`);
+}
+
 for (const forbidden of [
   'contents: write', 'pull-requests: write', 'issues: write', 'supabase db push', 'gh pr merge',
   'eas build', 'eas submit', 'DELETE', 'git push',
 ]) {
   if (qualityWorkflow.includes(forbidden) || operationsWorkflow.includes(forbidden)) failures.push(`workflow contém operação proibida: ${forbidden}`);
-}
-
-const packagePath = join(root, 'package.json');
-const packageText = existsSync(packagePath) ? readFileSync(packagePath, 'utf8') : '';
-for (const marker of [
-  'cycle012:reconciliation:test',
-  'cycle012:reconciliation:structure',
-  'cycle012:reconciliation:build',
-  'sprint38:check',
-  'verify-sprint38-readiness.mjs',
-]) {
-  if (!packageText.includes(marker)) failures.push(`package.json sem integração: ${marker}`);
 }
 
 const migrationDir = join(root, 'supabase/migrations');
