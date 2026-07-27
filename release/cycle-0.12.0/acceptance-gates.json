@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "overallStatus": "hold",
+  "gates": [
+    {
+      "id": "source-cycle-closure",
+      "status": "pending",
+      "requiredEvidence": "release/rc-0.11.0/cycle-closure.json with status closed"
+    },
+    {
+      "id": "feedback-summary",
+      "status": "pending",
+      "requiredEvidence": "aggregated and anonymized evidence PR"
+    },
+    {
+      "id": "environment-cleanup",
+      "status": "pending",
+      "requiredEvidence": "independently reviewed dry-run or cleanup evidence"
+    },
+    {
+      "id": "scope-approval",
+      "status": "pending",
+      "requiredEvidence": "approved scope with independent fingerprint"
+    },
+    {
+      "id": "human-activation",
+      "status": "blocked",
+      "requiredEvidence": "merged ready-for-human-activation proposal"
+    }
+  ],
+  "permissions": {
+    "implementationBranchesAllowed": false,
+    "migrationsAllowed": false,
+    "automaticActivationAllowed": false
+  },
+  "controls": {
+    "failClosed": true,
+    "independentApprovalRequired": true,
+    "evidenceMustUseHttps": true,
+    "noSensitiveData": true
+  }
+}
