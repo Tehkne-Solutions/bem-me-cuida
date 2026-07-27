@@ -11,6 +11,7 @@ const track = env.REVIEW_TRACK;
 const verdict = env.REVIEW_VERDICT;
 const evidenceUrl = env.REVIEW_EVIDENCE_URL;
 const sourceCommit = env.REVIEW_SOURCE_COMMIT;
+const sourceAuthorId = env.REVIEW_SOURCE_AUTHOR_ID;
 const repositoryId = env.GITHUB_REPOSITORY_ID;
 const actorId = env.GITHUB_ACTOR_ID;
 const reviewedAt = env.REVIEWED_AT ?? new Date().toISOString();
@@ -20,6 +21,8 @@ if (!config.allowedVerdicts.includes(verdict)) failures.push('veredito de revis�
 if (!/^[0-9a-f]{40}$/i.test(sourceCommit ?? '')) failures.push('source commit precisa ser SHA completo de 40 caracteres.');
 if (!repositoryId || !/^\d+$/.test(repositoryId)) failures.push('GITHUB_REPOSITORY_ID inválido.');
 if (!actorId || !/^\d+$/.test(actorId)) failures.push('GITHUB_ACTOR_ID inválido.');
+if (!sourceAuthorId || !/^\d+$/.test(sourceAuthorId)) failures.push('REVIEW_SOURCE_AUTHOR_ID inválido.');
+if (actorId && sourceAuthorId && actorId === sourceAuthorId) failures.push('o autor do commit não pode aprovar a própria mudança.');
 
 let parsedEvidence;
 try {
@@ -66,6 +69,7 @@ const record = {
   evidenceUrl: parsedEvidence.toString(),
   reviewedAt: new Date(reviewedAt).toISOString(),
   controls: {
+    authorCannotApproveOwnChange: true,
     doesNotActivateCycle: true,
     doesNotAuthorizeMigrations: true,
     doesNotAuthorizeImplementation: true,
