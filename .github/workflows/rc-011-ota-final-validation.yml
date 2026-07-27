@@ -1,0 +1,309 @@
+name: RC 0.11 OTA Final Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação OTA protegida
+        required: true
+        type: choice
+        options:
+          - validate
+          - publish-validation
+          - open-publish-pr
+          - capture-device-session
+          - open-session-pr
+          - rollback-validation
+          - open-rollback-pr
+          - package-final-decision
+      source_commit:
+        description: SHA de 40 caracteres da candidata
+        required: true
+        type: string
+      capture_run_id:
+        description: Run ID da captura que será versionada
+        required: false
+        default: '0'
+        type: string
+      platform:
+        description: Plataforma da sessão física
+        required: false
+        type: choice
+        options: [android, ios]
+      build_id:
+        description: Build ID da plataforma
+        required: false
+        type: string
+      profile_id:
+        description: Perfil abstrato do aparelho
+        required: false
+        type: string
+      os_version:
+        description: Versão sanitizada do sistema
+        required: false
+        type: string
+      update_group_id:
+        description: Group ID da publicação ou rollback
+        required: false
+        type: string
+      ota_action:
+        description: Ação física a validar
+        required: false
+        type: choice
+        options: [publish, rollback]
+      evidence_url:
+        description: Evidência HTTPS sanitizada
+        required: false
+        type: string
+      check_results:
+        description: Checks OTA no formato id=status,id=status
+        required: false
+        type: string
+      message:
+        description: Mensagem técnica sem dados pessoais ou clínicos
+        required: false
+        default: Homologação OTA BemMeCuida 0.11.0-rc.1
+        type: string
+      tracking_issue:
+        description: Issue operacional
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rc011-ota-final-${{ inputs.action }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_PLATFORM: ${{ inputs.platform }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_PROFILE_ID: ${{ inputs.profile_id }}
+      INPUT_OS_VERSION: ${{ inputs.os_version }}
+      INPUT_UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+      INPUT_OTA_ACTION: ${{ inputs.ota_action }}
+      INPUT_EVIDENCE_URL: ${{ inputs.evidence_url }}
+      INPUT_CHECK_RESULTS: ${{ inputs.check_results }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:ota-final:structure
+      - name: Validate protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          case "$INPUT_ACTION" in
+            open-publish-pr|open-session-pr|open-rollback-pr)
+              [[ "$INPUT_CAPTURE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              ;;
+            capture-device-session)
+              [[ "$INPUT_PLATFORM" == "android" || "$INPUT_PLATFORM" == "ios" ]]
+              [[ "$INPUT_BUILD_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+              [[ "$INPUT_PROFILE_ID" == "$INPUT_PLATFORM-"* ]]
+              [[ "$INPUT_OS_VERSION" =~ ^[a-zA-Z0-9._-]{1,24}$ ]]
+              [[ "$INPUT_UPDATE_GROUP_ID" =~ ^[a-fA-F0-9-]{16,}$ ]]
+              [[ "$INPUT_OTA_ACTION" == "publish" || "$INPUT_OTA_ACTION" == "rollback" ]]
+              [[ "$INPUT_EVIDENCE_URL" == https://* ]]
+              [[ -n "$INPUT_CHECK_RESULTS" ]]
+              ;;
+            rollback-validation)
+              [[ "$INPUT_UPDATE_GROUP_ID" =~ ^[a-fA-F0-9-]{16,}$ ]]
+              ;;
+          esac
+
+  external-capture:
+    needs: validate
+    if: inputs.action == 'publish-validation' || inputs.action == 'rollback-validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: rc-011-homologation
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+      INPUT_MESSAGE: ${{ inputs.message }}
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ inputs.source_commit }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: mkdir -p /tmp/rc011-ota
+      - name: Publish validation update
+        if: inputs.action == 'publish-validation'
+        run: |
+          npx eas-cli@latest update --channel rc-0-11 --environment preview \
+            --message "$INPUT_MESSAGE" --platform all --json --non-interactive \
+            > /tmp/rc011-ota/ota-publish.json
+          node scripts/collect-eas-update-metadata.mjs \
+            --action publish --input /tmp/rc011-ota/ota-publish.json \
+            --output /tmp/rc011-ota/ota-publish-capture.json \
+            --source-commit "$INPUT_SOURCE_COMMIT"
+      - name: Create rollback update
+        if: inputs.action == 'rollback-validation'
+        run: |
+          npx eas-cli@latest update:rollback "$INPUT_UPDATE_GROUP_ID" \
+            --message "$INPUT_MESSAGE" --platform all --json --non-interactive \
+            > /tmp/rc011-ota/ota-rollback.json
+          node scripts/collect-eas-update-metadata.mjs \
+            --action rollback --input /tmp/rc011-ota/ota-rollback.json \
+            --source-group-id "$INPUT_UPDATE_GROUP_ID" \
+            --output /tmp/rc011-ota/ota-rollback-capture.json \
+            --source-commit "$INPUT_SOURCE_COMMIT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-ota-${{ inputs.action }}-${{ github.run_id }}
+          path: /tmp/rc011-ota/*.json
+          retention-days: 90
+      - name: Record external capture
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1 — OTA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Operação: **$INPUT_ACTION**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Nenhum gate foi aprovado automaticamente." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
+
+  capture-session:
+    needs: validate
+    if: inputs.action == 'capture-device-session'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: rc-011-homologation
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Capture sanitized OTA device session
+        run: |
+          mkdir -p /tmp/rc011-ota-session
+          node scripts/capture-rc011-ota-device-session.mjs \
+            --source-commit '${{ inputs.source_commit }}' \
+            --platform '${{ inputs.platform }}' \
+            --build-id '${{ inputs.build_id }}' \
+            --profile-id '${{ inputs.profile_id }}' \
+            --os-version '${{ inputs.os_version }}' \
+            --action '${{ inputs.ota_action }}' \
+            --group-id '${{ inputs.update_group_id }}' \
+            --check-results '${{ inputs.check_results }}' \
+            --evidence-url '${{ inputs.evidence_url }}' \
+            --output /tmp/rc011-ota-session/session.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-ota-session-${{ github.run_id }}
+          path: /tmp/rc011-ota-session/session.json
+          retention-days: 90
+
+  open-pr:
+    needs: validate
+    if: inputs.action == 'open-publish-pr' || inputs.action == 'open-session-pr' || inputs.action == 'open-rollback-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Download reviewed capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-ota-pr
+          case "$INPUT_ACTION" in
+            open-publish-pr) ARTIFACT="rc011-ota-publish-validation-$INPUT_CAPTURE_RUN_ID" ;;
+            open-rollback-pr) ARTIFACT="rc011-ota-rollback-validation-$INPUT_CAPTURE_RUN_ID" ;;
+            open-session-pr) ARTIFACT="rc011-ota-session-$INPUT_CAPTURE_RUN_ID" ;;
+          esac
+          gh run download "$INPUT_CAPTURE_RUN_ID" --name "$ARTIFACT" --dir /tmp/rc011-ota-pr
+      - name: Apply reviewed evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$INPUT_CAPTURE_RUN_ID"
+          if [[ "$INPUT_ACTION" == "open-session-pr" ]]; then
+            node scripts/apply-rc011-ota-device-session.mjs \
+              --session /tmp/rc011-ota-pr/session.json \
+              --source release/rc-0.11.0/ota-device-validation.json \
+              --output release/rc-0.11.0/ota-device-validation.json \
+              --history-dir release/rc-0.11.0/ota-sessions
+            ITEM_ID=$(jq -r '.sessionId' /tmp/rc011-ota-pr/session.json)
+          else
+            [[ "$INPUT_ACTION" == "open-publish-pr" ]] && CAPTURE=/tmp/rc011-ota-pr/ota-publish-capture.json || CAPTURE=/tmp/rc011-ota-pr/ota-rollback-capture.json
+            node scripts/apply-rc011-ota-final-capture.mjs \
+              --capture "$CAPTURE" \
+              --ota-output release/rc-0.11.0/ota-validation.json \
+              --validation-output release/rc-0.11.0/ota-device-validation.json \
+              --evidence-url "$EVIDENCE_URL"
+            ITEM_ID=$(jq -r '.groupId' "$CAPTURE")
+          fi
+          echo "ITEM_ID=$ITEM_ID" >> "$GITHUB_ENV"
+      - name: Create or reuse evidence PR
+        id: pull
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-ota-$ITEM_ID"
+          EXISTING_URL=$(gh pr list --state all --head "$BRANCH" --json url --jq '.[0].url // ""')
+          if [[ -n "$EXISTING_URL" ]]; then echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git config user.name "Tehkné Solutions Automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add release/rc-0.11.0/ota-validation.json release/rc-0.11.0/ota-device-validation.json release/rc-0.11.0/ota-sessions 2>/dev/null || true
+          git commit -m "chore(rc011): registrar evidência OTA revisável"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create --base main --head "$BRANCH" --title "chore: registrar evidência OTA da RC 0.11" --body "Evidência OTA sanitizada e vinculada ao commit da candidata. Nenhum gate ou promoção foi aprovado automaticamente.\n\nTehkné Solutions")
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+      - run: gh issue comment "$INPUT_TRACKING_ISSUE" --body "PR de evidência OTA: ${{ steps.pull.outputs.url }}\n\nTehkné Solutions"
+
+  package-final:
+    needs: validate
+    if: inputs.action == 'package-final-decision'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run rc011:final:decision
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-final-decision-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-rc.1-final-decision.*
+          retention-days: 90
+      - run: |
+          echo "Pacote final gerado sem alterar gates ou promover a candidata." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
