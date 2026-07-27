@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "human-proposal-decision-ready-execution-blocked",
+  "decisions": [
+    "accept-for-future-correction",
+    "reject-proposal",
+    "request-replacement"
+  ],
+  "allowedValidationClassifications": {
+    "accept-for-future-correction": ["current-and-compatible"],
+    "reject-proposal": ["current-and-compatible", "stale-reconciliation", "duplicate-proposal", "conflicting-proposal", "source-item-missing", "action-classification-mismatch", "invalid-proposal-reference"],
+    "request-replacement": ["stale-reconciliation", "duplicate-proposal", "conflicting-proposal", "source-item-missing", "action-classification-mismatch", "invalid-proposal-reference"]
+  },
+  "record": {
+    "directory": "release/cycle-0.12.0/proposal-decisions",
+    "oneDecisionPerFile": true,
+    "immutableAfterMerge": true,
+    "pullRequestRequired": true,
+    "freeTextAllowed": false,
+    "executionForbidden": true
+  },
+  "controls": {
+    "readOnly": true,
+    "doesNotExecuteProposal": true,
+    "doesNotModifyProposal": true,
+    "doesNotModifyReconciliation": true,
+    "doesNotChangeQueue": true,
+    "doesNotChangeReviews": true,
+    "doesNotChangeGates": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotPublishBuilds": true,
+    "doesNotMergeCorrectionPullRequests": true,
+    "doesNotActivateCycle": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false,
+    "containsRawIdentity": false,
+    "containsPseudonymousActorReference": true
+  }
+}
