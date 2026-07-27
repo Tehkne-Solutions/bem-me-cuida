@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "decision-validation-ready-activation-blocked",
+  "classifications": [
+    "current-and-compatible",
+    "stale-proposal-validation",
+    "duplicate-decision",
+    "conflicting-decision",
+    "proposal-missing",
+    "decision-classification-mismatch",
+    "invalid-decision-reference"
+  ],
+  "severity": {
+    "current-and-compatible": "info",
+    "stale-proposal-validation": "warning",
+    "duplicate-decision": "warning",
+    "conflicting-decision": "critical",
+    "proposal-missing": "critical",
+    "decision-classification-mismatch": "critical",
+    "invalid-decision-reference": "critical"
+  },
+  "controls": {
+    "readOnly": true,
+    "deterministic": true,
+    "doesNotApproveDecisions": true,
+    "doesNotExecuteCorrections": true,
+    "doesNotRewriteDecisions": true,
+    "doesNotChangeProposals": true,
+    "doesNotChangeReconciliation": true,
+    "doesNotChangeQueue": true,
+    "doesNotChangeReviews": true,
+    "doesNotChangeGates": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotPublishBuilds": true,
+    "doesNotMergePullRequests": true,
+    "doesNotActivateCycle": true
+  }
+}
