@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "reconciliation-ready-activation-blocked",
+  "classifications": [
+    "aligned-open-item",
+    "source-reflected-closed",
+    "stale-source-commit",
+    "evidence-awaiting-source-reflection",
+    "dependency-report-not-reflected",
+    "state-conflict",
+    "invalid-item-reference"
+  ],
+  "severity": {
+    "aligned-open-item": "info",
+    "source-reflected-closed": "info",
+    "stale-source-commit": "warning",
+    "evidence-awaiting-source-reflection": "warning",
+    "dependency-report-not-reflected": "warning",
+    "state-conflict": "critical",
+    "invalid-item-reference": "critical"
+  },
+  "sourceTruth": {
+    "queueIsDerived": true,
+    "reviewRecordsDirectory": "release/cycle-0.12.0/reviews",
+    "queueUpdatesDirectory": "release/cycle-0.12.0/queue-updates",
+    "sourceCycleClosure": "release/rc-0.11.0/cycle-closure.json",
+    "environmentCleanup": "release/cycle-0.12.0/environment-cleanup.json",
+    "feedbackSummary": "release/cycle-0.12.0/feedback-summary.json",
+    "scope": "release/cycle-0.12.0/scope.json",
+    "migrationPlan": "release/cycle-0.12.0/migration-plan.json"
+  },
+  "evidenceKindBySource": {
+    "review": "review",
+    "external:source-cycle-closure": "cycle-closure",
+    "external:environment-cleanup": "environment-cleanup",
+    "external:feedback-summary": "feedback-summary",
+    "external:scope-approval": "scope-approval",
+    "external:migration-plan-approval": "migration-plan"
+  },
+  "controls": {
+    "readOnly": true,
+    "deterministic": true,
+    "doesNotRewriteUpdates": true,
+    "doesNotChangeQueueReadiness": true,
+    "doesNotResolveDependencies": true,
+    "doesNotChangeReviews": true,
+    "doesNotChangeGates": true,
+    "doesNotActivateCycle": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotMergePullRequests": true,
+    "doesNotPublishBuilds": true,
+    "doesNotDeleteEnvironments": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false,
+    "containsRawIdentity": false,
+    "containsPseudonymousActorReference": false
+  }
+}

@@ -1,0 +1,45 @@
+name: Cycle 0.12 Queue Reconciliation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Validate reconciliation structure
+        run: |
+          node scripts/verify-cycle012-queue-reconciliation.mjs structure
+          node scripts/test-cycle012-queue-reconciliation.mjs
+      - name: Generate read-only reconciliation
+        run: |
+          node scripts/reconcile-cycle012-queue-updates.mjs \
+            --source-commit "$(git rev-parse HEAD)" \
+            --json-output artifacts/cycle012-queue-reconciliation.json \
+            --markdown-output artifacts/cycle012-queue-reconciliation.md
+      - name: Upload reconciliation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-queue-reconciliation-${{ github.run_id }}
+          path: |
+            artifacts/cycle012-queue-reconciliation.json
+            artifacts/cycle012-queue-reconciliation.md
+          retention-days: 14
+          if-no-files-found: error

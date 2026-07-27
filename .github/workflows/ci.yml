@@ -50,6 +50,11 @@ jobs:
           retention-days: 1
       - run: npm run lint
       - run: npm run test
+      - name: Validate Sprint 38 reconciliation
+        run: |
+          node scripts/verify-sprint38-readiness.mjs
+          node scripts/test-cycle012-queue-reconciliation.mjs
+          node scripts/verify-cycle012-queue-reconciliation.mjs structure
       - run: npm run governance:report
       - run: npm run cycle:report
       - run: npm run rc011:validation:report
