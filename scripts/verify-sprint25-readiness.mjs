@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const requiredFiles = [
   '.github/workflows/rc-011-ios-artifact.yml',
   '.github/workflows/rc-011-ios-physical-validation.yml',
+  'release/rc-0.11.0/android-homologation-plan.json',
   'release/rc-0.11.0/ios-homologation-plan.json',
   'release/rc-0.11.0/ios-session.template.json',
   'scripts/lib/rc011-ios-artifact.mjs',
