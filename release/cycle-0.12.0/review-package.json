@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "review-blocked",
+  "recommendation": "hold",
+  "sources": [
+    "release/cycle-0.12.0/backlog.json",
+    "release/cycle-0.12.0/architecture-contracts.json",
+    "release/cycle-0.12.0/implementation-plans.json",
+    "release/cycle-0.12.0/migration-plan.json",
+    "release/cycle-0.12.0/threat-model.json",
+    "release/cycle-0.12.0/approval-policy.json"
+  ],
+  "reviewTracks": [
+    {
+      "id": "architecture",
+      "status": "pending",
+      "requiredRole": "solution_architect",
+      "criteria": [
+        "contratos correspondem integralmente aos itens do backlog",
+        "dependências e rollbacks estão definidos",
+        "nenhuma configuração de runtime é ativada pelo pacote"
+      ]
+    },
+    {
+      "id": "security",
+      "status": "pending",
+      "requiredRole": "security_reviewer",
+      "criteria": [
+        "ameaças possuem mitigação e risco residual explícitos",
+        "secrets e identificadores são proibidos",
+        "operações destrutivas exigem segregação de funções"
+      ]
+    },
+    {
+      "id": "privacy",
+      "status": "pending",
+      "requiredRole": "privacy_reviewer",
+      "criteria": [
+        "dados pessoais e clínicos permanecem fora do escopo",
+        "feedback bruto e conteúdo do Diário são proibidos",
+        "agregação mínima e retenção estão documentadas"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "status": "pending",
+      "requiredRole": "accessibility_reviewer",
+      "criteria": [
+        "hipóteses de UX exigem critérios WCAG e teste assistivo",
+        "nenhuma decisão automática bloqueia acesso ao cuidado",
+        "linguagem e estados operacionais permanecem compreensíveis"
+      ]
+    },
+    {
+      "id": "database",
+      "status": "pending",
+      "requiredRole": "database_reviewer",
+      "criteria": [
+        "migrations 022–024 permanecem apenas reservadas",
+        "RLS, pgTAP e rollback são obrigatórios",
+        "nenhum SQL vazio ou prematuro foi criado"
+      ]
+    }
+  ],
+  "decision": {
+    "status": "blocked",
+    "eligibleForHumanApproval": false,
+    "approvedBy": [],
+    "evidenceUrl": null,
+    "decidedAt": null
+  },
+  "controls": {
+    "allTracksMustPass": true,
+    "independentReviewRequired": true,
+    "selfApprovalForbidden": true,
+    "sourceCycleClosureRequired": true,
+    "doesNotActivateCycleAutomatically": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false
+  }
+}

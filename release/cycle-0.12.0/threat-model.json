@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "proposed-blocked",
+  "method": "STRIDE-inspired",
+  "assets": [
+    "métricas técnicas agregadas",
+    "metadados operacionais de environments",
+    "temas anônimos de feedback",
+    "registros de auditoria e aprovação"
+  ],
+  "threats": [
+    {
+      "id": "T-012-01",
+      "category": "information-disclosure",
+      "scenario": "dimensões técnicas permitem reidentificação por baixa cardinalidade",
+      "impact": "high",
+      "mitigations": [
+        "agregação mínima de 10 registros",
+        "allowlist fechada de dimensões",
+        "proibição de identificadores e texto livre"
+      ],
+      "residualRisk": "low",
+      "verification": "testes de contrato e revisão de privacidade"
+    },
+    {
+      "id": "T-012-02",
+      "category": "elevation-of-privilege",
+      "scenario": "operador sem autorização tenta excluir environment",
+      "impact": "critical",
+      "mitigations": [
+        "papel release_admin obrigatório",
+        "revisor independente",
+        "confirmação destrutiva e allowlist explícita"
+      ],
+      "residualRisk": "medium",
+      "verification": "testes de RBAC, segregação e bloqueio de produção"
+    },
+    {
+      "id": "T-012-03",
+      "category": "tampering",
+      "scenario": "plano de dry-run é alterado entre revisão e execução",
+      "impact": "high",
+      "mitigations": [
+        "hash imutável do plano",
+        "vínculo entre executor, aprovação e evidência",
+        "revalidação imediatamente antes da operação"
+      ],
+      "residualRisk": "low",
+      "verification": "teste de integridade e idempotência"
+    },
+    {
+      "id": "T-012-04",
+      "category": "privacy-abuse",
+      "scenario": "feedback bruto ou clínico entra na priorização de UX",
+      "impact": "critical",
+      "mitigations": [
+        "schema sem campos de texto bruto",
+        "rejeição de conteúdo clínico e identificadores",
+        "revisão humana de privacidade"
+      ],
+      "residualRisk": "low",
+      "verification": "testes negativos e inspeção do artefato"
+    },
+    {
+      "id": "T-012-05",
+      "category": "denial-of-service",
+      "scenario": "consulta agregada causa carga excessiva no backend",
+      "impact": "medium",
+      "mitigations": [
+        "janelas temporais limitadas",
+        "índices planejados",
+        "limites de consulta e cache operacional"
+      ],
+      "residualRisk": "low",
+      "verification": "teste de plano de execução e limites"
+    }
+  ],
+  "controls": {
+    "securityReviewRequired": true,
+    "privacyReviewRequired": true,
+    "noRuntimeActivation": true,
+    "noSensitiveEvidence": true
+  }
+}
