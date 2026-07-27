@@ -1,0 +1,84 @@
+name: Sprint 36
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/cycle012-operations-command.yml'
+      - '.github/workflows/sprint36.yml'
+      - 'release/cycle-0.12.0/operations-dashboard-config.json'
+      - 'release/cycle-0.12.0/operations-queue-config.json'
+      - 'scripts/lib/cycle012-operations-command-router.mjs'
+      - 'scripts/lib/cycle012-operations-queue.mjs'
+      - 'scripts/generate-cycle012-operations-queue.mjs'
+      - 'scripts/run-cycle012-operations-command.mjs'
+      - 'scripts/test-cycle012-operations-queue.mjs'
+      - 'scripts/verify-cycle012-operations-queue.mjs'
+      - 'scripts/verify-sprint36-readiness.mjs'
+      - 'docs/SPRINT-36.md'
+      - 'docs/ADR-040-fila-operacional-baseada-em-papeis.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cycle012-operations-command.yml'
+      - '.github/workflows/sprint36.yml'
+      - 'release/cycle-0.12.0/operations-dashboard-config.json'
+      - 'release/cycle-0.12.0/operations-queue-config.json'
+      - 'scripts/lib/cycle012-operations-command-router.mjs'
+      - 'scripts/lib/cycle012-operations-queue.mjs'
+      - 'scripts/generate-cycle012-operations-queue.mjs'
+      - 'scripts/run-cycle012-operations-command.mjs'
+      - 'scripts/test-cycle012-operations-queue.mjs'
+      - 'scripts/verify-cycle012-operations-queue.mjs'
+      - 'scripts/verify-sprint36-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint36-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 36 operational queue
+        run: |
+          node scripts/verify-sprint36-readiness.mjs
+          node scripts/test-cycle012-operations-queue.mjs
+          node scripts/verify-cycle012-operations-queue.mjs structure
+          node scripts/verify-cycle012-operations-queue.mjs report
+          node scripts/generate-cycle012-operations-queue.mjs \
+            --source-commit "$GITHUB_SHA" \
+            --json-output artifacts/cycle012-operations-queue.json \
+            --markdown-output artifacts/cycle012-operations-queue.md
+          for command in queue owners next; do
+            node scripts/run-cycle012-operations-command.mjs \
+              --command "/cycle012 $command" \
+              --source-commit "$GITHUB_SHA" \
+              --output "artifacts/cycle012-queue-command-$command.md"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sprint36-cycle012-operations-queue
+          path: |
+            artifacts/cycle012-*.json
+            artifacts/cycle012-*.md
+          if-no-files-found: error
+          retention-days: 14

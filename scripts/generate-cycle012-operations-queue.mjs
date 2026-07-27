@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { assertSourceCommit } from './lib/cycle012-bootstrap.mjs';
-import { buildOperationsSnapshot, renderOperationsMarkdown } from './lib/cycle012-operations-dashboard.mjs';
-import { parseCycle012OperationsCommand } from './lib/cycle012-operations-command-router.mjs';
+import { buildOperationsSnapshot } from './lib/cycle012-operations-dashboard.mjs';
 import { buildOperationsQueue, renderOperationsQueueMarkdown } from './lib/cycle012-operations-queue.mjs';
 
 const root = process.cwd();
@@ -11,17 +10,16 @@ const arg = (name, fallback = '') => {
   return index >= 0 ? process.argv[index + 1] : fallback;
 };
 const readJson = (path) => JSON.parse(readFileSync(join(root, path), 'utf8'));
-const commandText = arg('command', process.env.CYCLE012_COMMAND ?? '');
 const sourceCommit = assertSourceCommit(arg('source-commit'));
-const output = arg('output', 'artifacts/cycle012-operations-command.md');
+const jsonOutput = arg('json-output', 'artifacts/cycle012-operations-queue.json');
+const markdownOutput = arg('markdown-output', 'artifacts/cycle012-operations-queue.md');
+const generatedAt = new Date().toISOString();
 const dashboardConfig = readJson('release/cycle-0.12.0/operations-dashboard-config.json');
 const queueConfig = readJson('release/cycle-0.12.0/operations-queue-config.json');
-const route = parseCycle012OperationsCommand(commandText, dashboardConfig, queueConfig);
 const reviewsDir = join(root, 'release/cycle-0.12.0/reviews');
 const records = existsSync(reviewsDir)
   ? readdirSync(reviewsDir).filter((name) => name.endsWith('.json')).sort().map((name) => readJson(`release/cycle-0.12.0/reviews/${name}`))
   : [];
-const generatedAt = new Date().toISOString();
 const snapshot = buildOperationsSnapshot({
   sourceCommit,
   records,
@@ -33,14 +31,15 @@ const snapshot = buildOperationsSnapshot({
   migrationPlan: readJson('release/cycle-0.12.0/migration-plan.json'),
   generatedAt,
 });
-const markdown = route.surface === 'queue'
-  ? renderOperationsQueueMarkdown(buildOperationsQueue({ snapshot, config: queueConfig, generatedAt }), route.command)
-  : renderOperationsMarkdown(snapshot, route.command);
-mkdirSync(dirname(join(root, output)), { recursive: true });
-writeFileSync(join(root, output), markdown, 'utf8');
-console.log(`command=${route.command}`);
-console.log(`surface=${route.surface}`);
-console.log(`output=${output}`);
-console.log(`status=${snapshot.status}`);
-console.log('Comando executado em modo somente leitura.');
+const queue = buildOperationsQueue({ snapshot, config: queueConfig, generatedAt });
+const markdown = renderOperationsQueueMarkdown(queue, 'queue');
+mkdirSync(dirname(join(root, jsonOutput)), { recursive: true });
+mkdirSync(dirname(join(root, markdownOutput)), { recursive: true });
+writeFileSync(join(root, jsonOutput), `${JSON.stringify(queue, null, 2)}\n`, 'utf8');
+writeFileSync(join(root, markdownOutput), markdown, 'utf8');
+console.log(`queue=${jsonOutput}`);
+console.log(`dashboard=${markdownOutput}`);
+console.log(`items=${queue.summary.totalItems}`);
+console.log(`ready=${queue.summary.readyItems}`);
+console.log('Fila gerada em modo somente leitura.');
 console.log('Tehkné Solutions');
