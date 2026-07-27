@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0",
+  "candidate": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "status": "pending",
+  "environment": "production-release",
+  "sourceCommit": null,
+  "evidenceUrl": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false
+  },
+  "requiredSecrets": ["EXPO_TOKEN"],
+  "requiredVariables": [
+    "EAS_PROJECT_ID",
+    "PRODUCTION_SUPABASE_URL",
+    "PRODUCTION_SUPABASE_PUBLISHABLE_KEY",
+    "PRODUCTION_SUPPORT_URL",
+    "PRODUCTION_PRIVACY_URL",
+    "PRODUCTION_TERMS_URL"
+  ],
+  "checks": {
+    "environmentExists": false,
+    "requiredReviewersConfigured": false,
+    "mainBranchProtected": false,
+    "expoTokenPresent": false,
+    "variablesPresent": false,
+    "legalUrlsValidated": false
+  },
+  "controls": {
+    "requiresIndependentReviewer": true,
+    "secretValuesNeverPersisted": true,
+    "requiresMainBranch": true
+  }
+}
