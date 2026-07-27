@@ -1,0 +1,66 @@
+name: Sprint 40
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sprint40.yml'
+      - 'release/cycle-0.12.0/proposal-validation-policy.json'
+      - 'release/cycle-0.12.0/resolution-proposals/**'
+      - 'scripts/lib/cycle012-proposal-validation.mjs'
+      - 'scripts/validate-cycle012-resolution-proposals.mjs'
+      - 'scripts/test-cycle012-proposal-validation.mjs'
+      - 'scripts/verify-sprint40-readiness.mjs'
+      - 'docs/SPRINT-40.md'
+      - 'docs/ADR-044-validacao-protegida-das-propostas.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sprint40.yml'
+      - 'release/cycle-0.12.0/proposal-validation-policy.json'
+      - 'release/cycle-0.12.0/resolution-proposals/**'
+      - 'scripts/lib/cycle012-proposal-validation.mjs'
+      - 'scripts/validate-cycle012-resolution-proposals.mjs'
+      - 'scripts/test-cycle012-proposal-validation.mjs'
+      - 'scripts/verify-sprint40-readiness.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint40-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 40 proposal validation
+        run: |
+          node scripts/verify-sprint40-readiness.mjs
+          node scripts/test-cycle012-proposal-validation.mjs
+          mkdir -p artifacts
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          node scripts/reconcile-cycle012-queue-updates.mjs --source-commit "$SOURCE_COMMIT" --json-output artifacts/cycle012-queue-reconciliation.json --markdown-output artifacts/cycle012-queue-reconciliation.md
+          node scripts/validate-cycle012-resolution-proposals.mjs --reconciliation artifacts/cycle012-queue-reconciliation.json
+      - name: Upload validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-proposal-validation-${{ github.run_id }}
+          path: |
+            artifacts/cycle012-proposal-validation.json
+            artifacts/cycle012-proposal-validation.md
+          retention-days: 7
