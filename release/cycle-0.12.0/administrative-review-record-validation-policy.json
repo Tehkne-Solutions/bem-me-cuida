@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "requiredRecordKind": "administrative-review-record",
+  "requiredPackageClassification": "current-and-compatible",
+  "requiredDecision": "allow-human-administrative-review",
+  "validClassifications": [
+    "current-and-compatible",
+    "stale-package-validation",
+    "duplicate-record",
+    "conflicting-record",
+    "source-record-missing",
+    "record-classification-mismatch",
+    "invalid-record-reference"
+  ],
+  "reviewMustRemainManual": true,
+  "operationalActionsRemainBlocked": true
+}
