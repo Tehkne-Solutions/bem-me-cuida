@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "proposed-blocked",
+  "contracts": [
+    {
+      "id": "BMC-012-CONTRACT-OBS",
+      "itemId": "BMC-012-OBS-01",
+      "allowedDimensions": ["appVersion", "platform", "timeBucket", "eventType"],
+      "forbiddenDimensions": ["userId", "email", "deviceId", "journalText", "moodText", "clinicalSegment"],
+      "minimumAggregation": 10,
+      "freeTextAllowed": false,
+      "administrativeRoles": ["release_operator", "release_admin"]
+    },
+    {
+      "id": "BMC-012-CONTRACT-OPS",
+      "itemId": "BMC-012-OPS-01",
+      "environmentAllowlist": ["rc-011-build", "rc-011-homologation"],
+      "protectedEnvironments": ["production-release", "production-observability", "production-operations"],
+      "dryRunRequired": true,
+      "independentApprovalRequired": true,
+      "destructiveConfirmationRequired": true
+    },
+    {
+      "id": "BMC-012-CONTRACT-UX",
+      "itemId": "BMC-012-UX-01",
+      "acceptedFields": ["themeSlug", "count", "impact", "effortEstimate", "evidenceUrl"],
+      "forbiddenFields": ["rawText", "userId", "email", "diagnosis", "medication", "journalEntry"],
+      "freeTextAllowed": false,
+      "humanDecisionRequired": true,
+      "accessibilityReviewRequired": true,
+      "privacyReviewRequired": true
+    }
+  ],
+  "controls": {
+    "contractsAreNotRuntimeConfiguration": true,
+    "activationRequiredBeforeImplementation": true,
+    "approvalRequiredBeforeMigration": true
+  }
+}
