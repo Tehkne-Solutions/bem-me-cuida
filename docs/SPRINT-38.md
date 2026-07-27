@@ -13,8 +13,8 @@ Comparar os relatos versionados da fila operacional com as fontes de verdade atu
 - severidades `info`, `warning` e `critical`;
 - relatório JSON e resumo Markdown;
 - workflow manual somente leitura;
-- testes, verificadores, ADR e CI dedicado;
-- integração cumulativa ao `release:check`.
+- testes, verificadores e ADR;
+- workflow dedicado e integração direta ao CI principal.
 
 ## Classificações
 
