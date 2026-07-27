@@ -151,6 +151,27 @@ jobs:
           name: rc011-production-activation-${{ github.run_id }}
           path: artifacts/bemmecuida-0.11.0-production-activation.*
           retention-days: 7
+      - name: Validate RC 0.11 post-release observability
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            npm run rc011:post-release:test
+            npm run rc011:post-release:structure
+            RC011_POST_RELEASE_WINDOW=current npm run rc011:post-release:report
+            node scripts/verify-rc011-post-release-observability.mjs report
+          } 2>&1 | tee /tmp/rc011-post-release.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc011-post-release-failure-log
+          path: /tmp/rc011-post-release.log
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-post-release-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-post-release-current.*
+          retention-days: 7
       - name: Generate factual RC 0.11 issue status
         run: npm run rc011:command:status
       - uses: actions/upload-artifact@v4
