@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "release": "0.11.0",
+  "generatedBy": "Tehkné Solutions",
+  "updatedAt": null,
+  "sourceCommit": null,
+  "status": "blocked-awaiting-release",
+  "thresholds": {
+    "minimumCrashFreePct": 99,
+    "minimumSyncSuccessPct": 97,
+    "minimumAuthSuccessPct": 98,
+    "minimumNotificationSuccessPct": 95,
+    "minimumSampleSize": 100,
+    "criticalIncidentsAllowed": 0,
+    "openSev2Allowed": 0,
+    "blockingSupportReportsAllowed": 0,
+    "maximumSnapshotAgeHours": 24
+  },
+  "latestSnapshot": null,
+  "snapshots": [],
+  "checkpoints": {
+    "24h": { "status": "pending", "snapshotId": null, "evidenceUrl": null },
+    "72h": { "status": "pending", "snapshotId": null, "evidenceUrl": null },
+    "7d": { "status": "pending", "snapshotId": null, "evidenceUrl": null }
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsJournalContent": false,
+    "aggregateMetricsOnly": true
+  }
+}
