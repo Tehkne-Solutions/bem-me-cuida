@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { assertSourceCommit, sanitizeCycle012Artifact } from './lib/cycle012-bootstrap.mjs';
+import { assertSourceCommit } from './lib/cycle012-bootstrap.mjs';
 import { buildConsolidationArtifact } from './lib/cycle012-review-consolidation.mjs';
 
 const root = process.cwd();
@@ -23,7 +23,7 @@ if (existsSync(reviewsDir)) {
   }
 }
 
-const artifact = sanitizeCycle012Artifact(buildConsolidationArtifact({
+const artifact = buildConsolidationArtifact({
   sourceCommit,
   records,
   config,
@@ -33,7 +33,7 @@ const artifact = sanitizeCycle012Artifact(buildConsolidationArtifact({
   scope: readJson('release/cycle-0.12.0/scope.json'),
   migrationPlan: readJson('release/cycle-0.12.0/migration-plan.json'),
   generatedAt: new Date().toISOString(),
-}));
+});
 
 mkdirSync(dirname(join(root, output)), { recursive: true });
 writeFileSync(join(root, output), `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
