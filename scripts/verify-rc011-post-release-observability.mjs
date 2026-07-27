@@ -41,7 +41,7 @@ if (existsSync(join(root, 'release/rc-0.11.0/cycle-closure.json'))) {
 }
 if (existsSync(join(root, '.github/workflows/rc-011-post-release-operations.yml'))) {
   const workflow = read('.github/workflows/rc-011-post-release-operations.yml');
-  for (const marker of ['production-observability', 'capture-health', 'capture-incident', 'package-report', 'propose-cycle-closure', 'actions/download-artifact@v4']) {
+  for (const marker of ['production-observability', 'capture-health', 'capture-incident', 'package-report', 'propose-cycle-closure', 'gh run download']) {
     if (!workflow.includes(marker)) fail(`workflow pós-release sem marcador: ${marker}`);
   }
   if (workflow.includes('contents: delete')) fail('workflow não pode possuir permissão de exclusão ampla.');
