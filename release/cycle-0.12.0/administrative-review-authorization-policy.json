@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "requiredPackageClassification": "current-and-compatible",
+  "authorizationKind": "administrative-package-human-review-authorization",
+  "allowedDecision": "authorize-human-administrative-review",
+  "controls": {
+    "administrativeReviewAuthorizationRecordingAllowed": true,
+    "humanReviewAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  },
+  "requiredReferences": [
+    "packageId",
+    "packageValidationCommit",
+    "authorizationId",
+    "planId",
+    "decisionId",
+    "proposalId"
+  ]
+}
