@@ -1,0 +1,57 @@
+name: Sprint 31
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sprint31.yml'
+      - 'release/cycle-0.12.0/implementation-plans.json'
+      - 'release/cycle-0.12.0/architecture-contracts.json'
+      - 'release/cycle-0.12.0/migration-plan.json'
+      - 'scripts/test-cycle012-technical-design.mjs'
+      - 'scripts/verify-cycle012-technical-design.mjs'
+      - 'scripts/verify-sprint31-readiness.mjs'
+      - 'docs/SPRINT-31.md'
+      - 'docs/ADR-035-desenho-tecnico-bloqueado-do-ciclo-0.12.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sprint31.yml'
+      - 'release/cycle-0.12.0/implementation-plans.json'
+      - 'release/cycle-0.12.0/architecture-contracts.json'
+      - 'release/cycle-0.12.0/migration-plan.json'
+      - 'scripts/test-cycle012-technical-design.mjs'
+      - 'scripts/verify-cycle012-technical-design.mjs'
+      - 'scripts/verify-sprint31-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint31-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 31 technical design
+        run: |
+          node scripts/verify-sprint31-readiness.mjs
+          node scripts/test-cycle012-technical-design.mjs
+          node scripts/verify-cycle012-technical-design.mjs structure
+          node scripts/verify-cycle012-technical-design.mjs report
