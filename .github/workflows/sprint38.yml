@@ -1,0 +1,74 @@
+name: Sprint 38
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/cycle012-queue-reconciliation.yml'
+      - '.github/workflows/sprint38.yml'
+      - 'release/cycle-0.12.0/queue-reconciliation-policy.json'
+      - 'scripts/lib/cycle012-queue-reconciliation.mjs'
+      - 'scripts/reconcile-cycle012-queue-updates.mjs'
+      - 'scripts/test-cycle012-queue-reconciliation.mjs'
+      - 'scripts/verify-cycle012-queue-reconciliation.mjs'
+      - 'scripts/verify-sprint38-readiness.mjs'
+      - 'docs/SPRINT-38.md'
+      - 'docs/ADR-042-reconciliacao-auditavel-dos-relatos.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cycle012-queue-reconciliation.yml'
+      - '.github/workflows/sprint38.yml'
+      - 'release/cycle-0.12.0/queue-reconciliation-policy.json'
+      - 'scripts/lib/cycle012-queue-reconciliation.mjs'
+      - 'scripts/reconcile-cycle012-queue-updates.mjs'
+      - 'scripts/test-cycle012-queue-reconciliation.mjs'
+      - 'scripts/verify-cycle012-queue-reconciliation.mjs'
+      - 'scripts/verify-sprint38-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint38-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 38 reconciliation
+        run: |
+          node scripts/verify-sprint38-readiness.mjs
+          node scripts/test-cycle012-queue-reconciliation.mjs
+          node scripts/verify-cycle012-queue-reconciliation.mjs structure
+          node scripts/verify-cycle012-queue-reconciliation.mjs report
+          node scripts/reconcile-cycle012-queue-updates.mjs \
+            --source-commit "$(git rev-parse HEAD)" \
+            --generated-at "2026-07-27T18:30:00.000Z" \
+            --json-output artifacts/cycle012-queue-reconciliation.json \
+            --markdown-output artifacts/cycle012-queue-reconciliation.md
+      - name: Upload reconciliation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprint38-queue-reconciliation-${{ github.sha }}
+          path: |
+            artifacts/cycle012-queue-reconciliation.json
+            artifacts/cycle012-queue-reconciliation.md
+          retention-days: 14
+          if-no-files-found: error
