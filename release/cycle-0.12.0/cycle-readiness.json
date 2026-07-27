@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "sourceRelease": "0.11.0",
+  "status": "blocked-awaiting-011-closure",
+  "updatedAt": null,
+  "controls": {
+    "sourceCycleClosed": false,
+    "temporaryEnvironmentsCleaned": false,
+    "feedbackAggregated": false,
+    "scopeApproved": false,
+    "migrationPlanApproved": false,
+    "independentApprovalRequired": true,
+    "doesNotActivateAutomatically": true
+  },
+  "evidence": {
+    "sourceCycleClosureUrl": null,
+    "environmentCleanupUrl": null,
+    "feedbackSummaryUrl": null,
+    "scopeApprovalUrl": null,
+    "migrationPlanUrl": null
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false
+  }
+}
