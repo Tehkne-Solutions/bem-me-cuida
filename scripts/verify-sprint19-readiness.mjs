@@ -81,7 +81,11 @@ if (existsSync(join(root, 'scripts/generate-rc011-issue-status.mjs'))) {
   ]) {
     if (!status.includes(path)) fail(`status factual não lê ${path}`);
   }
-  if (!status.includes("recommendation = blockers.length === 0 ? 'ready-for-promotion-review' : 'hold'")) {
+  const deterministicRecommendations = [
+    "recommendation = blockers.length === 0 ? 'ready-for-promotion-review' : 'hold'",
+    "recommendation = blockers.length === 0 ? 'released' : 'hold'",
+  ];
+  if (!deterministicRecommendations.some((marker) => status.includes(marker))) {
     fail('status não calcula recomendação determinística.');
   }
   if (!status.includes('Não consulta ou revela valores de secrets')) fail('status sem declaração de privacidade operacional.');
