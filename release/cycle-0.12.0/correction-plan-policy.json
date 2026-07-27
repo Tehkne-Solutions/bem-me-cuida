@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "cycleVersion": "0.12.0",
+  "status": "correction-plan-ready-execution-blocked",
+  "eligibleDecisionClassification": "current-and-compatible",
+  "eligibleDecisionType": "accept-for-future-correction",
+  "allowedTargets": {
+    "queue-update-record": ["release/cycle-0.12.0/queue-updates"],
+    "reconciliation-item-source": ["release/cycle-0.12.0"],
+    "queue-catalog": ["release/cycle-0.12.0/queue.json"],
+    "none": []
+  },
+  "plan": {
+    "directory": "release/cycle-0.12.0/correction-plans",
+    "immutableAfterMerge": true,
+    "onePlanPerDecision": true,
+    "freeTextAllowed": false,
+    "sourceMutationForbidden": true
+  },
+  "controls": {
+    "readOnly": true,
+    "deterministic": true,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "activationAllowed": false,
+    "doesNotModifySource": true,
+    "doesNotChangeQueue": true,
+    "doesNotChangeReviews": true,
+    "doesNotChangeGates": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotMergePullRequests": true,
+    "doesNotPublishBuilds": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsJournalContent": false,
+    "containsRawFeedback": false,
+    "containsSecrets": false
+  }
+}
