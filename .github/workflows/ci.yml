@@ -90,6 +90,17 @@ jobs:
         run: |
           npm run rc011:android-physical:test
           npm run rc011:android-physical:structure
+      - name: Validate RC 0.11 iOS and multiplatform flow
+        run: |
+          npm run rc011:ios-artifact:test
+          npm run rc011:ios-artifact:structure
+          npm run rc011:ios-physical:structure
+          npm run rc011:multiplatform:review
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-multiplatform-review-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-rc.1-multiplatform.*
+          retention-days: 7
       - name: Generate factual RC 0.11 issue status
         run: npm run rc011:command:status
       - uses: actions/upload-artifact@v4
