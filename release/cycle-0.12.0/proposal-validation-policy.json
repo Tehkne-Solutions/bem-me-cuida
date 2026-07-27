@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "proposal-validation-ready-activation-blocked",
+  "classifications": [
+    "current-and-compatible",
+    "stale-reconciliation",
+    "duplicate-proposal",
+    "conflicting-proposal",
+    "source-item-missing",
+    "action-classification-mismatch",
+    "invalid-proposal-reference"
+  ],
+  "severity": {
+    "current-and-compatible": "info",
+    "stale-reconciliation": "warning",
+    "duplicate-proposal": "warning",
+    "conflicting-proposal": "critical",
+    "source-item-missing": "critical",
+    "action-classification-mismatch": "critical",
+    "invalid-proposal-reference": "critical"
+  },
+  "controls": {
+    "readOnly": true,
+    "deterministic": true,
+    "doesNotApproveProposals": true,
+    "doesNotApplyProposals": true,
+    "doesNotRewriteProposals": true,
+    "doesNotChangeReconciliation": true,
+    "doesNotChangeQueue": true,
+    "doesNotChangeGates": true,
+    "doesNotActivateCycle": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotMergePullRequests": true,
+    "doesNotPublishBuilds": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false,
+    "containsRawIdentity": false,
+    "containsPseudonymousActorReference": false
+  }
+}
