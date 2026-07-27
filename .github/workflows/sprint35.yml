@@ -1,0 +1,80 @@
+name: Sprint 35
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/cycle012-operations-command.yml'
+      - '.github/workflows/sprint35.yml'
+      - 'release/cycle-0.12.0/operations-dashboard-config.json'
+      - 'scripts/lib/cycle012-operations-dashboard.mjs'
+      - 'scripts/generate-cycle012-operations-dashboard.mjs'
+      - 'scripts/run-cycle012-operations-command.mjs'
+      - 'scripts/test-cycle012-operations-dashboard.mjs'
+      - 'scripts/verify-cycle012-operations-dashboard.mjs'
+      - 'scripts/verify-sprint35-readiness.mjs'
+      - 'docs/SPRINT-35.md'
+      - 'docs/ADR-039-painel-operacional-e-comandos-protegidos.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cycle012-operations-command.yml'
+      - '.github/workflows/sprint35.yml'
+      - 'release/cycle-0.12.0/operations-dashboard-config.json'
+      - 'scripts/lib/cycle012-operations-dashboard.mjs'
+      - 'scripts/generate-cycle012-operations-dashboard.mjs'
+      - 'scripts/run-cycle012-operations-command.mjs'
+      - 'scripts/test-cycle012-operations-dashboard.mjs'
+      - 'scripts/verify-cycle012-operations-dashboard.mjs'
+      - 'scripts/verify-sprint35-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint35-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 35 operational dashboard
+        run: |
+          node scripts/verify-sprint35-readiness.mjs
+          node scripts/test-cycle012-operations-dashboard.mjs
+          node scripts/verify-cycle012-operations-dashboard.mjs structure
+          node scripts/verify-cycle012-operations-dashboard.mjs report
+          node scripts/generate-cycle012-operations-dashboard.mjs \
+            --source-commit "$GITHUB_SHA" \
+            --json-output artifacts/cycle012-operations-dashboard.json \
+            --markdown-output artifacts/cycle012-operations-dashboard.md
+          for command in status reviews blockers gates; do
+            node scripts/run-cycle012-operations-command.mjs \
+              --command "/cycle012 $command" \
+              --source-commit "$GITHUB_SHA" \
+              --output "artifacts/cycle012-command-$command.md"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sprint35-cycle012-operations
+          path: |
+            artifacts/cycle012-*.json
+            artifacts/cycle012-*.md
+          if-no-files-found: error
+          retention-days: 14

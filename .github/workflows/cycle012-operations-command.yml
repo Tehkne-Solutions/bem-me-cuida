@@ -1,0 +1,45 @@
+name: Cycle 0.12 Operations Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: cycle012-operations-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  respond:
+    if: >-
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/cycle012 ') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - name: Generate read-only response
+        env:
+          CYCLE012_COMMAND: ${{ github.event.comment.body }}
+        run: |
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          node scripts/run-cycle012-operations-command.mjs \
+            --command "$CYCLE012_COMMAND" \
+            --source-commit "$SOURCE_COMMIT" \
+            --output artifacts/cycle012-operations-command.md
+      - name: Publish issue response
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue comment "$ISSUE_NUMBER" --body-file artifacts/cycle012-operations-command.md
