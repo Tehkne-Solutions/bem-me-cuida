@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { assertEvidenceUrl, assertSourceCommit, sanitizeCycle012Artifact } from './lib/cycle012-bootstrap.mjs';
+import { assertEvidenceUrl, assertSourceCommit } from './lib/cycle012-bootstrap.mjs';
 
 const root = process.cwd();
 const arg = (name, fallback = '') => {
@@ -29,7 +29,7 @@ const blockers = [
 if (!consolidation.reviews.reviewGates.minimumDistinctReviewersPass) blockers.push('review:minimum-distinct-reviewers');
 if (!consolidation.reviews.reviewGates.securityPrivacySeparationPass) blockers.push('review:security-privacy-separation');
 
-const proposal = sanitizeCycle012Artifact({
+const proposal = {
   schemaVersion: '1.0',
   product: 'BemMeCuida',
   generatedBy: 'Tehkné Solutions',
@@ -58,7 +58,7 @@ const proposal = sanitizeCycle012Artifact({
     containsSecrets: false,
     containsRawIdentity: false,
   },
-});
+};
 
 mkdirSync(dirname(join(root, output)), { recursive: true });
 writeFileSync(join(root, output), `${JSON.stringify(proposal, null, 2)}\n`, 'utf8');
