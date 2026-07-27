@@ -60,8 +60,8 @@ if (existsSync(join(root, 'package.json'))) {
   for (const script of ['rc011:android-physical:test', 'rc011:android-physical:structure', 'sprint24:check']) {
     if (!packageJson.scripts?.[script]) fail(`script npm ausente: ${script}`);
   }
-  if (!packageJson.scripts?.['release:check']?.endsWith('verify-sprint24-readiness.mjs')) {
-    fail('release:check não termina na trava do Sprint 24.');
+  if (!packageJson.scripts?.['release:check']?.includes('verify-sprint24-readiness.mjs')) {
+    fail('release:check não inclui a trava cumulativa do Sprint 24.');
   }
 }
 
