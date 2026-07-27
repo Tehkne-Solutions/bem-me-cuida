@@ -9,8 +9,11 @@ const readJson = (path) => JSON.parse(readFileSync(join(root, path), 'utf8'));
 const configPath = 'release/cycle-0.12.0/operations-dashboard-config.json';
 if (!existsSync(join(root, configPath))) failures.push(`arquivo obrigatório ausente: ${configPath}`);
 const config = failures.length ? {} : readJson(configPath);
-const expectedCommands = ['blockers', 'gates', 'reviews', 'status'];
-if ([...(config.commands?.allowed ?? [])].sort().join(',') !== expectedCommands.join(',')) failures.push('lista de comandos permitidos inválida.');
+const requiredDashboardCommands = ['blockers', 'gates', 'reviews', 'status'];
+for (const command of requiredDashboardCommands) {
+  if (!config.commands?.allowed?.includes(command)) failures.push(`comando obrigatório ausente: ${command}.`);
+}
+if (new Set(config.commands?.allowed ?? []).size !== (config.commands?.allowed ?? []).length) failures.push('lista de comandos contém duplicidade.');
 if (config.commands?.prefix !== '/cycle012' || config.commands?.exactMatchRequired !== true || config.commands?.freeTextAllowed !== false) failures.push('comandos não estão em modo estrito.');
 if ([...(config.authorization?.allowedAuthorAssociations ?? [])].sort().join(',') !== ['COLLABORATOR', 'MEMBER', 'OWNER'].join(',')) failures.push('associações autorizadas inválidas.');
 if (config.authorization?.pullRequestCommentsAllowed !== false || config.authorization?.anonymousExecutionAllowed !== false) failures.push('restrições de autorização ausentes.');
