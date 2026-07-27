@@ -1,5 +1,5 @@
 import { evaluateCycle012 } from './cycle012-bootstrap.mjs';
-import { summarizeReviews } from './cycle012-review-consolidation.mjs';
+import { consolidateReviewRecords } from './cycle012-review-consolidation.mjs';
 
 const SAFE_COMMAND_PATTERN = /^\/cycle012\s+(status|reviews|blockers|gates)$/;
 
@@ -31,9 +31,13 @@ export function buildOperationsSnapshot({
   generatedAt,
 }) {
   if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit ?? ''))) throw new Error('sourceCommit inválido.');
-  const reviews = summarizeReviews(records, sourceCommit, {
-    requiredTracks: ['architecture', 'security', 'privacy', 'accessibility', 'database'],
-    minimumDistinctReviewers: 3,
+  const reviews = consolidateReviewRecords({
+    sourceCommit,
+    records,
+    config: {
+      requiredTracks: ['architecture', 'security', 'privacy', 'accessibility', 'database'],
+      minimumDistinctReviewers: 3,
+    },
   });
   const externalDecision = evaluateCycle012({ sourceClosure, cleanup, feedback, scope, migrationPlan });
   const externalGates = [
@@ -47,14 +51,14 @@ export function buildOperationsSnapshot({
     ...reviews.missingTracks.map((track) => `review:${track}`),
     ...reviews.changesRequiredTracks.map((track) => `changes-required:${track}`),
   ];
-  if (!reviews.minimumDistinctReviewersPass) reviewBlockers.push('review:minimum-distinct-reviewers');
-  if (!reviews.securityPrivacySeparationPass) reviewBlockers.push('review:security-privacy-separation');
+  if (!reviews.reviewGates.minimumDistinctReviewersPass) reviewBlockers.push('review:minimum-distinct-reviewers');
+  if (!reviews.reviewGates.securityPrivacySeparationPass) reviewBlockers.push('review:security-privacy-separation');
   const externalBlockers = externalDecision.blockers.map((item) => `external:${item}`);
   const blockers = [...new Set([...reviewBlockers, ...externalBlockers])].sort();
   const externalComplete = externalDecision.recommendation === 'ready-for-human-activation';
-  const status = reviews.reviewPackageComplete && externalComplete
+  const status = reviews.reviewComplete && externalComplete
     ? 'ready-for-human-proposal'
-    : reviews.reviewPackageComplete
+    : reviews.reviewComplete
       ? 'review-complete-external-blocked'
       : 'review-incomplete';
   const recommendation = status === 'ready-for-human-proposal' ? 'prepare-human-proposal' : 'hold';
@@ -71,12 +75,12 @@ export function buildOperationsSnapshot({
     recommendation,
     activationAllowed: false,
     summary: {
-      reviewPackageComplete: reviews.reviewPackageComplete,
+      reviewPackageComplete: reviews.reviewComplete,
       externalGatesComplete: externalComplete,
       blockerCount: blockers.length,
       passingTrackCount: reviews.passingTracks.length,
       requiredTrackCount: 5,
-      distinctReviewerCount: reviews.distinctReviewers,
+      distinctReviewerCount: reviews.distinctReviewerCount,
     },
     reviews: {
       tracks: ['architecture', 'security', 'privacy', 'accessibility', 'database'].map((track) => ({
@@ -88,9 +92,9 @@ export function buildOperationsSnapshot({
             : 'pending',
         residualRisk: reviews.residualRiskTracks.includes(track),
       })),
-      minimumDistinctReviewersPass: reviews.minimumDistinctReviewersPass,
-      securityPrivacySeparationPass: reviews.securityPrivacySeparationPass,
-      reviewPackageComplete: reviews.reviewPackageComplete,
+      minimumDistinctReviewersPass: reviews.reviewGates.minimumDistinctReviewersPass,
+      securityPrivacySeparationPass: reviews.reviewGates.securityPrivacySeparationPass,
+      reviewPackageComplete: reviews.reviewComplete,
     },
     externalGates,
     blockers,
