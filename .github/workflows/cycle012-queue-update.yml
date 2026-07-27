@@ -1,0 +1,131 @@
+name: Cycle 0.12 Queue Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      queue_item_id:
+        description: ID exato da pendência existente na fila
+        required: true
+        type: string
+      progress_state:
+        description: Estado informativo de progresso
+        required: true
+        type: choice
+        options:
+          - not-started
+          - in-progress
+          - blocked
+          - evidence-submitted
+          - review-requested
+      dependency_state:
+        description: Estado informativo das dependências
+        required: true
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - blocked
+          - partially-resolved
+          - resolution-reported
+      dependency_ids:
+        description: IDs de dependências do item, separados por vírgula
+        required: false
+        type: string
+      evidence_kind:
+        description: Tipo controlado de evidência
+        required: true
+        type: choice
+        default: none
+        options:
+          - none
+          - review
+          - cycle-closure
+          - environment-cleanup
+          - feedback-summary
+          - scope-approval
+          - migration-plan
+      evidence_url:
+        description: URL HTTPS da evidência, quando aplicável
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cycle012-queue-update-${{ inputs.queue_item_id }}
+  cancel-in-progress: false
+
+jobs:
+  capture-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - name: Authorize repository member
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" --jq '.user.permission')"
+          case "$permission" in
+            admin|maintain|write) ;;
+            *) echo "Permissão insuficiente: $permission" >&2; exit 1 ;;
+          esac
+      - name: Create immutable update record
+        id: record
+        env:
+          QUEUE_ITEM_ID: ${{ inputs.queue_item_id }}
+          PROGRESS_STATE: ${{ inputs.progress_state }}
+          DEPENDENCY_STATE: ${{ inputs.dependency_state }}
+          DEPENDENCY_IDS: ${{ inputs.dependency_ids }}
+          EVIDENCE_KIND: ${{ inputs.evidence_kind }}
+          EVIDENCE_URL: ${{ inputs.evidence_url }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          output="$(node scripts/create-cycle012-queue-update.mjs \
+            --source-commit "$SOURCE_COMMIT" \
+            --queue-item-id "$QUEUE_ITEM_ID" \
+            --progress-state "$PROGRESS_STATE" \
+            --dependency-state "$DEPENDENCY_STATE" \
+            --dependency-ids "$DEPENDENCY_IDS" \
+            --evidence-kind "$EVIDENCE_KIND" \
+            --evidence-url "$EVIDENCE_URL" \
+            --actor-id "$ACTOR_ID")"
+          printf '%s\n' "$output"
+          record_id="$(printf '%s\n' "$output" | sed -n 's/^record_id=//p')"
+          test -n "$record_id"
+          record_path="release/cycle-0.12.0/queue-updates/$record_id.json"
+          test -f "$record_path"
+          echo "record_id=$record_id" >> "$GITHUB_OUTPUT"
+          echo "record_path=$record_path" >> "$GITHUB_OUTPUT"
+      - name: Open evidence pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECORD_ID: ${{ steps.record.outputs.record_id }}
+          RECORD_PATH: ${{ steps.record.outputs.record_path }}
+          QUEUE_ITEM_ID: ${{ inputs.queue_item_id }}
+        run: |
+          branch="ops/cycle012-queue-update-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "tehkne-automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- "$RECORD_PATH"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$RECORD_PATH"
+          git commit -m "chore(cycle012): registrar atualização informativa $RECORD_ID" -m "Tehkné Solutions"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(cycle012): registrar progresso de $QUEUE_ITEM_ID" \
+            --body "## Atualização informativa da fila\n\nRegistro: \`$RECORD_ID\`\nPendência: \`$QUEUE_ITEM_ID\`\n\nEste PR não conclui a pendência, não resolve dependências, não altera gates e não ativa o ciclo. A integração depende de revisão humana.\n\n**Tehkné Solutions**"

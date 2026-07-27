@@ -163,6 +163,9 @@ export function assertOperationsQueueSafe(queue, config) {
 }
 
 const priorityIcon = (priority) => priority === 'critical' ? '⛔' : priority === 'high' ? '🔶' : priority === 'medium' ? '🔷' : '▫️';
+const progressLabel = (item) => item.reportedProgress
+  ? `\`${item.reportedProgress.state}\` (${item.reportedProgress.evidenceKind === 'none' ? 'sem evidência' : item.reportedProgress.evidenceKind})`
+  : '—';
 
 export function renderOperationsQueueMarkdown(queue, command = 'queue') {
   const header = [
@@ -171,14 +174,15 @@ export function renderOperationsQueueMarkdown(queue, command = 'queue') {
     `**Estado:** \`${queue.status}\``,
     `**Recomendação:** \`${queue.recommendation}\``,
     '**Execução automática:** `false`',
+    `**Relatos incorporados:** **${queue.summary.mergedUpdateCount ?? 0}**`,
     '',
   ];
   const queueSection = [
     '### Pendências priorizadas',
     '',
-    '| Prioridade | Pendência | Responsável | Aprovador | Estado | Próximo passo |',
-    '|---|---|---|---|---|---|',
-    ...(queue.items.length ? queue.items.map((item) => `| ${priorityIcon(item.priority)} \`${item.priority}\` | \`${item.id}\` | \`${item.ownerRole}\` | \`${item.accountableRole}\` | \`${item.status}\` | \`${item.nextStep}\` |`) : ['| — | Nenhuma pendência | — | — | — | — |']),
+    '| Prioridade | Pendência | Responsável | Aprovador | Estado | Progresso reportado | Próximo passo |',
+    '|---|---|---|---|---|---|---|',
+    ...(queue.items.length ? queue.items.map((item) => `| ${priorityIcon(item.priority)} \`${item.priority}\` | \`${item.id}\` | \`${item.ownerRole}\` | \`${item.accountableRole}\` | \`${item.status}\` | ${progressLabel(item)} | \`${item.nextStep}\` |`) : ['| — | Nenhuma pendência | — | — | — | — | — |']),
     '',
   ];
   const ownersSection = [
@@ -201,6 +205,7 @@ export function renderOperationsQueueMarkdown(queue, command = 'queue') {
   ];
   const footer = [
     '> Fila somente leitura. Os papéis representam responsabilidades operacionais, não atribuições a pessoas.',
+    '> Progresso reportado não conclui a pendência, não resolve dependências e não altera gates.',
     '> Nenhum item executa ação, cria migration, publica build, faz merge ou ativa o ciclo.',
     '',
     '**Tehkné Solutions**',
