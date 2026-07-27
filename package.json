@@ -5,13 +5,8 @@
   "description": "Aplicativo mobile-first para acompanhamento emocional, autocuidado e organização do tratamento.",
   "license": "UNLICENSED",
   "packageManager": "npm@10.9.2",
-  "engines": {
-    "node": ">=22.13.0"
-  },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "engines": { "node": ">=22.13.0" },
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "mobile": "npm run start --workspace @bemmecuida/mobile",
     "mobile:android": "npm run android --workspace @bemmecuida/mobile",
@@ -56,6 +51,14 @@
     "rc011:android-physical:structure": "node scripts/verify-rc011-android-physical-validation.mjs structure",
     "rc011:android-physical:capture": "node scripts/verify-rc011-android-physical-validation.mjs capture",
     "rc011:android-physical:review": "node scripts/generate-rc011-android-review-package.mjs",
+    "rc011:ios-artifact:test": "node scripts/test-rc011-ios-multiplatform-validation.mjs",
+    "rc011:ios-artifact:structure": "node scripts/verify-rc011-ios-artifact.mjs structure",
+    "rc011:ios-artifact:capture": "node scripts/verify-rc011-ios-artifact.mjs capture",
+    "rc011:ios-physical:test": "node scripts/test-rc011-ios-multiplatform-validation.mjs",
+    "rc011:ios-physical:structure": "node scripts/verify-rc011-ios-multiplatform-validation.mjs structure",
+    "rc011:ios-physical:capture": "npm run rc011:ios-artifact:capture && node scripts/verify-rc011-ios-multiplatform-validation.mjs structure",
+    "rc011:ios-physical:review": "node scripts/verify-rc011-ios-multiplatform-validation.mjs review",
+    "rc011:multiplatform:review": "node scripts/generate-rc011-multiplatform-review-package.mjs",
     "sprint10:check": "node scripts/verify-sprint10-readiness.mjs",
     "sprint11:check": "node scripts/verify-sprint11-readiness.mjs",
     "sprint12:check": "node scripts/verify-sprint12-readiness.mjs",
@@ -71,6 +74,7 @@
     "sprint22:check": "node scripts/verify-sprint22-readiness.mjs",
     "sprint23:check": "node scripts/verify-sprint23-readiness.mjs",
     "sprint24:check": "node scripts/verify-sprint24-readiness.mjs",
+    "sprint25:check": "node scripts/verify-sprint25-readiness.mjs",
     "release:manifest": "node --env-file-if-exists=.env scripts/generate-release-manifest.mjs",
     "rc011:manifest": "node --env-file-if-exists=.env scripts/generate-rc011-manifest.mjs",
     "rc011:validation:report": "node --env-file-if-exists=.env scripts/generate-rc011-validation-report.mjs",
@@ -101,7 +105,7 @@
     "submit:ios:production": "npm run submit:ios:production --workspace @bemmecuida/mobile",
     "e2e:smoke": "maestro test .maestro/smoke-public.yml",
     "e2e:check-in": "maestro test .maestro/authenticated-check-in.yml",
-    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs && node scripts/verify-sprint10-readiness.mjs && node scripts/verify-sprint11-readiness.mjs && node scripts/verify-sprint12-readiness.mjs && node scripts/verify-sprint13-readiness.mjs && node scripts/verify-sprint14-readiness.mjs && node scripts/verify-sprint15-readiness.mjs && node scripts/verify-sprint16-readiness.mjs && node scripts/verify-sprint17-readiness.mjs && node scripts/verify-sprint18-readiness.mjs && node scripts/verify-sprint19-readiness.mjs && node scripts/verify-sprint20-readiness.mjs && node scripts/verify-sprint21-readiness.mjs && node scripts/verify-sprint22-readiness.mjs && node scripts/verify-sprint23-readiness.mjs && node scripts/verify-sprint24-readiness.mjs",
+    "release:check": "node scripts/verify-release-readiness.mjs && node scripts/verify-sprint09-readiness.mjs && node scripts/verify-sprint10-readiness.mjs && node scripts/verify-sprint11-readiness.mjs && node scripts/verify-sprint12-readiness.mjs && node scripts/verify-sprint13-readiness.mjs && node scripts/verify-sprint14-readiness.mjs && node scripts/verify-sprint15-readiness.mjs && node scripts/verify-sprint16-readiness.mjs && node scripts/verify-sprint17-readiness.mjs && node scripts/verify-sprint18-readiness.mjs && node scripts/verify-sprint19-readiness.mjs && node scripts/verify-sprint20-readiness.mjs && node scripts/verify-sprint21-readiness.mjs && node scripts/verify-sprint22-readiness.mjs && node scripts/verify-sprint23-readiness.mjs && node scripts/verify-sprint24-readiness.mjs && node scripts/verify-sprint25-readiness.mjs",
     "verify": "npm run config:check && npm run security:check && npm run check",
     "security:check": "node scripts/check-sensitive-files.mjs",
     "e2e:care": "maestro test .maestro/authenticated-care.yml",

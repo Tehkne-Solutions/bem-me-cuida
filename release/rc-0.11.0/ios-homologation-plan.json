@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "platform": "ios",
+  "status": "blocked-awaiting-captured-build",
+  "sourceCommit": null,
+  "build": null,
+  "devicesSource": "release/rc-0.11.0/device-matrix.json",
+  "testsSource": "release/rc-0.11.0/test-results.json",
+  "outputPath": "release/rc-0.11.0/ios-homologation-plan.json",
+  "rules": {
+    "allItemsStartPending": true,
+    "requiresHttpsEvidence": true,
+    "usesSyntheticAccounts": true,
+    "automaticApproval": false
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false
+  },
+  "generatedBy": "Tehkné Solutions"
+}

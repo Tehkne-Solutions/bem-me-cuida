@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "platform": "ios",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "buildId": "00000000-0000-4000-8000-000000000000",
+  "profileId": "ios-mainstream",
+  "deviceStatus": "passed",
+  "installationMode": "fresh",
+  "osVersion": "18.0",
+  "suiteResults": "fresh-install=passed,privacy=passed",
+  "evidenceUrl": "https://github.com/Tehkne-Solutions/bem-me-cuida/actions/runs/0",
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false,
+    "containsDeviceIdentifiers": false,
+    "usesSyntheticAccounts": true
+  },
+  "controls": {
+    "automaticApproval": false,
+    "requiresPullRequestReview": true
+  },
+  "generatedBy": "Tehkné Solutions"
+}
