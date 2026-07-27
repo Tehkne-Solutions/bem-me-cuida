@@ -1,0 +1,104 @@
+name: Cycle 0.12 Human Resolution Proposal
+
+on:
+  workflow_dispatch:
+    inputs:
+      record_id:
+        description: ID exato do relato presente na reconciliação atual
+        required: true
+        type: string
+      requested_action:
+        description: Ação controlada compatível com a classificação
+        required: true
+        type: choice
+        options:
+          - confirm-open-no-source-change
+          - propose-supersede-update
+          - propose-refresh-against-current-source
+          - request-source-evidence-review
+          - request-dependency-source-review
+          - request-conflict-resolution
+          - request-item-catalog-review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cycle012-resolution-proposal-${{ inputs.record_id }}
+  cancel-in-progress: false
+
+jobs:
+  create-proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - name: Authorize repository member
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" --jq '.user.permission')"
+          case "$permission" in
+            admin|maintain|write) ;;
+            *) echo "Permissão insuficiente: $permission" >&2; exit 1 ;;
+          esac
+      - name: Rebuild current reconciliation
+        run: |
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          node scripts/reconcile-cycle012-queue-updates.mjs \
+            --source-commit "$SOURCE_COMMIT" \
+            --json-output artifacts/cycle012-queue-reconciliation.json \
+            --markdown-output artifacts/cycle012-queue-reconciliation.md
+      - name: Create immutable human proposal
+        id: proposal
+        env:
+          RECORD_ID: ${{ inputs.record_id }}
+          REQUESTED_ACTION: ${{ inputs.requested_action }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          output="$(node scripts/create-cycle012-resolution-proposal.mjs \
+            --report artifacts/cycle012-queue-reconciliation.json \
+            --record-id "$RECORD_ID" \
+            --requested-action "$REQUESTED_ACTION" \
+            --actor-id "$ACTOR_ID")"
+          printf '%s\n' "$output"
+          proposal_id="$(printf '%s\n' "$output" | sed -n 's/^proposal_id=//p')"
+          proposal_path="$(printf '%s\n' "$output" | sed -n 's/^proposal_path=//p')"
+          markdown_path="$(printf '%s\n' "$output" | sed -n 's/^markdown_path=//p')"
+          test -n "$proposal_id"
+          test -f "$proposal_path"
+          test -f "$markdown_path"
+          echo "proposal_id=$proposal_id" >> "$GITHUB_OUTPUT"
+          echo "proposal_path=$proposal_path" >> "$GITHUB_OUTPUT"
+          echo "markdown_path=$markdown_path" >> "$GITHUB_OUTPUT"
+      - name: Open proposal pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROPOSAL_ID: ${{ steps.proposal.outputs.proposal_id }}
+          PROPOSAL_PATH: ${{ steps.proposal.outputs.proposal_path }}
+          MARKDOWN_PATH: ${{ steps.proposal.outputs.markdown_path }}
+          RECORD_ID: ${{ inputs.record_id }}
+        run: |
+          branch="ops/cycle012-resolution-proposal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "tehkne-automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- "$PROPOSAL_PATH"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$PROPOSAL_PATH"
+          git commit -m "chore(cycle012): propor resolução humana $PROPOSAL_ID" -m "Tehkné Solutions"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(cycle012): propor resolução de $RECORD_ID" \
+            --body-file "$MARKDOWN_PATH"

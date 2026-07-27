@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "human-resolution-proposal-ready-activation-blocked",
+  "actionsByClassification": {
+    "aligned-open-item": ["confirm-open-no-source-change"],
+    "source-reflected-closed": ["propose-supersede-update"],
+    "stale-source-commit": ["propose-refresh-against-current-source"],
+    "evidence-awaiting-source-reflection": ["request-source-evidence-review"],
+    "dependency-report-not-reflected": ["request-dependency-source-review"],
+    "state-conflict": ["request-conflict-resolution"],
+    "invalid-item-reference": ["request-item-catalog-review"]
+  },
+  "targetByClassification": {
+    "aligned-open-item": "none",
+    "source-reflected-closed": "queue-update-record",
+    "stale-source-commit": "queue-update-record",
+    "evidence-awaiting-source-reflection": "reconciliation-item-source",
+    "dependency-report-not-reflected": "reconciliation-item-source",
+    "state-conflict": "reconciliation-item-source",
+    "invalid-item-reference": "queue-catalog"
+  },
+  "proposal": {
+    "directory": "release/cycle-0.12.0/resolution-proposals",
+    "oneProposalPerFile": true,
+    "immutableAfterMerge": true,
+    "pullRequestRequired": true,
+    "autoApplyForbidden": true,
+    "freeTextAllowed": false
+  },
+  "authorization": {
+    "allowedRepositoryPermissions": ["admin", "maintain", "write"],
+    "workflowDispatchOnly": true,
+    "trustedBaseBranch": "main"
+  },
+  "controls": {
+    "proposalOnly": true,
+    "requiresIndependentHumanReview": true,
+    "doesNotRewriteQueueUpdates": true,
+    "doesNotChangeQueueReadiness": true,
+    "doesNotResolveDependencies": true,
+    "doesNotChangeReviews": true,
+    "doesNotChangeGates": true,
+    "doesNotActivateCycle": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotMergePullRequests": true,
+    "doesNotPublishBuilds": true,
+    "doesNotDeleteEnvironments": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false,
+    "containsRawIdentity": false,
+    "containsPseudonymousProposerReference": true
+  }
+}
