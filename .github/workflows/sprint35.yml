@@ -73,6 +73,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: sprint35-cycle012-operations
-          path: artifacts/cycle012-*.{json,md}
+          path: |
+            artifacts/cycle012-*.json
+            artifacts/cycle012-*.md
           if-no-files-found: error
           retention-days: 14
