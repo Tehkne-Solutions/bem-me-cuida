@@ -1,0 +1,60 @@
+name: Sprint 33
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/cycle012-review-capture.yml'
+      - '.github/workflows/sprint33.yml'
+      - 'release/cycle-0.12.0/review-capture-config.json'
+      - 'release/cycle-0.12.0/reviews/**'
+      - 'scripts/create-cycle012-review-record.mjs'
+      - 'scripts/test-cycle012-human-review-capture.mjs'
+      - 'scripts/verify-cycle012-human-review-capture.mjs'
+      - 'scripts/verify-sprint33-readiness.mjs'
+      - 'docs/SPRINT-33.md'
+      - 'docs/ADR-037-captura-protegida-de-revisoes-humanas.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cycle012-review-capture.yml'
+      - '.github/workflows/sprint33.yml'
+      - 'release/cycle-0.12.0/review-capture-config.json'
+      - 'release/cycle-0.12.0/reviews/**'
+      - 'scripts/create-cycle012-review-record.mjs'
+      - 'scripts/test-cycle012-human-review-capture.mjs'
+      - 'scripts/verify-cycle012-human-review-capture.mjs'
+      - 'scripts/verify-sprint33-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint33-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 33 human review capture
+        run: |
+          node scripts/verify-sprint33-readiness.mjs
+          node scripts/test-cycle012-human-review-capture.mjs
+          node scripts/verify-cycle012-human-review-capture.mjs structure
+          node scripts/verify-cycle012-human-review-capture.mjs report
