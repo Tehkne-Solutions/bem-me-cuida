@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "draft",
+  "updatedAt": null,
+  "objectives": [
+    {
+      "id": "BMC-012-O1",
+      "title": "Melhorar confiabilidade e entendimento operacional sem ampliar coleta sensível",
+      "status": "proposed"
+    },
+    {
+      "id": "BMC-012-O2",
+      "title": "Converter sinais agregados e feedback anonimizado em melhorias priorizadas",
+      "status": "proposed"
+    }
+  ],
+  "items": [
+    {
+      "id": "BMC-012-OBS-01",
+      "area": "observability",
+      "priority": "high",
+      "status": "proposed",
+      "title": "Consolidar métricas agregadas por versão e plataforma",
+      "source": "post-release-governance"
+    },
+    {
+      "id": "BMC-012-OPS-01",
+      "area": "operations",
+      "priority": "high",
+      "status": "proposed",
+      "title": "Automatizar limpeza segura dos environments temporários",
+      "source": "cycle-transition"
+    },
+    {
+      "id": "BMC-012-UX-01",
+      "area": "product",
+      "priority": "medium",
+      "status": "proposed",
+      "title": "Priorizar melhorias derivadas de feedback anonimizado",
+      "source": "aggregate-feedback"
+    }
+  ],
+  "approval": {
+    "status": "pending",
+    "approvedByFingerprint": null,
+    "evidenceUrl": null,
+    "approvedAt": null
+  },
+  "controls": {
+    "sourceCycleMustBeClosed": true,
+    "feedbackSummaryRequired": true,
+    "independentApprovalRequired": true,
+    "doesNotActivateCycleAutomatically": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false
+  }
+}
