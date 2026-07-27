@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "policy": "pr-preparation-authorization-validation",
+  "allowedClassifications": [
+    "current-and-compatible",
+    "stale-plan-validation",
+    "duplicate-authorization",
+    "conflicting-authorization",
+    "source-authorization-missing",
+    "authorization-classification-mismatch",
+    "invalid-authorization-reference"
+  ],
+  "requiredAuthorizationDecision": "authorize-pr-preparation",
+  "requiredPlanClassification": "current-and-compatible",
+  "controls": {
+    "pullRequestPreparationAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
