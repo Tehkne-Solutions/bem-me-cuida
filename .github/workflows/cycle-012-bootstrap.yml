@@ -1,0 +1,275 @@
+name: Cycle 0.12 Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação protegida do ciclo 0.12.0
+        required: true
+        type: choice
+        options: [validate, capture-feedback, capture-cleanup, open-evidence-pr, package-cycle, propose-activation]
+      source_commit:
+        description: SHA de 40 caracteres da origem revisada
+        required: true
+        type: string
+      capture_run_id:
+        description: Run ID da captura revisada
+        required: false
+        default: '0'
+        type: string
+      theme_counts:
+        description: Temas agregados no formato tema=contagem,tema=contagem
+        required: false
+        type: string
+      impact_blocking:
+        required: false
+        default: '0'
+        type: string
+      impact_high:
+        required: false
+        default: '0'
+        type: string
+      impact_medium:
+        required: false
+        default: '0'
+        type: string
+      impact_low:
+        required: false
+        default: '0'
+        type: string
+      excluded_sensitive:
+        required: false
+        default: '0'
+        type: string
+      environment_name:
+        required: false
+        type: choice
+        options: [rc-011-build, rc-011-homologation]
+      cleanup_status:
+        required: false
+        type: choice
+        options: [retained, dry-run-approved, deleted, blocked]
+      evidence_url:
+        description: Evidência HTTPS sanitizada
+        required: false
+        type: string
+      tracking_issue:
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: cycle012-${{ inputs.action }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ACTION: ${{ inputs.action }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      RUN_ID: ${{ inputs.capture_run_id }}
+      EVIDENCE_URL: ${{ inputs.evidence_url }}
+      THEME_COUNTS: ${{ inputs.theme_counts }}
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      CLEANUP_STATUS: ${{ inputs.cleanup_status }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run cycle012:structure
+      - name: Validate operation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          case "$ACTION" in
+            capture-feedback)
+              [[ -n "$THEME_COUNTS" ]]
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+            capture-cleanup)
+              [[ "$ENVIRONMENT_NAME" =~ ^rc-011-(build|homologation)$ ]]
+              [[ "$CLEANUP_STATUS" =~ ^(retained|dry-run-approved|deleted|blocked)$ ]]
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+            open-evidence-pr)
+              [[ "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              ;;
+            propose-activation)
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+          esac
+
+  capture-feedback:
+    needs: validate
+    if: inputs.action == 'capture-feedback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cycle-governance
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Capture anonymous aggregate feedback
+        run: |
+          mkdir -p /tmp/cycle012
+          node scripts/capture-cycle012-feedback-summary.mjs \
+            --source-commit "${{ inputs.source_commit }}" --theme-counts "${{ inputs.theme_counts }}" \
+            --blocking "${{ inputs.impact_blocking }}" --high "${{ inputs.impact_high }}" \
+            --medium "${{ inputs.impact_medium }}" --low "${{ inputs.impact_low }}" \
+            --excluded-sensitive "${{ inputs.excluded_sensitive }}" \
+            --evidence-url "${{ inputs.evidence_url }}" --output /tmp/cycle012/feedback.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-feedback-${{ github.run_id }}
+          path: /tmp/cycle012/feedback.json
+          retention-days: 365
+
+  capture-cleanup:
+    needs: validate
+    if: inputs.action == 'capture-cleanup'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cycle-governance
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Capture audited environment cleanup result
+        run: |
+          mkdir -p /tmp/cycle012
+          node scripts/capture-cycle012-environment-cleanup.mjs \
+            --source-commit "${{ inputs.source_commit }}" --environment "${{ inputs.environment_name }}" \
+            --status "${{ inputs.cleanup_status }}" --evidence-url "${{ inputs.evidence_url }}" \
+            --output /tmp/cycle012/cleanup.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-cleanup-${{ github.run_id }}
+          path: /tmp/cycle012/cleanup.json
+          retention-days: 365
+
+  package-cycle:
+    needs: validate
+    if: inputs.action == 'package-cycle'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run cycle012:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-package-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.12.0-bootstrap.*
+          retention-days: 365
+
+  propose-activation:
+    needs: validate
+    if: inputs.action == 'propose-activation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cycle-governance
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Create fail-closed human activation proposal
+        run: |
+          mkdir -p /tmp/cycle012
+          node scripts/propose-cycle012-activation.mjs \
+            --source-commit "${{ inputs.source_commit }}" --evidence-url "${{ inputs.evidence_url }}" \
+            --output /tmp/cycle012/activation-proposal.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycle012-activation-${{ github.run_id }}
+          path: /tmp/cycle012/activation-proposal.json
+          retention-days: 365
+
+  open-evidence-pr:
+    needs: validate
+    if: inputs.action == 'open-evidence-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.capture_run_id }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Download exact capture run
+        run: |
+          mkdir -p /tmp/cycle012/evidence
+          gh run download "$RUN_ID" --dir /tmp/cycle012/evidence
+      - name: Apply sanitized capture
+        id: apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=$(find /tmp/cycle012/evidence -type f -name '*.json' | head -n1)
+          [[ -n "$FILE" ]]
+          CAPTURE_SHA=$(jq -r '.sourceCommit // empty' "$FILE")
+          [[ -z "$CAPTURE_SHA" || "${CAPTURE_SHA,,}" == "${SOURCE_COMMIT,,}" ]]
+          TYPE=''
+          if jq -e '.captureType == "cycle012-feedback-summary"' "$FILE" >/dev/null; then
+            TYPE='feedback'
+            node scripts/apply-cycle012-capture.mjs --capture "$FILE" \
+              --current release/cycle-0.12.0/feedback-summary.json \
+              --output release/cycle-0.12.0/feedback-summary.json
+          elif jq -e '.captureType == "cycle012-environment-cleanup"' "$FILE" >/dev/null; then
+            TYPE='cleanup'
+            node scripts/apply-cycle012-capture.mjs --capture "$FILE" \
+              --current release/cycle-0.12.0/environment-cleanup.json \
+              --output release/cycle-0.12.0/environment-cleanup.json
+          elif jq -e '.proposalType == "cycle012-human-activation"' "$FILE" >/dev/null; then
+            TYPE='activation'
+            cp "$FILE" release/cycle-0.12.0/activation-proposal.json
+          else
+            echo 'Artefato do ciclo 0.12.0 desconhecido.' >&2
+            exit 1
+          fi
+          echo "type=$TYPE" >> "$GITHUB_OUTPUT"
+      - name: Open idempotent evidence PR
+        env:
+          EVIDENCE_TYPE: ${{ steps.apply.outputs.type }}
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/cycle012-${EVIDENCE_TYPE}-${RUN_ID}"
+          EXISTING=$(gh pr list --state open --head "$BRANCH" --json url --jq '.[0].url // empty')
+          if [[ -n "$EXISTING" ]]; then echo "PR existente: $EXISTING"; exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$BRANCH"
+          git add release/cycle-0.12.0
+          git diff --cached --quiet && { echo 'Nenhuma mudança nova.'; exit 0; }
+          git commit -m "chore(cycle012): registrar evidência ${EVIDENCE_TYPE}"
+          git push origin "$BRANCH"
+          URL=$(gh pr create --base main --head "$BRANCH" \
+            --title "chore: evidência do ciclo 0.12.0 — ${EVIDENCE_TYPE}" \
+            --body "Evidência sanitizada do run ${RUN_ID}. Não ativa o ciclo nem cria migrations. Tehkné Solutions")
+          gh issue comment "$TRACKING_ISSUE" --body "Evidência do ciclo 0.12.0 disponível para revisão: $URL"
