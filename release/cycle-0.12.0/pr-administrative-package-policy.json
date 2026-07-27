@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "requiredAuthorizationClassification": "current-and-compatible",
+  "packageKind": "pr-administrative-review-package",
+  "allowedSections": [
+    "title",
+    "summary",
+    "references",
+    "allowedScope",
+    "reviewChecklist",
+    "riskNotes"
+  ],
+  "requiredChecklist": [
+    "human-review-required",
+    "scope-confirmed",
+    "references-current",
+    "no-patch-attached",
+    "no-functional-branch-created"
+  ],
+  "controls": {
+    "administrativePackageGenerationAllowed": true,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  },
+  "forbiddenContent": [
+    "patch",
+    "diff",
+    "replacementContent",
+    "commands",
+    "migrationSql",
+    "credentials"
+  ]
+}
