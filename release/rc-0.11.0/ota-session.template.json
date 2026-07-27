@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "platform": "android|ios",
+  "action": "publish|rollback",
+  "sessionId": "uuid",
+  "sourceCommit": "sha40",
+  "build": { "buildId": "eas-build-uuid", "buildNumber": "11001" },
+  "update": { "groupId": "eas-update-group", "runtimeVersion": "0.11.0", "channel": "rc-0-11" },
+  "device": { "profileId": "android-mainstream|ios-mainstream", "osVersion": "versao", "status": "passed|failed|blocked" },
+  "checkResults": [
+    { "id": "update-received|rollback-received", "status": "passed|failed|blocked" },
+    { "id": "restart-applied", "status": "passed|failed|blocked" },
+    { "id": "local-data-preserved", "status": "passed|failed|blocked" },
+    { "id": "offline-startup", "status": "passed|failed|blocked" }
+  ],
+  "evidenceUrl": "https://...",
+  "privacy": { "containsPersonalData": false, "containsClinicalData": false, "containsSecrets": false, "containsDeviceIdentifiers": false, "usesSyntheticAccounts": true },
+  "controls": { "automaticApproval": false, "requiresPullRequestReview": true },
+  "generatedBy": "Tehkné Solutions"
+}
