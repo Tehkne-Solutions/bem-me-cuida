@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "capture-ready-activation-blocked",
+  "allowedTracks": ["architecture", "security", "privacy", "accessibility", "database"],
+  "allowedVerdicts": ["pass", "pass-with-residual-risk", "changes-required"],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "source": "github.repository_id:github.actor_id",
+    "storesRawIdentity": false
+  },
+  "record": {
+    "directory": "release/cycle-0.12.0/reviews",
+    "oneRecordPerReviewerTrackAndCommit": true,
+    "sourceCommitRequired": true,
+    "httpsEvidenceRequired": true,
+    "freeTextAllowed": false
+  },
+  "pullRequest": {
+    "base": "main",
+    "branchPrefix": "evidence/cycle012-review-",
+    "automaticMergeAllowed": false,
+    "humanReviewRequired": true
+  },
+  "controls": {
+    "authorCannotApproveOwnChange": true,
+    "securityAndPrivacyReviewersMustDiffer": true,
+    "minimumDistinctReviewers": 3,
+    "doesNotActivateCycle": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false
+  }
+}
