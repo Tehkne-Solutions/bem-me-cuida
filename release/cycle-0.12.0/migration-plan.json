@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "draft-no-migration-authorized",
+  "updatedAt": null,
+  "sequence": {
+    "previousHighest": 21,
+    "reservedStart": 22,
+    "reservedEnd": 29,
+    "format": "NNN_description.sql"
+  },
+  "plannedChanges": [],
+  "controls": {
+    "scopeApprovalRequired": true,
+    "dataClassificationRequired": true,
+    "rollbackPlanRequired": true,
+    "rlsReviewRequired": true,
+    "pgtapRequired": true,
+    "localMigrationRequiredBeforeStaging": true,
+    "noEmptyMigrationFiles": true,
+    "doesNotCreateMigrationAutomatically": true
+  },
+  "approval": {
+    "status": "pending",
+    "approvedByFingerprint": null,
+    "evidenceUrl": null,
+    "approvedAt": null
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsSecrets": false
+  }
+}
