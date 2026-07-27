@@ -65,4 +65,37 @@ export function selectIosBuild(payload, { sourceCommit, buildId = '' }) {
   return { ...discovery, status: 'selected', selected };
 }
 
+export function createIosHomologationPlan({ builds, deviceMatrix, testResults, evidenceUrl }) {
+  const ios = builds?.platforms?.ios;
+  if (builds?.release !== '0.11.0-rc.1' || ios?.status !== 'captured') throw new Error('O plano físico exige um build iOS capturado.');
+  if (!UUID_PATTERN.test(ios.buildId ?? '')) throw new Error('Build ID iOS inválido.');
+  if (!SHA256_PATTERN.test(ios.artifactSha256 ?? '')) throw new Error('SHA-256 iOS inválido.');
+  if (!String(ios.artifactUrl ?? '').startsWith('https://')) throw new Error('Artefato iOS precisa usar HTTPS.');
+  if (!String(evidenceUrl ?? '').startsWith('https://')) throw new Error('A evidência da captura deve usar HTTPS.');
+
+  const devices = (deviceMatrix?.profiles ?? []).filter((item) => item.platform === 'ios').map((item) => ({
+    id: item.id, class: item.class, formFactor: item.formFactor, memoryClass: item.memoryClass,
+    osRange: item.osRange, required: item.required === true, status: 'pending', evidenceUrl: null,
+  }));
+  const suites = (testResults?.suites ?? []).map((item) => ({
+    id: item.id, name: item.name, required: item.required === true,
+    requiredPlatforms: Array.isArray(item.requiredPlatforms) && item.requiredPlatforms.length ? item.requiredPlatforms : ['android', 'ios'],
+    status: 'pending', evidenceUrl: null,
+  }));
+
+  return {
+    schemaVersion: '1.0', release: '0.11.0-rc.1', platform: 'ios', status: 'pending-physical-validation',
+    sourceCommit: builds.sourceCommit,
+    build: { buildId: ios.buildId, buildNumber: ios.buildNumber, artifactSha256: ios.artifactSha256, artifactSizeBytes: ios.artifactSizeBytes ?? null, evidenceUrl },
+    devices, suites, sessions: [],
+    summary: {
+      requiredDevices: devices.filter((item) => item.required).length, passedRequiredDevices: 0,
+      requiredSuites: suites.filter((item) => item.required).length, passedRequiredSuites: 0, failedOrBlockedRequiredItems: 0,
+    },
+    privacy: { containsPersonalData: false, containsClinicalData: false, usesSyntheticAccounts: true },
+    controls: { automaticApproval: false, requiresOperatorReview: true },
+    generatedAt: new Date().toISOString(), generatedBy: 'Tehkné Solutions',
+  };
+}
+
 export { UUID_PATTERN, SHA_PATTERN, SHA256_PATTERN };
