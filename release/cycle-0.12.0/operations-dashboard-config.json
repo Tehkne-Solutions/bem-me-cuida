@@ -3,10 +3,10 @@
   "product": "BemMeCuida",
   "generatedBy": "Tehkné Solutions",
   "cycleVersion": "0.12.0",
-  "status": "operations-ready-activation-blocked",
+  "status": "operations-queue-ready-activation-blocked",
   "commands": {
     "prefix": "/cycle012",
-    "allowed": ["status", "reviews", "blockers", "gates"],
+    "allowed": ["status", "reviews", "blockers", "gates", "queue", "owners", "next"],
     "exactMatchRequired": true,
     "freeTextAllowed": false
   },
