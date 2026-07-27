@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "queue-ready-activation-blocked",
+  "commands": {
+    "allowed": ["queue", "owners", "next"],
+    "exactMatchRequired": true,
+    "freeTextAllowed": false
+  },
+  "priorities": ["critical", "high", "medium", "low"],
+  "reviewTracks": {
+    "architecture": {
+      "ownerRole": "architecture_reviewer",
+      "accountableRole": "technical_lead",
+      "priority": "high",
+      "nextStep": "capture-review-evidence"
+    },
+    "security": {
+      "ownerRole": "security_reviewer",
+      "accountableRole": "security_lead",
+      "priority": "high",
+      "nextStep": "capture-review-evidence"
+    },
+    "privacy": {
+      "ownerRole": "privacy_reviewer",
+      "accountableRole": "privacy_lead",
+      "priority": "high",
+      "nextStep": "capture-review-evidence"
+    },
+    "accessibility": {
+      "ownerRole": "accessibility_reviewer",
+      "accountableRole": "product_lead",
+      "priority": "medium",
+      "nextStep": "capture-review-evidence"
+    },
+    "database": {
+      "ownerRole": "database_reviewer",
+      "accountableRole": "technical_lead",
+      "priority": "high",
+      "nextStep": "capture-review-evidence"
+    }
+  },
+  "reviewCoordination": {
+    "minimumDistinctReviewers": {
+      "ownerRole": "review_coordinator",
+      "accountableRole": "technical_lead",
+      "priority": "high",
+      "nextStep": "assign-independent-reviewer"
+    },
+    "securityPrivacySeparation": {
+      "ownerRole": "review_coordinator",
+      "accountableRole": "security_lead",
+      "priority": "critical",
+      "nextStep": "separate-security-privacy-reviewers"
+    }
+  },
+  "externalGates": {
+    "source-cycle-closure": {
+      "ownerRole": "release_manager",
+      "accountableRole": "release_admin",
+      "priority": "critical",
+      "dependencies": [],
+      "nextStep": "complete-source-cycle",
+      "evidenceRequirement": "cycle-closure-https-evidence"
+    },
+    "environment-cleanup": {
+      "ownerRole": "release_operator",
+      "accountableRole": "release_admin",
+      "priority": "high",
+      "dependencies": ["source-cycle-closure"],
+      "nextStep": "review-environment-cleanup",
+      "evidenceRequirement": "cleanup-https-evidence"
+    },
+    "feedback-summary": {
+      "ownerRole": "product_reviewer",
+      "accountableRole": "product_lead",
+      "priority": "high",
+      "dependencies": [],
+      "nextStep": "approve-anonymized-feedback",
+      "evidenceRequirement": "aggregated-feedback-https-evidence"
+    },
+    "scope-approval": {
+      "ownerRole": "product_owner",
+      "accountableRole": "product_lead",
+      "priority": "high",
+      "dependencies": ["feedback-summary"],
+      "nextStep": "approve-cycle-scope",
+      "evidenceRequirement": "scope-approval-https-evidence"
+    },
+    "migration-plan-approval": {
+      "ownerRole": "database_reviewer",
+      "accountableRole": "technical_lead",
+      "priority": "high",
+      "dependencies": ["scope-approval"],
+      "nextStep": "approve-migration-plan",
+      "evidenceRequirement": "migration-plan-https-evidence"
+    }
+  },
+  "controls": {
+    "readOnly": true,
+    "roleBasedOnly": true,
+    "doesNotAssignPeople": true,
+    "doesNotExecuteNextSteps": true,
+    "doesNotActivateCycle": true,
+    "doesNotAuthorizeMigrations": true,
+    "doesNotAuthorizeImplementation": true,
+    "doesNotMergePullRequests": true,
+    "doesNotPublishBuilds": true,
+    "doesNotDeleteEnvironments": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false,
+    "containsRawIdentity": false
+  }
+}
