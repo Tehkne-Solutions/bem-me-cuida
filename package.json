@@ -56,6 +56,7 @@
     "rc011:ios-artifact:capture": "node scripts/verify-rc011-ios-artifact.mjs capture",
     "rc011:ios-physical:test": "node scripts/test-rc011-ios-multiplatform-validation.mjs",
     "rc011:ios-physical:structure": "node scripts/verify-rc011-ios-multiplatform-validation.mjs structure",
+    "rc011:ios-physical:capture": "npm run rc011:ios-artifact:capture && node scripts/verify-rc011-ios-multiplatform-validation.mjs structure",
     "rc011:ios-physical:review": "node scripts/verify-rc011-ios-multiplatform-validation.mjs review",
     "rc011:multiplatform:review": "node scripts/generate-rc011-multiplatform-review-package.mjs",
     "sprint10:check": "node scripts/verify-sprint10-readiness.mjs",
