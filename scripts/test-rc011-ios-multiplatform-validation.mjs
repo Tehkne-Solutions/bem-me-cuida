@@ -41,11 +41,11 @@ const iosPlan = createIosHomologationPlan({ builds, deviceMatrix: matrix, testRe
 assert.equal(iosPlan.devices.length, 1);
 assert.equal(iosPlan.devices[0].status, 'pending');
 
-const session = createIosPhysicalSession({
+const baseSessionArgs = {
   builds, plan: iosPlan, sourceCommit: sha, buildId: iosBuildId, profileId: 'ios-mainstream', deviceStatus: 'passed',
   installationMode: 'fresh', osVersion: '18.0', suiteResults: 'fresh-install=passed,privacy=passed', evidenceUrl: evidence,
-  sessionId: '423e4567-e89b-42d3-a456-426614174000', capturedAt: '2026-07-26T20:00:00.000Z',
-});
+};
+const session = createIosPhysicalSession({ ...baseSessionArgs, sessionId: '423e4567-e89b-42d3-a456-426614174000', capturedAt: '2026-07-26T20:00:00.000Z' });
 const applied = applyIosPhysicalSession({ plan: iosPlan, deviceMatrix: matrix, testResults: tests, session });
 assert.equal(applied.plan.status, 'ready-for-review');
 assert.equal(applied.deviceMatrix.profiles[1].status, 'passed');
@@ -54,8 +54,7 @@ assert.equal(applied.testResults.suites[0].status, 'passed');
 assert.equal(applyIosPhysicalSession({ plan: applied.plan, deviceMatrix: applied.deviceMatrix, testResults: applied.testResults, session }).duplicate, true);
 
 const androidPlan = { release: '0.11.0-rc.1', platform: 'android', status: 'ready-for-review' };
-const otaPending = { publish: { status: 'pending' }, rollback: { status: 'pending' } };
-const hold = createMultiplatformReview({ builds, deviceMatrix: applied.deviceMatrix, testResults: applied.testResults, androidPlan, iosPlan: applied.plan, ota: otaPending });
+const hold = createMultiplatformReview({ builds, deviceMatrix: applied.deviceMatrix, testResults: applied.testResults, androidPlan, iosPlan: applied.plan, ota: { publish: { status: 'pending' }, rollback: { status: 'pending' } } });
 assert.equal(hold.recommendation, 'hold');
 assert.ok(hold.blockers.includes('ota-ou-rollback-pendente'));
 const promote = createMultiplatformReview({ builds, deviceMatrix: applied.deviceMatrix, testResults: applied.testResults, androidPlan, iosPlan: applied.plan, ota: { publish: { status: 'passed' }, rollback: { status: 'passed' } } });
@@ -63,14 +62,13 @@ assert.equal(promote.recommendation, 'promote');
 assert.equal(promote.controls.automaticPromotion, false);
 
 const failedSession = createIosPhysicalSession({
-  builds, plan: iosPlan, sourceCommit: sha, buildId: iosBuildId, profileId: 'ios-mainstream', deviceStatus: 'failed',
-  installationMode: 'retest', osVersion: '18.0', suiteResults: 'privacy=failed', evidenceUrl: evidence,
+  ...baseSessionArgs, deviceStatus: 'failed', installationMode: 'retest', suiteResults: 'privacy=failed',
   sessionId: '523e4567-e89b-42d3-a456-426614174000', capturedAt: '2026-07-26T21:00:00.000Z',
 });
 const failed = applyIosPhysicalSession({ plan: iosPlan, deviceMatrix: matrix, testResults: tests, session: failedSession });
 assert.equal(failed.plan.status, 'retest-required');
 assert.equal(failed.testResults.suites.find((item) => item.id === 'privacy').status, 'failed');
-assert.throws(() => createIosPhysicalSession({ ...session, builds, plan: iosPlan, profileId: 'ios-mainstream', evidenceUrl: 'https://user:pass@example.com/evidence' }), /sem credenciais/);
+assert.throws(() => createIosPhysicalSession({ ...baseSessionArgs, evidenceUrl: 'https://user:pass@example.com/evidence' }), /sem credenciais/);
 
 console.log('Custódia iOS e consolidação multiplataforma aprovadas.');
 console.log('Tehkné Solutions');
