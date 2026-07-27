@@ -62,6 +62,6 @@
     "containsJournalContent": false,
     "containsSecrets": false,
     "containsRawIdentity": false,
-    "containsReporterFingerprint": false
+    "containsPseudonymousActorReference": false
   }
 }
