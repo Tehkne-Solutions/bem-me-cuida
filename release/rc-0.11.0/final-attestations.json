@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0",
+  "candidate": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "status": "pending",
+  "sourceCommit": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "storesReviewerFingerprintOnly": true
+  },
+  "requiredRoles": ["release-admin", "qa-lead", "privacy-security"],
+  "attestations": {
+    "release-admin": { "status": "pending", "principalFingerprint": null, "evidenceUrl": null, "recordedAt": null },
+    "qa-lead": { "status": "pending", "principalFingerprint": null, "evidenceUrl": null, "recordedAt": null },
+    "privacy-security": { "status": "pending", "principalFingerprint": null, "evidenceUrl": null, "recordedAt": null }
+  },
+  "controls": {
+    "requiresDistinctPrincipals": true,
+    "rejectionBlocksRelease": true,
+    "requiresHttpsEvidence": true,
+    "doesNotPromoteAutomatically": true
+  }
+}

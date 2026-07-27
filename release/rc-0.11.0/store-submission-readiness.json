@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0",
+  "candidate": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "status": "blocked-awaiting-production-artifacts",
+  "sourceCommit": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false
+  },
+  "platforms": {
+    "android": {
+      "status": "pending",
+      "track": "production",
+      "submissionId": null,
+      "submittedAt": null,
+      "evidenceUrl": null
+    },
+    "ios": {
+      "status": "pending",
+      "track": "app-store",
+      "submissionId": null,
+      "submittedAt": null,
+      "evidenceUrl": null
+    }
+  },
+  "documents": [
+    "docs/STORE-LISTING-PT-BR.md",
+    "docs/DATA-SAFETY-MATRIX.md",
+    "docs/STORE-READINESS.md",
+    "docs/STORE-SUBMISSION-PACKAGE.md",
+    "docs/PRODUCTION-RELEASE-01.md",
+    "docs/INCIDENT-RESPONSE.md",
+    "docs/POST-RELEASE-MONITORING.md"
+  ],
+  "legal": {
+    "supportUrl": null,
+    "privacyUrl": null,
+    "termsUrl": null
+  },
+  "controls": {
+    "requiresProductionBuilds": true,
+    "requiresFinalAttestations": true,
+    "requiresStableHttpsLegalUrls": true,
+    "doesNotSubmitAutomatically": true
+  }
+}

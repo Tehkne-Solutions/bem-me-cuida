@@ -1,0 +1,398 @@
+name: RC 0.11 Production Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação protegida de produção
+        required: true
+        type: choice
+        options:
+          - validate
+          - capture-attestation
+          - open-attestation-pr
+          - package-activation
+          - create-draft-release
+          - open-release-pr
+          - build-production-android
+          - build-production-ios
+          - open-production-artifact-pr
+          - capture-rollout-observation
+          - open-rollout-pr
+      source_commit:
+        description: SHA de 40 caracteres da candidata
+        required: true
+        type: string
+      capture_run_id:
+        description: Run ID da captura revisada
+        required: false
+        default: '0'
+        type: string
+      attestation_role:
+        description: Papel da atestação
+        required: false
+        type: choice
+        options: [release-admin, qa-lead, privacy-security]
+      attestation_decision:
+        description: Decisão da atestação
+        required: false
+        type: choice
+        options: [approved, rejected]
+      evidence_url:
+        description: Evidência HTTPS sanitizada
+        required: false
+        type: string
+      rollout_percentage:
+        description: Percentual observado
+        required: false
+        type: choice
+        options: ['1', '5', '10', '25', '50', '100']
+      crash_free_pct:
+        description: Percentual de sessões sem crash
+        required: false
+        default: '0'
+        type: string
+      sync_success_pct:
+        description: Percentual de sincronização bem-sucedida
+        required: false
+        default: '0'
+        type: string
+      auth_success_pct:
+        description: Percentual de autenticação bem-sucedida
+        required: false
+        default: '0'
+        type: string
+      critical_incidents:
+        description: Incidentes críticos observados
+        required: false
+        default: '0'
+        type: string
+      blocking_support_reports:
+        description: Relatos bloqueadores de suporte
+        required: false
+        default: '0'
+        type: string
+      tracking_issue:
+        description: Issue operacional
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rc011-production-${{ inputs.action }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_ATTESTATION_ROLE: ${{ inputs.attestation_role }}
+      INPUT_ATTESTATION_DECISION: ${{ inputs.attestation_decision }}
+      INPUT_EVIDENCE_URL: ${{ inputs.evidence_url }}
+      INPUT_ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:production:structure
+      - name: Validate operation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          case "$INPUT_ACTION" in
+            open-attestation-pr|open-release-pr|open-production-artifact-pr|open-rollout-pr)
+              [[ "$INPUT_CAPTURE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              ;;
+            capture-attestation)
+              [[ "$INPUT_ATTESTATION_ROLE" == "release-admin" || "$INPUT_ATTESTATION_ROLE" == "qa-lead" || "$INPUT_ATTESTATION_ROLE" == "privacy-security" ]]
+              [[ "$INPUT_ATTESTATION_DECISION" == "approved" || "$INPUT_ATTESTATION_DECISION" == "rejected" ]]
+              [[ "$INPUT_EVIDENCE_URL" == https://* ]]
+              ;;
+            capture-rollout-observation)
+              [[ "$INPUT_ROLLOUT_PERCENTAGE" =~ ^(1|5|10|25|50|100)$ ]]
+              [[ "$INPUT_EVIDENCE_URL" == https://* ]]
+              ;;
+          esac
+
+  capture-attestation:
+    needs: validate
+    if: inputs.action == 'capture-attestation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Capture sanitized attestation
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          ROLE: ${{ inputs.attestation_role }}
+          DECISION: ${{ inputs.attestation_decision }}
+          EVIDENCE_URL: ${{ inputs.evidence_url }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          mkdir -p /tmp/rc011-production
+          node scripts/capture-rc011-final-attestation.mjs \
+            --source-commit "$SOURCE_COMMIT" --role "$ROLE" --decision "$DECISION" \
+            --evidence-url "$EVIDENCE_URL" --actor "$ACTOR" --repository "$GITHUB_REPOSITORY" \
+            --output /tmp/rc011-production/attestation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-final-attestation-${{ github.run_id }}
+          path: /tmp/rc011-production/attestation.json
+          retention-days: 90
+
+  package-activation:
+    needs: validate
+    if: inputs.action == 'package-activation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:production:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-production-package-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-production-activation.*
+          retention-days: 90
+
+  create-draft-release:
+    needs: validate
+    if: inputs.action == 'create-draft-release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:production:package
+      - name: Require draft-release recommendation
+        run: jq -e '.recommendation == "ready-to-create-draft-release"' artifacts/bemmecuida-0.11.0-production-activation.json
+      - name: Create or reuse draft release
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh release view v0.11.0 --json url,isDraft --jq 'select(.isDraft == true) | .url' 2>/dev/null || true)
+          if [[ -z "$EXISTING" ]]; then
+            gh release create v0.11.0 --draft --target "$SOURCE_COMMIT" --title "BemMeCuida 0.11.0" \
+              --notes-file artifacts/bemmecuida-0.11.0-production-activation.md
+            EXISTING=$(gh release view v0.11.0 --json url --jq '.url')
+          fi
+          mkdir -p /tmp/rc011-production
+          jq -n --arg sha "$SOURCE_COMMIT" --arg url "$EXISTING" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion:"1.0",release:"0.11.0",candidate:"0.11.0-rc.1",generatedBy:"Tehkné Solutions",generatedAt:$now,privacy:{containsPersonalData:false,containsClinicalData:false},sourceCommit:($sha|ascii_downcase),status:"captured",tag:"v0.11.0",releaseUrl:$url}' \
+            > /tmp/rc011-production/release-draft-capture.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-draft-release-${{ github.run_id }}
+          path: /tmp/rc011-production/release-draft-capture.json
+          retention-days: 90
+
+  build-production:
+    needs: validate
+    if: inputs.action == 'build-production-android' || inputs.action == 'build-production-ios'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: production-release
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      PLATFORM: ${{ inputs.action == 'build-production-android' && 'android' || 'ios' }}
+      APP_VARIANT: production
+      EXPO_PUBLIC_APP_ENV: production
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_PRODUCTION_RELEASE: '1'
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.PRODUCTION_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:production:build
+      - name: Build official store artifact
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-production
+          npx eas-cli@latest build --platform "$PLATFORM" --profile production --wait --json --non-interactive \
+            > /tmp/rc011-production/build-start.json
+          BUILD_ID=$(jq -r 'if type == "array" then .[0].id else .id end' /tmp/rc011-production/build-start.json)
+          [[ "$BUILD_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/rc011-production/build-view.json
+          npx eas-cli@latest build:download --build-id "$BUILD_ID" --json --non-interactive > /tmp/rc011-production/build-download.json
+          node scripts/collect-production-build-metadata.mjs \
+            --platform "$PLATFORM" --view /tmp/rc011-production/build-view.json \
+            --download /tmp/rc011-production/build-download.json \
+            --source-commit "$SOURCE_COMMIT" \
+            --output "/tmp/rc011-production/${PLATFORM}-production-build-capture.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-production-build-${{ env.PLATFORM }}-${{ github.run_id }}
+          path: /tmp/rc011-production/*-production-build-capture.json
+          retention-days: 90
+
+  capture-rollout:
+    needs: validate
+    if: inputs.action == 'capture-rollout-observation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-release
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      PERCENTAGE: ${{ inputs.rollout_percentage }}
+      CRASH_FREE: ${{ inputs.crash_free_pct }}
+      SYNC_SUCCESS: ${{ inputs.sync_success_pct }}
+      AUTH_SUCCESS: ${{ inputs.auth_success_pct }}
+      CRITICAL_INCIDENTS: ${{ inputs.critical_incidents }}
+      BLOCKING_SUPPORT: ${{ inputs.blocking_support_reports }}
+      EVIDENCE_URL: ${{ inputs.evidence_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run rc011:production:rollout
+      - name: Capture aggregate rollout observation
+        run: |
+          mkdir -p /tmp/rc011-production
+          node scripts/capture-rc011-rollout-observation.mjs \
+            --source-commit "$SOURCE_COMMIT" --percentage "$PERCENTAGE" \
+            --crash-free "$CRASH_FREE" --sync-success "$SYNC_SUCCESS" --auth-success "$AUTH_SUCCESS" \
+            --critical-incidents "$CRITICAL_INCIDENTS" --blocking-support "$BLOCKING_SUPPORT" \
+            --evidence-url "$EVIDENCE_URL" --output /tmp/rc011-production/rollout-observation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-rollout-observation-${{ github.run_id }}
+          path: /tmp/rc011-production/rollout-observation.json
+          retention-days: 90
+
+  open-evidence-pr:
+    needs: validate
+    if: inputs.action == 'open-attestation-pr' || inputs.action == 'open-release-pr' || inputs.action == 'open-production-artifact-pr' || inputs.action == 'open-rollout-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Download reviewed evidence
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-production-pr
+          case "$INPUT_ACTION" in
+            open-attestation-pr) ARTIFACT="rc011-final-attestation-$INPUT_CAPTURE_RUN_ID" ;;
+            open-release-pr) ARTIFACT="rc011-draft-release-$INPUT_CAPTURE_RUN_ID" ;;
+            open-production-artifact-pr)
+              ARTIFACT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$INPUT_CAPTURE_RUN_ID/artifacts" --jq '.artifacts[] | select(.name | startswith("rc011-production-build-")) | .name' | head -n1)
+              ;;
+            open-rollout-pr) ARTIFACT="rc011-rollout-observation-$INPUT_CAPTURE_RUN_ID" ;;
+          esac
+          [[ -n "$ARTIFACT" ]]
+          gh run download "$INPUT_CAPTURE_RUN_ID" --name "$ARTIFACT" --dir /tmp/rc011-production-pr
+      - name: Apply reviewed evidence
+        run: |
+          set -euo pipefail
+          EVIDENCE_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$INPUT_CAPTURE_RUN_ID"
+          case "$INPUT_ACTION" in
+            open-attestation-pr)
+              CAPTURE=/tmp/rc011-production-pr/attestation.json
+              jq -e --arg sha "${INPUT_SOURCE_COMMIT,,}" '.sourceCommit == $sha' "$CAPTURE"
+              node scripts/apply-rc011-final-attestation.mjs --attestation "$CAPTURE" \
+                --output release/rc-0.11.0/final-attestations.json --history-dir release/rc-0.11.0/attestations
+              ITEM_ID=$(jq -r '.role + "-" + (.recordedAt | gsub("[:.]"; "-"))' "$CAPTURE")
+              ;;
+            open-release-pr)
+              CAPTURE=/tmp/rc011-production-pr/release-draft-capture.json
+              jq -e --arg sha "${INPUT_SOURCE_COMMIT,,}" '.sourceCommit == $sha' "$CAPTURE"
+              node scripts/apply-rc011-release-draft-capture.mjs --capture "$CAPTURE" \
+                --output release/rc-0.11.0/release-publication.json --evidence-url "$EVIDENCE_URL"
+              ITEM_ID=draft-release
+              ;;
+            open-production-artifact-pr)
+              CAPTURE=$(find /tmp/rc011-production-pr -name '*-production-build-capture.json' -type f | head -n1)
+              jq -e --arg sha "${INPUT_SOURCE_COMMIT,,}" '.sourceCommit == $sha' "$CAPTURE"
+              node scripts/apply-production-build-capture.mjs --capture "$CAPTURE" \
+                --output release/rc-0.11.0/production-artifacts.json --evidence-url "$EVIDENCE_URL"
+              ITEM_ID=$(jq -r '.platform + "-" + .buildId' "$CAPTURE")
+              ;;
+            open-rollout-pr)
+              CAPTURE=/tmp/rc011-production-pr/rollout-observation.json
+              jq -e --arg sha "${INPUT_SOURCE_COMMIT,,}" '.sourceCommit == $sha' "$CAPTURE"
+              node scripts/apply-rc011-rollout-observation.mjs --observation "$CAPTURE" \
+                --output release/rc-0.11.0/production-rollout.json --history-dir release/rc-0.11.0/rollout-observations
+              ITEM_ID=$(jq -r '(.percentage|tostring) + "-" + (.recordedAt | gsub("[:.]"; "-"))' "$CAPTURE")
+              ;;
+          esac
+          echo "ITEM_ID=$ITEM_ID" >> "$GITHUB_ENV"
+      - name: Create or reuse evidence PR
+        id: pull
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-production-$ITEM_ID"
+          EXISTING=$(gh pr list --state all --head "$BRANCH" --json url --jq '.[0].url // ""')
+          if [[ -n "$EXISTING" ]]; then echo "url=$EXISTING" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git config user.name "Tehkné Solutions Automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add release/rc-0.11.0
+          git commit -m "chore(rc011): registrar evidência de produção"
+          git push origin "$BRANCH"
+          URL=$(gh pr create --base main --head "$BRANCH" --title "chore: registrar evidência de produção da RC 0.11" \
+            --body "Evidência sanitizada, vinculada ao commit da candidata e sujeita a revisão humana. Nenhuma release, submissão ou etapa de rollout foi aprovada automaticamente.\n\nTehkné Solutions")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - run: gh issue comment "$INPUT_TRACKING_ISSUE" --body "PR de evidência de produção: ${{ steps.pull.outputs.url }}\n\nTehkné Solutions"

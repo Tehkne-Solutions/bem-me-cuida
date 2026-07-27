@@ -46,6 +46,19 @@ assert.equal(parseRc011Command(`/rc011 ota-rollback ${sha} ${groupId}`).groupId,
 assert.equal(parseRc011Command(`/rc011 ota-rollback-pr ${sha} 30213916990`).runId, '30213916990');
 assert.equal(parseRc011Command(`/rc011 rc-final-review ${sha}`).privilege, 'write');
 
+assert.equal(parseRc011Command(`/rc011 production-package ${sha}`).privilege, 'write');
+const attestation = parseRc011Command(`/rc011 final-attestation ${sha} qa-lead approved ${evidence}`);
+assert.equal(attestation.attestationRole, 'qa-lead');
+assert.equal(attestation.attestationDecision, 'approved');
+assert.equal(parseRc011Command(`/rc011 final-attestation-pr ${sha} 30213916990`).runId, '30213916990');
+assert.equal(parseRc011Command(`/rc011 production-build-android ${sha}`).privilege, 'admin');
+assert.equal(parseRc011Command(`/rc011 production-build-ios ${sha}`).privilege, 'admin');
+assert.equal(parseRc011Command(`/rc011 production-artifact-pr ${sha} 30213916990`).runId, '30213916990');
+const rollout = parseRc011Command(`/rc011 rollout-observation ${sha} 5 99.5 98 99 0 0 ${evidence}`);
+assert.equal(rollout.rolloutPercentage, '5');
+assert.equal(rollout.crashFreePct, '99.5');
+assert.equal(parseRc011Command(`/rc011 rollout-observation-pr ${sha} 30213916990`).runId, '30213916990');
+
 assert.throws(() => parseRc011Command('/rc011 unknown'), /Comando desconhecido/);
 assert.throws(() => parseRc011Command('/rc011 audit-external extra'), /espera 0 argumento/);
 assert.throws(() => parseRc011Command('/rc011 validate-infrastructure abc'), /SHA Git/);
@@ -57,6 +70,10 @@ assert.throws(() => parseRc011Command(`/rc011 ios-session ${sha} ${buildId} andr
 assert.throws(() => parseRc011Command(`/rc011 ota-session ${sha} ios ${buildId} android-mainstream 18 ${groupId} publish ${evidence} ${publishChecks}`), /incompatível/);
 assert.throws(() => parseRc011Command(`/rc011 ota-rollback ${sha} grupo-invalido`), /groupId/);
 assert.throws(() => parseRc011Command(`/rc011 ota-session ${sha} android ${buildId} android-mainstream 15 ${groupId} publish ${evidence} update-received=pending`), /otaResults/);
+assert.throws(() => parseRc011Command(`/rc011 final-attestation ${sha} owner approved ${evidence}`), /attestationRole/);
+assert.throws(() => parseRc011Command(`/rc011 final-attestation ${sha} qa-lead pending ${evidence}`), /attestationDecision/);
+assert.throws(() => parseRc011Command(`/rc011 rollout-observation ${sha} 2 99 98 99 0 0 ${evidence}`), /rolloutPercentage/);
+assert.throws(() => parseRc011Command(`/rc011 rollout-observation ${sha} 5 101 98 99 0 0 ${evidence}`), /crashFreePct/);
 assert.throws(() => parseRc011Command('/rc011 status\nsegunda linha'), /exatamente uma linha/);
 assert.throws(() => parseRc011Command('/rc011 status expo_123456789012345678901234567890'), /material que parece secreto/);
 assert.throws(() => parseRc011Command('/rc011 status tester@example.com'), /e-mail/);

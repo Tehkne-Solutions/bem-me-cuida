@@ -9,6 +9,8 @@ const HTTPS_PATTERN = /^https:\/\/[^\s]+$/i;
 const PROFILE_PATTERN = /^(android|ios)-[a-z0-9-]{2,48}$/;
 const VERSION_PATTERN = /^[a-z0-9._-]{1,24}$/i;
 const RESULTS_PATTERN = /^[a-z0-9-]+=(passed|failed|blocked)(,[a-z0-9-]+=(passed|failed|blocked))*$/;
+const NUMBER_PATTERN = /^(100(?:\.0+)?|\d{1,2}(?:\.\d+)?)$/;
+const COUNT_PATTERN = /^\d{1,9}$/;
 const SENSITIVE_PATTERN = /(expo_[a-z0-9_-]{20,}|sb_secret_[a-z0-9_-]+|service[_-]?role|gh[pousr]_[a-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
@@ -36,6 +38,14 @@ const commandDefinitions = {
   'ota-rollback': { privilege: 'admin', args: ['sourceCommit', 'groupId'] },
   'ota-rollback-pr': { privilege: 'admin', args: ['sourceCommit', 'runId'] },
   'rc-final-review': { privilege: 'write', args: ['sourceCommit'] },
+  'production-package': { privilege: 'write', args: ['sourceCommit'] },
+  'final-attestation': { privilege: 'admin', args: ['sourceCommit', 'attestationRole', 'attestationDecision', 'evidenceUrl'] },
+  'final-attestation-pr': { privilege: 'admin', args: ['sourceCommit', 'runId'] },
+  'production-build-android': { privilege: 'admin', args: ['sourceCommit'] },
+  'production-build-ios': { privilege: 'admin', args: ['sourceCommit'] },
+  'production-artifact-pr': { privilege: 'admin', args: ['sourceCommit', 'runId'] },
+  'rollout-observation': { privilege: 'admin', args: ['sourceCommit', 'rolloutPercentage', 'crashFreePct', 'syncSuccessPct', 'authSuccessPct', 'criticalIncidents', 'blockingSupportReports', 'evidenceUrl'] },
+  'rollout-observation-pr': { privilege: 'admin', args: ['sourceCommit', 'runId'] },
 };
 
 function assertValue(name, value, command) {
@@ -55,6 +65,11 @@ function assertValue(name, value, command) {
   if (name === 'installationMode' && !['fresh', 'upgrade', 'retest'].includes(value)) throw new Error('installationMode inválido.');
   if (name === 'osVersion' && !VERSION_PATTERN.test(value)) throw new Error('osVersion inválida.');
   if (['suiteResults', 'otaResults'].includes(name) && (!RESULTS_PATTERN.test(value) || value.length > 2000)) throw new Error(`${name} inválido.`);
+  if (name === 'attestationRole' && !['release-admin', 'qa-lead', 'privacy-security'].includes(value)) throw new Error('attestationRole inválido.');
+  if (name === 'attestationDecision' && !['approved', 'rejected'].includes(value)) throw new Error('attestationDecision inválida.');
+  if (name === 'rolloutPercentage' && !['1', '5', '10', '25', '50', '100'].includes(value)) throw new Error('rolloutPercentage inválido.');
+  if (['crashFreePct', 'syncSuccessPct', 'authSuccessPct'].includes(name) && !NUMBER_PATTERN.test(value)) throw new Error(`${name} deve estar entre 0 e 100.`);
+  if (['criticalIncidents', 'blockingSupportReports'].includes(name) && !COUNT_PATTERN.test(value)) throw new Error(`${name} deve ser inteiro não negativo.`);
   if (name.endsWith('Url') && !HTTPS_PATTERN.test(value)) throw new Error(`${name} deve ser uma URL HTTPS sem espaços.`);
 }
 
@@ -73,13 +88,21 @@ export function parseRc011Command(input) {
   if (!definition) throw new Error(`Comando desconhecido: ${command}.`);
   const values = tokens.slice(2);
   if (values.length !== definition.args.length) throw new Error(`O comando ${command} espera ${definition.args.length} argumento(s), mas recebeu ${values.length}.`);
-  const parsed = { recognized: true, command, privilege: definition.privilege, sourceCommit: '', runId: '', buildId: '', profileId: '', platform: '', groupId: '', otaAction: '', otaResults: '', resultStatus: '', installationMode: '', osVersion: '', suiteResults: '', evidenceUrl: '', buildEvidenceUrl: '', homologationEvidenceUrl: '', servicesEvidenceUrl: '', cycleEvidenceUrl: '' };
+  const parsed = {
+    recognized: true, command, privilege: definition.privilege, sourceCommit: '', runId: '', buildId: '', profileId: '', platform: '', groupId: '', otaAction: '', otaResults: '',
+    resultStatus: '', installationMode: '', osVersion: '', suiteResults: '', evidenceUrl: '', buildEvidenceUrl: '', homologationEvidenceUrl: '', servicesEvidenceUrl: '', cycleEvidenceUrl: '',
+    attestationRole: '', attestationDecision: '', rolloutPercentage: '', crashFreePct: '', syncSuccessPct: '', authSuccessPct: '', criticalIncidents: '', blockingSupportReports: '',
+  };
   definition.args.forEach((name, index) => { assertValue(name, values[index], command); parsed[name] = values[index]; });
   if (command === 'ota-session' && !parsed.profileId.startsWith(`${parsed.platform}-`)) throw new Error('profileId incompatível com platform.');
   return parsed;
 }
 
-const outputKeys = ['recognized', 'command', 'privilege', 'sourceCommit', 'runId', 'buildId', 'profileId', 'platform', 'groupId', 'otaAction', 'otaResults', 'resultStatus', 'installationMode', 'osVersion', 'suiteResults', 'evidenceUrl', 'buildEvidenceUrl', 'homologationEvidenceUrl', 'servicesEvidenceUrl', 'cycleEvidenceUrl'];
+const outputKeys = [
+  'recognized', 'command', 'privilege', 'sourceCommit', 'runId', 'buildId', 'profileId', 'platform', 'groupId', 'otaAction', 'otaResults', 'resultStatus', 'installationMode',
+  'osVersion', 'suiteResults', 'evidenceUrl', 'buildEvidenceUrl', 'homologationEvidenceUrl', 'servicesEvidenceUrl', 'cycleEvidenceUrl', 'attestationRole', 'attestationDecision',
+  'rolloutPercentage', 'crashFreePct', 'syncSuccessPct', 'authSuccessPct', 'criticalIncidents', 'blockingSupportReports',
+];
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isCli) {
   try {

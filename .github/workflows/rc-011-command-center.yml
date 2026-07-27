@@ -98,9 +98,17 @@ jobs:
           /rc011 ota-rollback <source_sha> <published_group_id>
           /rc011 ota-rollback-pr <source_sha> <run_id>
           /rc011 rc-final-review <source_sha>
+          /rc011 production-package <source_sha>
+          /rc011 final-attestation <source_sha> <release-admin|qa-lead|privacy-security> <approved|rejected> <evidence_https>
+          /rc011 final-attestation-pr <source_sha> <run_id>
+          /rc011 production-build-android <source_sha>
+          /rc011 production-build-ios <source_sha>
+          /rc011 production-artifact-pr <source_sha> <run_id>
+          /rc011 rollout-observation <source_sha> <1|5|10|25|50|100> <crash_free_pct> <sync_pct> <auth_pct> <critical_count> <blocking_count> <evidence_https>
+          /rc011 rollout-observation-pr <source_sha> <run_id>
           ```
 
-          Operações com environments, builds, sessões, OTA ou PR exigem permissão administrativa. Nunca inclua tokens, dados pessoais, conteúdo clínico ou identificadores únicos.
+          Operações com environments, builds, sessões, OTA, produção ou PR exigem permissão administrativa. Nunca inclua tokens, dados pessoais, conteúdo clínico ou identificadores únicos.
 
           **Tehkné Solutions**
           EOF
@@ -131,6 +139,14 @@ jobs:
           HOMOLOGATION_EVIDENCE_URL: ${{ steps.parse.outputs.homologationEvidenceUrl }}
           SERVICES_EVIDENCE_URL: ${{ steps.parse.outputs.servicesEvidenceUrl }}
           CYCLE_EVIDENCE_URL: ${{ steps.parse.outputs.cycleEvidenceUrl }}
+          ATTESTATION_ROLE: ${{ steps.parse.outputs.attestationRole }}
+          ATTESTATION_DECISION: ${{ steps.parse.outputs.attestationDecision }}
+          ROLLOUT_PERCENTAGE: ${{ steps.parse.outputs.rolloutPercentage }}
+          CRASH_FREE_PCT: ${{ steps.parse.outputs.crashFreePct }}
+          SYNC_SUCCESS_PCT: ${{ steps.parse.outputs.syncSuccessPct }}
+          AUTH_SUCCESS_PCT: ${{ steps.parse.outputs.authSuccessPct }}
+          CRITICAL_INCIDENTS: ${{ steps.parse.outputs.criticalIncidents }}
+          BLOCKING_SUPPORT_REPORTS: ${{ steps.parse.outputs.blockingSupportReports }}
         shell: bash
         run: |
           set -euo pipefail
@@ -169,6 +185,18 @@ jobs:
                 ota-rollback-pr) OPERATION='open-rollback-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
                 rc-final-review) OPERATION='package-final-decision'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
               esac ;;
+            production-package|final-attestation|final-attestation-pr|production-build-android|production-build-ios|production-artifact-pr|rollout-observation|rollout-observation-pr)
+              WORKFLOW='rc-011-production-activation.yml'
+              case "$COMMAND" in
+                production-package) OPERATION='package-activation'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                final-attestation) OPERATION='capture-attestation'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f attestation_role="$ATTESTATION_ROLE" -f attestation_decision="$ATTESTATION_DECISION" -f evidence_url="$EVIDENCE_URL" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                final-attestation-pr) OPERATION='open-attestation-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                production-build-android) OPERATION='build-production-android'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                production-build-ios) OPERATION='build-production-ios'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                production-artifact-pr) OPERATION='open-production-artifact-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                rollout-observation) OPERATION='capture-rollout-observation'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f rollout_percentage="$ROLLOUT_PERCENTAGE" -f crash_free_pct="$CRASH_FREE_PCT" -f sync_success_pct="$SYNC_SUCCESS_PCT" -f auth_success_pct="$AUTH_SUCCESS_PCT" -f critical_incidents="$CRITICAL_INCIDENTS" -f blocking_support_reports="$BLOCKING_SUPPORT_REPORTS" -f evidence_url="$EVIDENCE_URL" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                rollout-observation-pr) OPERATION='open-rollout-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+              esac ;;
             *) echo 'Comando não mapeado.' >&2; exit 1 ;;
           esac
           cat > /tmp/rc011-dispatch.md <<EOF
@@ -180,7 +208,7 @@ jobs:
           - Commit: \`${SOURCE_COMMIT:-não aplicável}\`
           - Solicitante: \`$RC011_ACTOR\`
 
-          A solicitação foi enviada ao GitHub Actions. Environments e revisores continuam podendo bloquear a execução. Nenhum resultado, gate ou promoção foi aprovado por este despacho.
+          A solicitação foi enviada ao GitHub Actions. Environments e revisores continuam podendo bloquear a execução. Nenhum resultado, gate, release, submissão ou rollout foi aprovado por este despacho.
 
           **Tehkné Solutions**
           EOF
