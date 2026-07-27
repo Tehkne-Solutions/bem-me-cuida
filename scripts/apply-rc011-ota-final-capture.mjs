@@ -20,6 +20,9 @@ const validation = readJson(args['validation-source'] ?? 'release/rc-0.11.0/ota-
 if (capture.release !== '0.11.0-rc.1' || capture.status !== 'captured' || !['publish', 'rollback'].includes(capture.action)) throw new Error('Captura OTA inválida.');
 if (capture.runtimeVersion !== '0.11.0' || capture.channel !== 'rc-0-11') throw new Error('Runtime ou canal divergente.');
 if (!/^[a-f0-9]{40}$/i.test(capture.sourceCommit ?? '') || !/^[a-f0-9-]{16,}$/i.test(capture.groupId ?? '')) throw new Error('Commit ou Group ID inválido.');
+const expectedCommit = process.env.INPUT_SOURCE_COMMIT?.trim().toLowerCase();
+if (expectedCommit && capture.sourceCommit.toLowerCase() !== expectedCommit) throw new Error('O commit da captura diverge da operação solicitada.');
+if (ota.publish?.sourceCommit && ota.publish.sourceCommit !== capture.sourceCommit && capture.action === 'rollback') throw new Error('Rollback pertence a outro commit da candidata.');
 const evidenceUrl = args['evidence-url'] ?? null;
 if (evidenceUrl && !String(evidenceUrl).startsWith('https://')) throw new Error('A evidência deve usar HTTPS.');
 if (capture.action === 'publish') {
