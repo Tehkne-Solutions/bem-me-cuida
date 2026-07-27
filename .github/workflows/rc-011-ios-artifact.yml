@@ -1,0 +1,206 @@
+name: RC 0.11 iOS Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Descobrir, capturar ou abrir PR do artefato iOS
+        required: true
+        default: discover-ios
+        type: choice
+        options: [discover-ios, capture-ios, open-artifact-pr]
+      source_commit:
+        description: SHA do build da candidata
+        required: true
+        type: string
+      build_id:
+        description: Build ID explícito quando houver ambiguidade
+        required: false
+        type: string
+      capture_run_id:
+        description: Run ID da captura para abrir PR
+        required: false
+        default: '0'
+        type: string
+      tracking_issue:
+        description: Issue operacional
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rc011-ios-artifact-${{ inputs.action }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+      APP_VARIANT: rc011
+      EXPO_PUBLIC_APP_ENV: rc-0-11
+      EXPO_PUBLIC_APP_VERSION: 0.11.0
+      EXPO_PUBLIC_RELEASE_CANDIDATE: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.RC011_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.RC011_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:infrastructure:external
+      - run: npm run rc011:ios-artifact:structure
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$INPUT_TRACKING_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]]
+          if [[ -n "$INPUT_BUILD_ID" ]]; then [[ "$INPUT_BUILD_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; fi
+          if [[ "$INPUT_ACTION" == "open-artifact-pr" ]]; then [[ "$INPUT_CAPTURE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; fi
+
+  discover-or-capture:
+    needs: validate
+    if: inputs.action == 'discover-ios' || inputs.action == 'capture-ios'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: rc-011-homologation
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_BUILD_ID: ${{ inputs.build_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - run: mkdir -p /tmp/rc011-ios
+      - name: List matching EAS builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          npx eas-cli@latest build:list \
+            --platform ios --build-profile rc011 --status finished --app-version 0.11.0 \
+            --git-commit-hash "$INPUT_SOURCE_COMMIT" --limit 10 --json --non-interactive \
+            > /tmp/rc011-ios/build-list.json
+      - name: Generate discovery
+        run: |
+          node scripts/select-eas-ios-build.mjs --mode discover --input /tmp/rc011-ios/build-list.json \
+            --source-commit "$INPUT_SOURCE_COMMIT" --output /tmp/rc011-ios/ios-build-discovery.json
+      - name: Select build
+        if: inputs.action == 'capture-ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=(--mode select --input /tmp/rc011-ios/build-list.json --source-commit "$INPUT_SOURCE_COMMIT" --output /tmp/rc011-ios/ios-build-selection.json)
+          if [[ -n "$INPUT_BUILD_ID" ]]; then ARGS+=(--build-id "$INPUT_BUILD_ID"); fi
+          node scripts/select-eas-ios-build.mjs "${ARGS[@]}"
+          SELECTED_BUILD_ID=$(jq -r '.selected.id' /tmp/rc011-ios/ios-build-selection.json)
+          echo "SELECTED_BUILD_ID=$SELECTED_BUILD_ID" >> "$GITHUB_ENV"
+      - name: Inspect and download build
+        if: inputs.action == 'capture-ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          npx eas-cli@latest build:view "$SELECTED_BUILD_ID" --json > /tmp/rc011-ios/build-view.json
+          npx eas-cli@latest build:download --build-id "$SELECTED_BUILD_ID" --json --non-interactive > /tmp/rc011-ios/build-download.json
+      - name: Capture IPA metadata and checksum
+        if: inputs.action == 'capture-ios'
+        run: |
+          node scripts/collect-eas-build-metadata.mjs --platform ios \
+            --view /tmp/rc011-ios/build-view.json --download /tmp/rc011-ios/build-download.json \
+            --output /tmp/rc011-ios/ios-build-capture.json --source-commit "$INPUT_SOURCE_COMMIT"
+      - uses: actions/upload-artifact@v4
+        if: inputs.action == 'discover-ios'
+        with:
+          name: rc011-ios-discovery-${{ github.run_id }}
+          path: /tmp/rc011-ios
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: inputs.action == 'capture-ios'
+        with:
+          name: rc011-ios-capture-${{ github.run_id }}
+          path: /tmp/rc011-ios
+          retention-days: 90
+      - name: Record summary
+        run: |
+          echo "## BemMeCuida 0.11.0-rc.1 — iOS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Operação: **$INPUT_ACTION**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Nenhum build, aparelho, suíte ou gate foi aprovado automaticamente." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tehkné Solutions" >> "$GITHUB_STEP_SUMMARY"
+
+  open-artifact-pr:
+    needs: validate
+    if: inputs.action == 'open-artifact-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+      INPUT_TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Download reviewed capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc011-ios-pr
+          gh run download "$INPUT_CAPTURE_RUN_ID" --name "rc011-ios-capture-$INPUT_CAPTURE_RUN_ID" --dir /tmp/rc011-ios-pr
+          test -f /tmp/rc011-ios-pr/ios-build-capture.json
+          [[ "$(jq -r '.sourceCommit' /tmp/rc011-ios-pr/ios-build-capture.json)" == "$INPUT_SOURCE_COMMIT" ]]
+      - name: Apply capture and create pending physical plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$INPUT_CAPTURE_RUN_ID"
+          node scripts/apply-rc011-capture.mjs --kind build --capture /tmp/rc011-ios-pr/ios-build-capture.json \
+            --source release/rc-0.11.0/builds.json --evidence-url "$EVIDENCE_URL" --output release/rc-0.11.0/builds.json
+          node scripts/generate-rc011-ios-homologation-plan.mjs --builds release/rc-0.11.0/builds.json \
+            --devices release/rc-0.11.0/device-matrix.json --tests release/rc-0.11.0/test-results.json \
+            --evidence-url "$EVIDENCE_URL" --output release/rc-0.11.0/ios-homologation-plan.json
+          npm run rc011:ios-artifact:capture
+      - name: Create or reuse PR
+        id: pull
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_ID=$(jq -r '.platforms.ios.buildId' release/rc-0.11.0/builds.json)
+          BRANCH="evidence/rc011-ios-$BUILD_ID"
+          EXISTING_URL=$(gh pr list --state all --head "$BRANCH" --json url --jq '.[0].url // ""')
+          if [[ -n "$EXISTING_URL" ]]; then echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git config user.name "Tehkné Solutions Automation"
+          git config user.email "automation@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add release/rc-0.11.0/builds.json release/rc-0.11.0/ios-homologation-plan.json
+          git commit -m "chore(rc011): registrar artefato iOS e iniciar homologação"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create --base main --head "$BRANCH" --title "chore: registrar artefato iOS da RC 0.11" \
+            --body "Registra o IPA, checksum e plano iOS integralmente pendente. Nenhum gate é alterado automaticamente.\n\nTehkné Solutions")
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+          gh workflow run ci.yml --ref "$BRANCH"
+      - name: Link issue
+        run: gh issue comment "$INPUT_TRACKING_ISSUE" --body "PR do artefato iOS: ${{ steps.pull.outputs.url }}\n\nRun: $INPUT_CAPTURE_RUN_ID\n\nA matriz física permanece pendente.\n\nTehkné Solutions"
