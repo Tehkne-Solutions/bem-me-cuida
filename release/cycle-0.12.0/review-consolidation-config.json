@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "consolidation-ready-activation-blocked",
+  "reviewDirectory": "release/cycle-0.12.0/reviews",
+  "requiredTracks": ["architecture", "security", "privacy", "accessibility", "database"],
+  "passingVerdicts": ["pass", "pass-with-residual-risk"],
+  "blockingVerdicts": ["changes-required"],
+  "minimumDistinctReviewers": 3,
+  "securityAndPrivacyReviewersMustDiffer": true,
+  "sourceCommitRequired": true,
+  "externalGates": [
+    "source-cycle-closure",
+    "environment-cleanup",
+    "feedback-summary",
+    "scope-approval",
+    "migration-plan-approval"
+  ],
+  "output": {
+    "directory": "release/cycle-0.12.0/consolidations",
+    "oneArtifactPerSourceCommit": true,
+    "containsRawIdentity": false,
+    "containsFreeText": false
+  },
+  "proposal": {
+    "directory": "release/cycle-0.12.0/activation-proposals",
+    "humanMergeRequired": true,
+    "automaticActivationAllowed": false,
+    "automaticMigrationAllowed": false,
+    "automaticImplementationAllowed": false
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsJournalContent": false,
+    "containsSecrets": false
+  }
+}

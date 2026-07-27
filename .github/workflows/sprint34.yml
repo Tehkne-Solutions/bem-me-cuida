@@ -1,0 +1,62 @@
+name: Sprint 34
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/cycle012-activation-proposal.yml'
+      - '.github/workflows/sprint34.yml'
+      - 'release/cycle-0.12.0/review-consolidation-config.json'
+      - 'scripts/lib/cycle012-review-consolidation.mjs'
+      - 'scripts/consolidate-cycle012-reviews.mjs'
+      - 'scripts/generate-cycle012-activation-proposal-from-consolidation.mjs'
+      - 'scripts/test-cycle012-review-consolidation.mjs'
+      - 'scripts/verify-cycle012-review-consolidation.mjs'
+      - 'scripts/verify-sprint34-readiness.mjs'
+      - 'docs/SPRINT-34.md'
+      - 'docs/ADR-038-consolidacao-auditavel-e-proposta-protegida.md'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cycle012-activation-proposal.yml'
+      - '.github/workflows/sprint34.yml'
+      - 'release/cycle-0.12.0/review-consolidation-config.json'
+      - 'scripts/lib/cycle012-review-consolidation.mjs'
+      - 'scripts/consolidate-cycle012-reviews.mjs'
+      - 'scripts/generate-cycle012-activation-proposal-from-consolidation.mjs'
+      - 'scripts/test-cycle012-review-consolidation.mjs'
+      - 'scripts/verify-cycle012-review-consolidation.mjs'
+      - 'scripts/verify-sprint34-readiness.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint34-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Validate Sprint 34 review consolidation
+        run: |
+          node scripts/verify-sprint34-readiness.mjs
+          node scripts/test-cycle012-review-consolidation.mjs
+          node scripts/verify-cycle012-review-consolidation.mjs structure
+          node scripts/verify-cycle012-review-consolidation.mjs report
