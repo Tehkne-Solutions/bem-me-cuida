@@ -23,9 +23,8 @@ if (policy.record?.freeTextAllowed !== false || policy.record?.pullRequestRequir
   failures.push('política de registro não exige PR imutável e sem texto livre.');
 }
 if (policy.authorization?.trustedBaseBranch !== 'main') failures.push('branch base confiável precisa ser main.');
-if (![...(policy.authorization?.allowedRepositoryPermissions ?? [])].sort().every((value, index) => value === ['admin', 'maintain', 'write'][index])) {
-  failures.push('permissões autorizadas inválidas.');
-}
+const permissions = [...(policy.authorization?.allowedRepositoryPermissions ?? [])].sort();
+if (permissions.length !== 3 || permissions.join(',') !== 'admin,maintain,write') failures.push('permissões autorizadas inválidas.');
 
 const updateDir = join(root, policy.record?.directory ?? 'release/cycle-0.12.0/queue-updates');
 let updateCount = 0;
