@@ -91,11 +91,21 @@ jobs:
           npm run rc011:android-physical:test
           npm run rc011:android-physical:structure
       - name: Validate RC 0.11 iOS and multiplatform flow
+        shell: bash
         run: |
-          npm run rc011:ios-artifact:test
-          npm run rc011:ios-artifact:structure
-          npm run rc011:ios-physical:structure
-          npm run rc011:multiplatform:review
+          set -o pipefail
+          {
+            npm run rc011:ios-artifact:test
+            npm run rc011:ios-artifact:structure
+            npm run rc011:ios-physical:structure
+            npm run rc011:multiplatform:review
+          } 2>&1 | tee /tmp/rc011-ios-multiplatform.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc011-ios-multiplatform-failure-log
+          path: /tmp/rc011-ios-multiplatform.log
+          retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
           name: rc011-multiplatform-review-${{ github.run_id }}
