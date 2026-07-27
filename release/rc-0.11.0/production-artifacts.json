@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0",
+  "candidate": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "status": "blocked-awaiting-production-builds",
+  "sourceCommit": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false
+  },
+  "platforms": {
+    "android": {
+      "status": "pending",
+      "package": "com.tehknesolutions.bemmecuida",
+      "format": "aab",
+      "buildId": null,
+      "buildNumber": null,
+      "artifactUrl": null,
+      "artifactSha256": null,
+      "evidenceUrl": null
+    },
+    "ios": {
+      "status": "pending",
+      "bundleIdentifier": "com.tehknesolutions.bemmecuida",
+      "format": "ipa",
+      "buildId": null,
+      "buildNumber": null,
+      "artifactUrl": null,
+      "artifactSha256": null,
+      "evidenceUrl": null
+    }
+  },
+  "controls": {
+    "requiresOfficialProductionIdentifiers": true,
+    "requiresSameSourceCommit": true,
+    "requiresSha256": true,
+    "requiresHttpsArtifactUrl": true
+  }
+}
