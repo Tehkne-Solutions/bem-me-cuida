@@ -16,21 +16,27 @@ const ota = readJson(process.env.RC011_OTA_VALIDATION_PATH ?? 'release/rc-0.11.0
 const otaDeviceValidation = readJson(process.env.RC011_OTA_DEVICE_VALIDATION_PATH ?? 'release/rc-0.11.0/ota-device-validation.json');
 const attestations = readJson(process.env.RC011_ATTESTATIONS_PATH ?? 'release/rc-0.11.0/final-attestations.json');
 const productionArtifacts = readJson(process.env.RC011_PRODUCTION_ARTIFACTS_PATH ?? 'release/rc-0.11.0/production-artifacts.json');
+const productionEnvironment = readJson(process.env.RC011_PRODUCTION_ENVIRONMENT_PATH ?? 'release/rc-0.11.0/production-environment.json');
 const store = readJson(process.env.RC011_STORE_READINESS_PATH ?? 'release/rc-0.11.0/store-submission-readiness.json');
 const rollout = readJson(process.env.RC011_ROLLOUT_PATH ?? 'release/rc-0.11.0/production-rollout.json');
 const publication = readJson(process.env.RC011_RELEASE_PUBLICATION_PATH ?? 'release/rc-0.11.0/release-publication.json');
 
-for (const [label, document] of Object.entries({ attestations, productionArtifacts, store, rollout, publication })) assertBaseDocument(document, label);
+for (const [label, document] of Object.entries({ attestations, productionArtifacts, productionEnvironment, store, rollout, publication })) assertBaseDocument(document, label);
 const finalRc = createFinalRcDecision({ infrastructure, builds, deviceMatrix, testResults, androidPlan, iosPlan, ota, otaDeviceValidation });
 const blockers = [];
 if (finalRc.recommendation !== 'promote') blockers.push(...finalRc.blockers.map((item) => `rc:${item}`));
 const attestationBlockers = validateAttestations(attestations);
 const artifactBlockers = validateProductionArtifacts(productionArtifacts);
+const environmentBlockers = [];
+if (productionEnvironment.status !== 'ready') environmentBlockers.push(`production_environment_${productionEnvironment.status}`);
+for (const [name, value] of Object.entries(productionEnvironment.checks ?? {})) if (value !== true) environmentBlockers.push(`production_environment_${name}_pending`);
+if (!productionEnvironment.evidenceUrl?.startsWith('https://')) environmentBlockers.push('production_environment_evidence_missing');
 const storeBlockers = evaluateStoreReadiness(store, productionArtifacts, attestations);
 
 let recommendation = 'hold';
 if (finalRc.recommendation === 'promote') {
   if (attestationBlockers.length) recommendation = 'await-final-attestations';
+  else if (environmentBlockers.length) recommendation = 'await-production-environment';
   else if (publication.githubRelease?.status === 'pending') recommendation = 'ready-to-create-draft-release';
   else if (artifactBlockers.length) recommendation = 'ready-for-production-builds';
   else if (storeBlockers.some((item) => item.startsWith('store_'))) recommendation = 'await-store-metadata';
@@ -48,7 +54,7 @@ if (finalRc.recommendation === 'promote') {
   }
 }
 
-if (recommendation === 'hold') blockers.push(...attestationBlockers, ...artifactBlockers, ...storeBlockers);
+if (recommendation === 'hold') blockers.push(...attestationBlockers, ...environmentBlockers, ...artifactBlockers, ...storeBlockers);
 const documents = [...new Set(store.documents ?? [])].map((path) => ({ path, exists: existsSync(resolve(path)), sha256: existsSync(resolve(path)) ? hashFile(path) : null }));
 for (const item of documents) if (!item.exists) blockers.push(`document_missing:${item.path}`);
 
@@ -58,6 +64,7 @@ const payload = {
   recommendation, blockerCount: [...new Set(blockers)].length, blockers: [...new Set(blockers)],
   finalRc: { recommendation: finalRc.recommendation, blockerCount: finalRc.blockerCount },
   attestations: { status: attestations.status, approved: Object.values(attestations.attestations ?? {}).filter((item) => item.status === 'approved').length, required: 3 },
+  productionEnvironment: { status: productionEnvironment.status, environment: productionEnvironment.environment },
   publication: { status: publication.githubRelease?.status ?? 'pending', tag: publication.tag },
   productionArtifacts: { status: productionArtifacts.status, captured: Object.values(productionArtifacts.platforms ?? {}).filter((item) => item.status === 'captured').length, required: 2 },
   stores: Object.fromEntries(Object.entries(store.platforms ?? {}).map(([platform, value]) => [platform, value.status])),
@@ -81,6 +88,7 @@ const markdown = [
   `- Recomendação: **${recommendation}**`,
   `- Bloqueadores: ${payload.blockerCount}`,
   `- Atestações: ${payload.attestations.approved}/${payload.attestations.required}`,
+  `- Environment: ${payload.productionEnvironment.status}`,
   `- Artefatos oficiais: ${payload.productionArtifacts.captured}/${payload.productionArtifacts.required}`,
   `- Google Play: ${payload.stores.android}`,
   `- App Store: ${payload.stores.ios}`,
