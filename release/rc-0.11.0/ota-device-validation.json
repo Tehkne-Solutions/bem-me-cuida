@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0-rc.1",
+  "runtimeVersion": "0.11.0",
+  "channel": "rc-0-11",
+  "status": "blocked-awaiting-published-update",
+  "actions": {
+    "publish": {
+      "status": "blocked-awaiting-published-update",
+      "groupId": null,
+      "platforms": {
+        "android": { "status": "pending", "requiredProfiles": ["android-mainstream"], "profiles": {} },
+        "ios": { "status": "pending", "requiredProfiles": ["ios-mainstream"], "profiles": {} }
+      }
+    },
+    "rollback": {
+      "status": "blocked-awaiting-rollback-update",
+      "groupId": null,
+      "platforms": {
+        "android": { "status": "pending", "requiredProfiles": ["android-mainstream"], "profiles": {} },
+        "ios": { "status": "pending", "requiredProfiles": ["ios-mainstream"], "profiles": {} }
+      }
+    }
+  },
+  "sessions": [],
+  "privacy": { "containsPersonalData": false, "containsClinicalData": false, "usesSyntheticAccounts": true },
+  "controls": { "automaticApproval": false, "requiresIndependentReview": true },
+  "generatedBy": "Tehkné Solutions"
+}
