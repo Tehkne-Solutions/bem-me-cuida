@@ -17,6 +17,8 @@ const args = argsMap(process.argv.slice(2));
 if (!args.session || !args.output) throw new Error('Use --session e --output.');
 const validation = readJson(args.source ?? 'release/rc-0.11.0/ota-device-validation.json');
 const session = readJson(args.session);
+const expectedCommit = process.env.INPUT_SOURCE_COMMIT?.trim();
+if (expectedCommit && session.sourceCommit !== expectedCommit.toLowerCase()) throw new Error('O commit da sessão diverge da operação solicitada.');
 const applied = applyOtaDeviceSession({ validation, session });
 const validationOutput = save(args.output, applied.validation);
 if (!applied.duplicate && args['history-dir']) {
@@ -24,22 +26,22 @@ if (!applied.duplicate && args['history-dir']) {
   mkdirSync(history, { recursive: true });
   writeFileSync(join(history, `${session.sessionId}.json`), `${JSON.stringify(session, null, 2)}\n`, 'utf8');
 }
-if (args['ota-source'] && args['ota-output']) {
-  const ota = readJson(args['ota-source']);
-  const actionState = applied.validation.actions?.[session.action]?.status;
-  const target = session.action === 'publish' ? ota.publish : ota.rollback;
-  if (!target) throw new Error('Registro OTA não contém a ação da sessão.');
-  if (actionState === 'passed') {
-    target.status = 'passed';
-    target.physicalValidatedAt = new Date().toISOString();
-    target.physicalValidationEvidenceUrl = session.evidenceUrl;
-  } else if (actionState === 'failed' || actionState === 'blocked') {
-    target.status = actionState;
-    target.physicalValidationEvidenceUrl = session.evidenceUrl;
-  }
-  ota.updatedAt = new Date().toISOString();
-  save(args['ota-output'], ota);
+const otaSource = args['ota-source'] ?? 'release/rc-0.11.0/ota-validation.json';
+const otaOutput = args['ota-output'] ?? otaSource;
+const ota = readJson(otaSource);
+const actionState = applied.validation.actions?.[session.action]?.status;
+const target = session.action === 'publish' ? ota.publish : ota.rollback;
+if (!target) throw new Error('Registro OTA não contém a ação da sessão.');
+if (actionState === 'passed') {
+  target.status = 'passed';
+  target.physicalValidatedAt = new Date().toISOString();
+  target.physicalValidationEvidenceUrl = session.evidenceUrl;
+} else if (actionState === 'failed' || actionState === 'blocked') {
+  target.status = actionState;
+  target.physicalValidationEvidenceUrl = session.evidenceUrl;
 }
+ota.updatedAt = new Date().toISOString();
+save(otaOutput, ota);
 console.log(applied.duplicate ? 'Sessão OTA já registrada; nenhuma mutação aplicada.' : `Sessão OTA aplicada em ${validationOutput}.`);
 console.log('A alteração permanece revisável por PR e não promove a candidata.');
 console.log('Tehkné Solutions');
