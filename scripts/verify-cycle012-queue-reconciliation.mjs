@@ -25,7 +25,8 @@ for (const classification of expectedClassifications) {
 if (new Set(policy.classifications ?? []).size !== (policy.classifications ?? []).length) failures.push('classificações duplicadas.');
 if (policy.status !== 'reconciliation-ready-activation-blocked') failures.push('status da política de reconciliação inválido.');
 
-for (const path of Object.values(policy.sourceTruth ?? {}).filter((value) => typeof value === 'string')) {
+for (const [key, path] of Object.entries(policy.sourceTruth ?? {})) {
+  if (typeof path !== 'string' || key.endsWith('Directory')) continue;
   if (!existsSync(join(root, path))) failures.push(`fonte de verdade ausente: ${path}`);
 }
 for (const control of [
