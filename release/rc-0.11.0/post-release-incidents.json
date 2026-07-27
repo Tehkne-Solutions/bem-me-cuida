@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "release": "0.11.0",
+  "generatedBy": "Tehkné Solutions",
+  "updatedAt": null,
+  "status": "monitoring-not-started",
+  "summary": {
+    "openSev1": 0,
+    "openSev2": 0,
+    "openSev3": 0,
+    "openSev4": 0,
+    "total": 0
+  },
+  "incidents": [],
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsJournalContent": false,
+    "technicalClassificationOnly": true
+  }
+}
