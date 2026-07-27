@@ -114,7 +114,7 @@ export function buildOperationsSnapshot({
       containsJournalContent: false,
       containsSecrets: false,
       containsRawIdentity: false,
-      containsReviewerFingerprints: false,
+      containsReviewIdentifiers: false,
     },
   };
   assertOperationsSnapshotSafe(snapshot, config);
