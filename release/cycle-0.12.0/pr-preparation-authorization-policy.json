@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "cycle": "0.12.0",
+  "authorizationType": "prepare-correction-pull-request",
+  "eligiblePlanClassification": "current-and-compatible",
+  "allowedDecision": "authorize-pr-preparation",
+  "requiredReferences": [
+    "correctionPlanId",
+    "correctionPlanValidationCommit",
+    "authorizerId",
+    "authorizedAt",
+    "reason"
+  ],
+  "controls": {
+    "pullRequestPreparationAllowed": true,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false
+  },
+  "forbiddenTargets": [
+    "supabase/migrations/022",
+    "supabase/migrations/023",
+    "supabase/migrations/024",
+    "supabase/migrations/025",
+    "supabase/migrations/026",
+    "supabase/migrations/027",
+    "supabase/migrations/028",
+    "supabase/migrations/029"
+  ]
+}
