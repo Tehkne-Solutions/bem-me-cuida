@@ -44,16 +44,12 @@ jobs:
       RC011_ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
+        with: { ref: main }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22.13.1
-
+        with: { node-version: 22.13.1 }
       - name: Parse command
         id: parse
         run: node scripts/parse-rc011-issue-command.mjs --output "$GITHUB_OUTPUT"
-
       - name: Resolve repository permission
         id: permission
         shell: bash
@@ -61,7 +57,6 @@ jobs:
           set -euo pipefail
           PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$RC011_ACTOR/permission" --jq '.user.permission' 2>/dev/null || echo none)
           echo "permission=$PERMISSION" >> "$GITHUB_OUTPUT"
-
       - name: Authorize command
         env:
           REQUIRED_PRIVILEGE: ${{ steps.parse.outputs.privilege }}
@@ -70,18 +65,10 @@ jobs:
         run: |
           set -euo pipefail
           case "$REQUIRED_PRIVILEGE" in
-            admin)
-              [[ "$REPOSITORY_PERMISSION" == "admin" ]]
-              ;;
-            write)
-              [[ "$REPOSITORY_PERMISSION" == "admin" || "$REPOSITORY_PERMISSION" == "maintain" || "$REPOSITORY_PERMISSION" == "write" ]]
-              ;;
-            *)
-              echo "Privilégio desconhecido." >&2
-              exit 1
-              ;;
+            admin) [[ "$REPOSITORY_PERMISSION" == "admin" ]] ;;
+            write) [[ "$REPOSITORY_PERMISSION" == "admin" || "$REPOSITORY_PERMISSION" == "maintain" || "$REPOSITORY_PERMISSION" == "write" ]] ;;
+            *) exit 1 ;;
           esac
-
       - name: Show help
         if: steps.parse.outputs.command == 'help'
         shell: bash
@@ -89,42 +76,43 @@ jobs:
           cat > /tmp/rc011-help.md <<'EOF'
           ## Comandos da RC 0.11
 
-          Use uma única linha por comentário ou pelo `workflow_dispatch` da central.
-
           ```text
           /rc011 status
           /rc011 audit-external
           /rc011 validate-infrastructure <source_sha>
           /rc011 capture-infrastructure <source_sha> <build_evidence_https> <homologation_evidence_https> <services_evidence_https>
-          /rc011 evidence-inspect <infrastructure_run_id> <source_sha>
-          /rc011 evidence-pr <infrastructure_run_id> <source_sha>
+          /rc011 evidence-inspect <run_id> <source_sha>
+          /rc011 evidence-pr <run_id> <source_sha>
           /rc011 validate-build <source_sha> <cycle_evidence_https>
           /rc011 build-android <source_sha> <cycle_evidence_https>
+          /rc011 build-ios <source_sha> <cycle_evidence_https>
           /rc011 discover-android <source_sha>
           /rc011 capture-android-latest <source_sha>
-          /rc011 android-artifact-pr <source_sha> <capture_run_id>
-          /rc011 android-session <source_sha> <build_uuid> <profile_id> <passed|failed|blocked> <fresh|upgrade|retest> <android_version> <evidence_https> <suite=status,suite=status>
-          /rc011 android-session-pr <source_sha> <capture_run_id>
+          /rc011 android-artifact-pr <source_sha> <run_id>
+          /rc011 discover-ios <source_sha>
+          /rc011 capture-ios-latest <source_sha>
+          /rc011 ios-artifact-pr <source_sha> <run_id>
+          /rc011 android-session <source_sha> <build_uuid> <profile_id> <passed|failed|blocked> <fresh|upgrade|retest> <version> <evidence_https> <suite=status,...>
+          /rc011 android-session-pr <source_sha> <run_id>
           /rc011 android-review <source_sha>
-          /rc011 collect-android <source_sha> <eas_build_uuid>
+          /rc011 ios-session <source_sha> <build_uuid> <profile_id> <passed|failed|blocked> <fresh|upgrade|retest> <version> <evidence_https> <suite=status,...>
+          /rc011 ios-session-pr <source_sha> <run_id>
+          /rc011 multiplatform-review <source_sha>
+          /rc011 collect-android <source_sha> <build_uuid>
+          /rc011 collect-ios <source_sha> <build_uuid>
           /rc011 package-decision <source_sha>
           ```
 
-          As operações que acessam environments, builds, sessões físicas ou abrem PR exigem permissão administrativa. Os demais comandos exigem permissão de escrita.
-
-          Nunca inclua tokens, senhas, chaves administrativas, dados pessoais, dados clínicos, IMEI, número de série ou identificadores únicos do aparelho.
+          Operações com environments, builds, sessões ou PR exigem permissão administrativa. Nunca inclua tokens, dados pessoais, conteúdo clínico ou identificadores únicos de aparelho.
 
           **Tehkné Solutions**
           EOF
           gh issue comment "$RC011_ISSUE_NUMBER" --body-file /tmp/rc011-help.md
-
       - name: Publish factual status
         if: steps.parse.outputs.command == 'status'
-        shell: bash
         run: |
           node scripts/generate-rc011-issue-status.mjs --output /tmp/rc011-status.md
           gh issue comment "$RC011_ISSUE_NUMBER" --body-file /tmp/rc011-status.md
-
       - name: Dispatch protected operation
         if: steps.parse.outputs.command != 'help' && steps.parse.outputs.command != 'status'
         env:
@@ -147,115 +135,70 @@ jobs:
           set -euo pipefail
           WORKFLOW=''
           OPERATION=''
-
           case "$COMMAND" in
             audit-external)
-              WORKFLOW='rc-011-external-audit.yml'
-              OPERATION='audit'
-              gh workflow run "$WORKFLOW" --ref main -f tracking_issue=27
-              ;;
+              WORKFLOW='rc-011-external-audit.yml'; OPERATION='audit'
+              gh workflow run "$WORKFLOW" --ref main -f tracking_issue=27 ;;
             validate-infrastructure)
-              WORKFLOW='rc-011-infrastructure-readiness.yml'
-              OPERATION='validate'
-              gh workflow run "$WORKFLOW" --ref main -f action=validate -f source_commit="$SOURCE_COMMIT"
-              ;;
+              WORKFLOW='rc-011-infrastructure-readiness.yml'; OPERATION='validate'
+              gh workflow run "$WORKFLOW" --ref main -f action=validate -f source_commit="$SOURCE_COMMIT" ;;
             capture-infrastructure)
-              WORKFLOW='rc-011-infrastructure-readiness.yml'
-              OPERATION='capture'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=capture -f source_commit="$SOURCE_COMMIT" \
-                -f build_evidence_url="$BUILD_EVIDENCE_URL" \
-                -f homologation_evidence_url="$HOMOLOGATION_EVIDENCE_URL" \
-                -f services_evidence_url="$SERVICES_EVIDENCE_URL"
-              ;;
+              WORKFLOW='rc-011-infrastructure-readiness.yml'; OPERATION='capture'
+              gh workflow run "$WORKFLOW" --ref main -f action=capture -f source_commit="$SOURCE_COMMIT" -f build_evidence_url="$BUILD_EVIDENCE_URL" -f homologation_evidence_url="$HOMOLOGATION_EVIDENCE_URL" -f services_evidence_url="$SERVICES_EVIDENCE_URL" ;;
             evidence-inspect|evidence-pr)
-              WORKFLOW='rc-011-evidence-pr.yml'
-              if [[ "$COMMAND" == "evidence-inspect" ]]; then OPERATION='inspect'; else OPERATION='open-pr'; fi
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action="$OPERATION" -f infrastructure_run_id="$RUN_ID" \
-                -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            validate-build|build-android)
+              WORKFLOW='rc-011-evidence-pr.yml'; [[ "$COMMAND" == 'evidence-inspect' ]] && OPERATION='inspect' || OPERATION='open-pr'
+              gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f infrastructure_run_id="$RUN_ID" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+            validate-build|build-android|build-ios)
               WORKFLOW='rc-011-build.yml'
-              if [[ "$COMMAND" == "validate-build" ]]; then OPERATION='validate'; else OPERATION='build-android'; fi
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" \
-                -f cycle_evidence_url="$CYCLE_EVIDENCE_URL"
-              ;;
-            discover-android)
+              case "$COMMAND" in validate-build) OPERATION='validate' ;; build-android) OPERATION='build-android' ;; build-ios) OPERATION='build-ios' ;; esac
+              gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f cycle_evidence_url="$CYCLE_EVIDENCE_URL" ;;
+            discover-android|capture-android-latest|android-artifact-pr)
               WORKFLOW='rc-011-android-artifact.yml'
-              OPERATION='discover-android'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=discover-android -f source_commit="$SOURCE_COMMIT" \
-                -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            capture-android-latest)
-              WORKFLOW='rc-011-android-artifact.yml'
-              OPERATION='capture-android'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=capture-android -f source_commit="$SOURCE_COMMIT" \
-                -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            android-artifact-pr)
-              WORKFLOW='rc-011-android-artifact.yml'
-              OPERATION='open-artifact-pr'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=open-artifact-pr -f source_commit="$SOURCE_COMMIT" \
-                -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            android-session)
+              case "$COMMAND" in
+                discover-android) OPERATION='discover-android'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                capture-android-latest) OPERATION='capture-android'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                android-artifact-pr) OPERATION='open-artifact-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+              esac ;;
+            discover-ios|capture-ios-latest|ios-artifact-pr)
+              WORKFLOW='rc-011-ios-artifact.yml'
+              case "$COMMAND" in
+                discover-ios) OPERATION='discover-ios'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                capture-ios-latest) OPERATION='capture-ios'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                ios-artifact-pr) OPERATION='open-artifact-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+              esac ;;
+            android-session|android-session-pr|android-review)
               WORKFLOW='rc-011-android-physical-validation.yml'
-              OPERATION='capture-session'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=capture-session -f source_commit="$SOURCE_COMMIT" \
-                -f build_id="$BUILD_ID" -f profile_id="$PROFILE_ID" \
-                -f device_status="$RESULT_STATUS" -f installation_mode="$INSTALLATION_MODE" \
-                -f os_version="$OS_VERSION" -f evidence_url="$EVIDENCE_URL" \
-                -f suite_results="$SUITE_RESULTS" -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            android-session-pr)
-              WORKFLOW='rc-011-android-physical-validation.yml'
-              OPERATION='open-session-pr'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=open-session-pr -f source_commit="$SOURCE_COMMIT" \
-                -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            android-review)
-              WORKFLOW='rc-011-android-physical-validation.yml'
-              OPERATION='package-android-review'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=package-android-review -f source_commit="$SOURCE_COMMIT" \
-                -f tracking_issue="$RC011_ISSUE_NUMBER"
-              ;;
-            collect-android)
+              case "$COMMAND" in
+                android-session) OPERATION='capture-session'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f build_id="$BUILD_ID" -f profile_id="$PROFILE_ID" -f device_status="$RESULT_STATUS" -f installation_mode="$INSTALLATION_MODE" -f os_version="$OS_VERSION" -f evidence_url="$EVIDENCE_URL" -f suite_results="$SUITE_RESULTS" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                android-session-pr) OPERATION='open-session-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                android-review) OPERATION='package-android-review'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+              esac ;;
+            ios-session|ios-session-pr|multiplatform-review)
+              WORKFLOW='rc-011-ios-physical-validation.yml'
+              case "$COMMAND" in
+                ios-session) OPERATION='capture-session'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f build_id="$BUILD_ID" -f profile_id="$PROFILE_ID" -f device_status="$RESULT_STATUS" -f installation_mode="$INSTALLATION_MODE" -f os_version="$OS_VERSION" -f evidence_url="$EVIDENCE_URL" -f suite_results="$SUITE_RESULTS" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                ios-session-pr) OPERATION='open-session-pr'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f capture_run_id="$RUN_ID" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+                multiplatform-review) OPERATION='package-multiplatform-review'; gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f tracking_issue="$RC011_ISSUE_NUMBER" ;;
+              esac ;;
+            collect-android|collect-ios)
               WORKFLOW='rc-011-homologation.yml'
-              OPERATION='collect-android-build'
-              gh workflow run "$WORKFLOW" --ref main \
-                -f action=collect-android-build -f source_commit="$SOURCE_COMMIT" -f build_id="$BUILD_ID"
-              ;;
+              [[ "$COMMAND" == 'collect-android' ]] && OPERATION='collect-android-build' || OPERATION='collect-ios-build'
+              gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" -f build_id="$BUILD_ID" ;;
             package-decision)
-              WORKFLOW='rc-011-homologation.yml'
-              OPERATION='package-decision'
-              gh workflow run "$WORKFLOW" --ref main -f action=package-decision -f source_commit="$SOURCE_COMMIT"
-              ;;
-            *)
-              echo "Comando não mapeado." >&2
-              exit 1
-              ;;
+              WORKFLOW='rc-011-homologation.yml'; OPERATION='package-decision'
+              gh workflow run "$WORKFLOW" --ref main -f action="$OPERATION" -f source_commit="$SOURCE_COMMIT" ;;
+            *) echo 'Comando não mapeado.' >&2; exit 1 ;;
           esac
-
           cat > /tmp/rc011-dispatch.md <<EOF
           ## Operação RC 0.11 aceita
 
           - Comando: \`$COMMAND\`
           - Workflow: \`$WORKFLOW\`
           - Operação: \`$OPERATION\`
-          - Commit de origem: \`${SOURCE_COMMIT:-não aplicável}\`
+          - Commit: \`${SOURCE_COMMIT:-não aplicável}\`
           - Solicitante: \`$RC011_ACTOR\`
 
-          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado ou gate foi marcado como aprovado por esta solicitação.
-
-          [Abrir GitHub Actions](https://github.com/$GITHUB_REPOSITORY/actions)
+          A solicitação foi enviada ao GitHub Actions. Environments protegidos e revisores continuam podendo bloquear a execução. Nenhum resultado, gate ou promoção foi aprovado por este despacho.
 
           **Tehkné Solutions**
           EOF
