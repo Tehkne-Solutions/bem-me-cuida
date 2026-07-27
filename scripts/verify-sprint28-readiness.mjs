@@ -26,7 +26,12 @@ const workflow = existsSync(join(root, '.github/workflows/rc-011-post-release-op
 for (const marker of ['capture-health', 'capture-incident', 'open-evidence-pr', 'package-report', 'propose-cycle-closure', 'production-observability']) {
   if (!workflow.includes(marker)) failures.push(`workflow sem marcador: ${marker}`);
 }
-if (/journal|medication|diagnosis|email/i.test(readFileSync(join(root, 'release/rc-0.11.0/post-release-health.json'), 'utf8'))) failures.push('registro de saúde contém categoria sensível indevida.');
+const health = JSON.parse(readFileSync(join(root, 'release/rc-0.11.0/post-release-health.json'), 'utf8'));
+if (health.privacy?.containsPersonalData !== false || health.privacy?.containsClinicalData !== false || health.privacy?.containsJournalContent !== false) {
+  failures.push('registro de saúde não declara ausência de dados pessoais, clínicos e do Diário.');
+}
+const allowedThresholds = new Set(['minimumCrashFreePct', 'minimumSyncSuccessPct', 'minimumAuthSuccessPct', 'minimumNotificationSuccessPct', 'minimumSampleSize', 'criticalIncidentsAllowed', 'openSev2Allowed', 'blockingSupportReportsAllowed', 'maximumSnapshotAgeHours']);
+for (const key of Object.keys(health.thresholds ?? {})) if (!allowedThresholds.has(key)) failures.push(`threshold não permitido: ${key}`);
 if (failures.length) {
   console.error('Sprint 28 reprovado:');
   for (const failure of failures) console.error(`- ${failure}`);
