@@ -131,6 +131,26 @@ jobs:
           name: rc011-final-decision-${{ github.run_id }}
           path: artifacts/bemmecuida-0.11.0-rc.1-final-decision.*
           retention-days: 7
+      - name: Validate RC 0.11 production activation
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            npm run rc011:production:test
+            npm run rc011:production:structure
+            npm run rc011:production:package
+          } 2>&1 | tee /tmp/rc011-production-activation.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc011-production-activation-failure-log
+          path: /tmp/rc011-production-activation.log
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-production-activation-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-production-activation.*
+          retention-days: 7
       - name: Generate factual RC 0.11 issue status
         run: npm run rc011:command:status
       - uses: actions/upload-artifact@v4
