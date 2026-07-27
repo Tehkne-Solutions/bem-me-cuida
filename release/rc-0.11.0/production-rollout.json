@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.11.0",
+  "candidate": "0.11.0-rc.1",
+  "generatedBy": "Tehkné Solutions",
+  "status": "blocked-awaiting-final-approval",
+  "sourceCommit": null,
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false
+  },
+  "stages": [
+    { "percentage": 1, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null },
+    { "percentage": 5, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null },
+    { "percentage": 10, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null },
+    { "percentage": 25, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null },
+    { "percentage": 50, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null },
+    { "percentage": 100, "status": "pending", "startedAt": null, "completedAt": null, "evidenceUrl": null }
+  ],
+  "thresholds": {
+    "minimumCrashFreeSessionsPct": 99,
+    "minimumSyncSuccessPct": 97,
+    "minimumAuthSuccessPct": 98,
+    "maximumCriticalIncidents": 0,
+    "maximumBlockingSupportReports": 0
+  },
+  "currentStage": null,
+  "pause": { "status": "not-requested", "reasonCode": null, "evidenceUrl": null, "requestedAt": null },
+  "rollback": { "status": "not-requested", "targetVersion": "0.10.0", "evidenceUrl": null, "requestedAt": null },
+  "controls": {
+    "requiresHumanApprovalPerStage": true,
+    "requiresProtectedEnvironment": true,
+    "doesNotAdvanceAutomatically": true,
+    "serverRemainsAuthority": true
+  }
+}
