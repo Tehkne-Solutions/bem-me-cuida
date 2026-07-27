@@ -29,7 +29,7 @@ const packageJson = text('package.json');
 for (const marker of ['discover-ios', 'capture-ios', 'open-artifact-pr', '--platform ios', 'rc011:ios-artifact:structure']) {
   if (!artifactWorkflow.includes(marker)) failures.push(`Workflow de artefato iOS sem marcador: ${marker}`);
 }
-for (const marker of ['capture-session', 'open-session-pr', 'package-multiplatform-review', 'rc-011-homologation', 'automaticApproval']) {
+for (const marker of ['capture-session', 'open-session-pr', 'package-multiplatform-review', 'rc-011-homologation', 'Nenhum gate foi aprovado automaticamente']) {
   if (!physicalWorkflow.includes(marker)) failures.push(`Workflow físico iOS sem marcador: ${marker}`);
 }
 for (const marker of ['build-ios', 'discover-ios', 'capture-ios-latest', 'ios-artifact-pr', 'ios-session', 'ios-session-pr', 'multiplatform-review']) {
