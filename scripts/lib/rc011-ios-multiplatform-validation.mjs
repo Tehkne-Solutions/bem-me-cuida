@@ -76,11 +76,100 @@ export function assertSanitizedIosSession(session) {
   const serialized = JSON.stringify(session);
   if (SENSITIVE_PATTERN.test(serialized)) throw new Error('A sessão contém material secreto.');
   if (EMAIL_PATTERN.test(serialized)) throw new Error('A sessão contém e-mail.');
-  if (session?.privacy?.containsPersonalData !== false || session?.privacy?.containsClinicalData !== false || session?.privacy?.containsSecrets !== false || session?.privacy?.containsDeviceIdentifiers !== false) {
-    throw new Error('Declarações de privacidade inválidas.');
-  }
+  if (session?.privacy?.containsPersonalData !== false || session?.privacy?.containsClinicalData !== false || session?.privacy?.containsSecrets !== false || session?.privacy?.containsDeviceIdentifiers !== false) throw new Error('Declarações de privacidade inválidas.');
   if (session?.controls?.automaticApproval !== false) throw new Error('A sessão não pode aprovar automaticamente.');
   return true;
 }
 
-export { clone, assertBuildAndPlan };
+function normalizePlan(plan) {
+  const requiredDevices = (plan.devices ?? []).filter((item) => item.required);
+  const requiredSuites = (plan.suites ?? []).filter((item) => item.required);
+  const failures = [
+    ...requiredDevices.filter((item) => ['failed', 'blocked'].includes(item.status)).map((item) => ({ type: 'device', id: item.id, status: item.status })),
+    ...requiredSuites.filter((item) => ['failed', 'blocked'].includes(item.status)).map((item) => ({ type: 'suite', id: item.id, status: item.status })),
+  ];
+  const passedRequiredDevices = requiredDevices.filter((item) => item.status === 'passed').length;
+  const passedRequiredSuites = requiredSuites.filter((item) => item.status === 'passed').length;
+  const ready = passedRequiredDevices === requiredDevices.length && passedRequiredSuites === requiredSuites.length;
+  return {
+    status: failures.length ? 'retest-required' : ready ? 'ready-for-review' : 'in-progress',
+    summary: { requiredDevices: requiredDevices.length, passedRequiredDevices, requiredSuites: requiredSuites.length, passedRequiredSuites, failedOrBlockedRequiredItems: failures.length },
+    retests: failures,
+  };
+}
+
+function statusForGlobalSuite(suite, platformResults) {
+  const results = Object.values(platformResults ?? {});
+  if (results.some((item) => item?.status === 'failed' || item?.status === 'blocked')) return results.find((item) => item?.status === 'blocked') ? 'blocked' : 'failed';
+  const requiredPlatforms = Array.isArray(suite.requiredPlatforms) && suite.requiredPlatforms.length ? suite.requiredPlatforms : ['android', 'ios'];
+  if (requiredPlatforms.every((platform) => platformResults?.[platform]?.status === 'passed')) return 'passed';
+  return suite.status === 'waived' ? 'waived' : 'pending';
+}
+
+export function applyIosPhysicalSession({ plan, deviceMatrix, testResults, session }) {
+  assertSanitizedIosSession(session);
+  assertBuildAndPlan({
+    builds: { release: session.release, sourceCommit: session.sourceCommit, platforms: { ios: { status: 'captured', buildId: session.build.buildId, buildNumber: session.build.buildNumber, artifactSha256: session.build.artifactSha256 } } },
+    plan, sourceCommit: session.sourceCommit, buildId: session.build.buildId,
+  });
+  const nextPlan = clone(plan);
+  const nextMatrix = clone(deviceMatrix);
+  const nextTests = clone(testResults);
+  const sessions = Array.isArray(nextPlan.sessions) ? nextPlan.sessions : [];
+  if (sessions.some((item) => item.sessionId === session.sessionId)) return { plan: nextPlan, deviceMatrix: nextMatrix, testResults: nextTests, duplicate: true };
+
+  const device = nextPlan.devices.find((item) => item.id === session.device.profileId);
+  if (!device) throw new Error('Perfil iOS ausente no plano.');
+  Object.assign(device, { status: session.device.status, evidenceUrl: session.evidenceUrl, latestSessionId: session.sessionId, testedAt: session.capturedAt, osVersion: session.device.osVersion, installationMode: session.device.installationMode });
+  for (const result of session.suiteResults) {
+    const suite = nextPlan.suites.find((item) => item.id === result.id);
+    if (!suite) throw new Error(`Suíte ausente no plano: ${result.id}.`);
+    Object.assign(suite, { status: result.status, evidenceUrl: session.evidenceUrl, latestSessionId: session.sessionId, testedAt: session.capturedAt });
+  }
+  nextPlan.sessions = [...sessions, { sessionId: session.sessionId, profileId: session.device.profileId, deviceStatus: session.device.status, suiteCount: session.suiteResults.length, evidenceUrl: session.evidenceUrl, capturedAt: session.capturedAt }];
+  Object.assign(nextPlan, normalizePlan(nextPlan), { updatedAt: new Date().toISOString(), controls: { automaticApproval: false, requiresOperatorReview: true } });
+
+  const matrixProfile = (nextMatrix.profiles ?? []).find((item) => item.id === session.device.profileId);
+  if (!matrixProfile) throw new Error('Perfil iOS ausente na matriz.');
+  Object.assign(matrixProfile, { status: session.device.status, evidenceUrl: session.evidenceUrl, latestSessionId: session.sessionId, testedBuildId: session.build.buildId, testedAt: session.capturedAt, osVersion: session.device.osVersion });
+  nextMatrix.updatedAt = new Date().toISOString();
+
+  for (const result of session.suiteResults) {
+    const suite = (nextTests.suites ?? []).find((item) => item.id === result.id);
+    if (!suite) throw new Error(`Suíte ausente no registro: ${result.id}.`);
+    const platformResults = { ...(suite.platformResults ?? {}) };
+    platformResults.ios = { status: result.status, evidenceUrl: session.evidenceUrl, sessionId: session.sessionId, buildId: session.build.buildId, capturedAt: session.capturedAt };
+    suite.platformResults = platformResults;
+    suite.requiredPlatforms = Array.isArray(suite.requiredPlatforms) && suite.requiredPlatforms.length ? suite.requiredPlatforms : ['android', 'ios'];
+    suite.status = statusForGlobalSuite(suite, platformResults);
+    suite.evidenceUrl = ['failed', 'blocked', 'passed'].includes(suite.status) ? session.evidenceUrl : null;
+  }
+  nextTests.updatedAt = new Date().toISOString();
+  return { plan: nextPlan, deviceMatrix: nextMatrix, testResults: nextTests, duplicate: false };
+}
+
+export function createMultiplatformReview({ builds, deviceMatrix, testResults, androidPlan, iosPlan, ota }) {
+  const requiredDevices = (deviceMatrix?.profiles ?? []).filter((item) => item.required);
+  const requiredSuites = (testResults?.suites ?? []).filter((item) => item.required);
+  const buildReady = ['android', 'ios'].every((platform) => builds?.platforms?.[platform]?.status === 'captured');
+  const devicesReady = requiredDevices.length > 0 && requiredDevices.every((item) => item.status === 'passed');
+  const suitesReady = requiredSuites.length > 0 && requiredSuites.every((item) => item.status === 'passed');
+  const plansReady = [androidPlan, iosPlan].every((plan) => plan?.status === 'ready-for-review');
+  const otaReady = ota?.publish?.status === 'passed' && ota?.rollback?.status === 'passed';
+  const blockers = [];
+  if (!buildReady) blockers.push('builds-multiplataforma-pendentes');
+  if (!devicesReady) blockers.push('aparelhos-obrigatorios-pendentes');
+  if (!suitesReady) blockers.push('suites-multiplataforma-pendentes');
+  if (!plansReady) blockers.push('planos-fisicos-pendentes');
+  if (!otaReady) blockers.push('ota-ou-rollback-pendente');
+  return {
+    schemaVersion: '1.0', release: '0.11.0-rc.1', recommendation: blockers.length ? 'hold' : 'promote', blockers,
+    summary: {
+      buildsCaptured: ['android', 'ios'].filter((platform) => builds?.platforms?.[platform]?.status === 'captured').length,
+      requiredDevices: requiredDevices.length, passedRequiredDevices: requiredDevices.filter((item) => item.status === 'passed').length,
+      requiredSuites: requiredSuites.length, passedRequiredSuites: requiredSuites.filter((item) => item.status === 'passed').length,
+    },
+    controls: { automaticPromotion: false, requiresOperatorReview: true, containsPersonalData: false, containsClinicalData: false },
+    generatedAt: new Date().toISOString(), generatedBy: 'Tehkné Solutions',
+  };
+}
