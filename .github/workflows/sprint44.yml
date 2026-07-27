@@ -1,0 +1,34 @@
+name: Sprint 44
+
+on:
+  pull_request:
+    paths:
+      - 'release/cycle-0.12.0/correction-plan-validation-policy.json'
+      - 'scripts/lib/cycle012-correction-plan-validation.mjs'
+      - 'scripts/test-cycle012-correction-plan-validation.mjs'
+      - 'scripts/verify-sprint44-readiness.mjs'
+      - 'docs/SPRINT-44.md'
+      - 'docs/ADR-048-validacao-dos-planos-de-correcao.md'
+      - '.github/workflows/sprint44.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sprint44-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: node scripts/verify-sprint44-readiness.mjs
+      - run: node scripts/test-cycle012-correction-plan-validation.mjs
