@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "cycleVersion": "0.12.0",
+  "status": "design-blocked",
+  "plans": [
+    {
+      "itemId": "BMC-012-OBS-01",
+      "implementationStatus": "blocked-awaiting-cycle-activation",
+      "architecture": {
+        "mobile": [
+          "emitir somente eventos técnicos permitidos e sem texto livre",
+          "agrupar localmente quando possível antes da sincronização"
+        ],
+        "backend": [
+          "persistir apenas agregados por versão, plataforma e janela temporal",
+          "expor leitura por RPC protegida para release_operator e release_admin"
+        ],
+        "operations": [
+          "registrar consultas administrativas em auditoria",
+          "aplicar retenção mínima e descarte auditável"
+        ]
+      },
+      "migrationPlan": [22, 23],
+      "testStrategy": [
+        "pgTAP para RLS e papéis",
+        "testes de contrato para rejeição de dimensões identificáveis",
+        "teste de agregação por versão e plataforma"
+      ],
+      "rollback": "desabilitar RPC e escrita agregada, preservar auditoria e reverter migrations em ordem 023 → 022",
+      "securityReview": "required",
+      "privacyReview": "required"
+    },
+    {
+      "itemId": "BMC-012-OPS-01",
+      "implementationStatus": "blocked-awaiting-cycle-activation",
+      "architecture": {
+        "workflow": [
+          "descobrir apenas environments temporários explicitamente permitidos",
+          "executar dry-run e gerar plano imutável antes de qualquer exclusão"
+        ],
+        "authorization": [
+          "exigir release_admin",
+          "exigir revisor independente e confirmação destrutiva"
+        ],
+        "audit": [
+          "registrar nomes permitidos, hash do plano, executor e aprovação",
+          "não registrar tokens, secrets ou respostas administrativas completas"
+        ]
+      },
+      "migrationPlan": [],
+      "testStrategy": [
+        "teste de allowlist de environments",
+        "teste de idempotência do dry-run",
+        "teste de bloqueio de production-release e production-observability"
+      ],
+      "rollback": "interromper antes da exclusão; environments excluídos exigem recriação administrativa conforme manifesto versionado",
+      "securityReview": "required",
+      "privacyReview": "required"
+    },
+    {
+      "itemId": "BMC-012-UX-01",
+      "implementationStatus": "blocked-awaiting-cycle-activation",
+      "architecture": {
+        "input": [
+          "aceitar somente slug do tema, contagem agregada e impacto",
+          "rejeitar texto livre, identificadores e segmentação clínica"
+        ],
+        "prioritization": [
+          "calcular matriz tema-impacto-esforço com pesos versionados",
+          "manter decisão humana como autoridade final"
+        ],
+        "product": [
+          "converter temas aprovados em hipóteses de UX",
+          "vincular cada hipótese a acessibilidade, privacidade e métrica de sucesso"
+        ]
+      },
+      "migrationPlan": [24],
+      "testStrategy": [
+        "teste de rejeição de conteúdo bruto",
+        "teste determinístico da matriz de priorização",
+        "revisão de acessibilidade e privacidade por hipótese"
+      ],
+      "rollback": "remover a matriz proposta e manter o resumo agregado original sem alterar dados de usuários",
+      "securityReview": "required",
+      "privacyReview": "required"
+    }
+  ],
+  "controls": {
+    "noImplementationBeforeActivation": true,
+    "noMigrationBeforeApproval": true,
+    "independentReviewRequired": true,
+    "doesNotActivateCycleAutomatically": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsSecrets": false
+  }
+}

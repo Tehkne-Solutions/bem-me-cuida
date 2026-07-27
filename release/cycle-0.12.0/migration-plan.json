@@ -11,9 +11,44 @@
     "reservedEnd": 29,
     "format": "NNN_description.sql"
   },
-  "plannedChanges": [],
+  "plannedChanges": [
+    {
+      "number": 22,
+      "itemId": "BMC-012-OBS-01",
+      "proposedName": "022_aggregate_release_metrics.sql",
+      "status": "reserved-not-created",
+      "dataClassification": "aggregate-technical",
+      "purpose": "Estruturar armazenamento exclusivamente agregado por versão, plataforma e janela temporal.",
+      "rollbackRequired": true,
+      "rlsRequired": true,
+      "pgtapRequired": true
+    },
+    {
+      "number": 23,
+      "itemId": "BMC-012-OBS-01",
+      "proposedName": "023_release_metrics_rpcs.sql",
+      "status": "reserved-not-created",
+      "dataClassification": "aggregate-technical",
+      "purpose": "Expor RPCs administrativas com RBAC, limiar mínimo de agregação e auditoria.",
+      "rollbackRequired": true,
+      "rlsRequired": true,
+      "pgtapRequired": true
+    },
+    {
+      "number": 24,
+      "itemId": "BMC-012-UX-01",
+      "proposedName": "024_anonymous_feedback_priorities.sql",
+      "status": "reserved-not-created",
+      "dataClassification": "anonymous-aggregate",
+      "purpose": "Persistir somente temas agregados e decisões de priorização sem feedback bruto.",
+      "rollbackRequired": true,
+      "rlsRequired": true,
+      "pgtapRequired": true
+    }
+  ],
   "controls": {
     "scopeApprovalRequired": true,
+    "cycleActivationRequired": true,
     "dataClassificationRequired": true,
     "rollbackPlanRequired": true,
     "rlsReviewRequired": true,
@@ -31,6 +66,7 @@
   "privacy": {
     "containsPersonalData": false,
     "containsClinicalData": false,
+    "containsRawFeedback": false,
     "containsSecrets": false
   }
 }
