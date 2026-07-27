@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "product": "BemMeCuida",
+  "generatedBy": "Tehkné Solutions",
+  "proposalType": "cycle012-human-activation",
+  "cycleVersion": "0.12.0",
+  "status": "blocked",
+  "recommendation": "hold",
+  "sourceCommit": null,
+  "generatedAt": null,
+  "blockers": [
+    "Ciclo 0.11.0 ainda não encerrado",
+    "Limpeza de environments pendente",
+    "Feedback agregado pendente",
+    "Escopo pendente",
+    "Plano de migrations pendente"
+  ],
+  "evidenceUrl": null,
+  "controls": {
+    "humanMergeRequired": true,
+    "doesNotActivateAutomatically": true,
+    "doesNotCreateMigrationAutomatically": true
+  },
+  "privacy": {
+    "containsPersonalData": false,
+    "containsClinicalData": false,
+    "containsRawFeedback": false,
+    "containsSecrets": false
+  }
+}
