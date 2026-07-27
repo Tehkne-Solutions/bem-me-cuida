@@ -1,0 +1,321 @@
+name: RC 0.11 Post-release Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operação pós-release protegida
+        required: true
+        type: choice
+        options:
+          - validate
+          - capture-health
+          - capture-incident
+          - open-evidence-pr
+          - package-report
+          - propose-cycle-closure
+      source_commit:
+        description: SHA de 40 caracteres da versão publicada
+        required: true
+        type: string
+      capture_run_id:
+        description: Run ID da captura a aplicar
+        required: false
+        default: '0'
+        type: string
+      window:
+        description: Janela do snapshot ou relatório
+        required: false
+        type: choice
+        options: [rolling, 24h, 72h, 7d, current]
+      crash_free_pct:
+        required: false
+        default: '0'
+        type: string
+      sync_success_pct:
+        required: false
+        default: '0'
+        type: string
+      auth_success_pct:
+        required: false
+        default: '0'
+        type: string
+      notification_success_pct:
+        required: false
+        default: '0'
+        type: string
+      sample_size:
+        required: false
+        default: '0'
+        type: string
+      critical_incidents:
+        required: false
+        default: '0'
+        type: string
+      open_sev2:
+        required: false
+        default: '0'
+        type: string
+      blocking_support_reports:
+        required: false
+        default: '0'
+        type: string
+      incident_id:
+        required: false
+        type: string
+      severity:
+        required: false
+        type: choice
+        options: [sev1, sev2, sev3, sev4]
+      incident_status:
+        required: false
+        type: choice
+        options: [open, contained, resolved]
+      platform:
+        required: false
+        type: choice
+        options: [android, ios, all]
+      impact:
+        required: false
+        type: choice
+        options: [availability, authentication, synchronization, data-integrity, notifications, performance, other]
+      containment_action:
+        required: false
+        type: choice
+        options: [monitor, pause, rollback-review, resolved]
+      evidence_url:
+        description: Evidência HTTPS sanitizada
+        required: false
+        type: string
+      tracking_issue:
+        required: true
+        default: '24'
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rc011-post-release-${{ inputs.action }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ACTION: ${{ inputs.action }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      RUN_ID: ${{ inputs.capture_run_id }}
+      WINDOW: ${{ inputs.window }}
+      EVIDENCE_URL: ${{ inputs.evidence_url }}
+      INCIDENT_ID: ${{ inputs.incident_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run rc011:post-release:structure
+      - name: Validate operation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[a-fA-F0-9]{40}$ ]]
+          case "$ACTION" in
+            capture-health)
+              [[ "$WINDOW" =~ ^(rolling|24h|72h|7d)$ ]]
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+            capture-incident)
+              [[ "$INCIDENT_ID" =~ ^[A-Za-z0-9][A-Za-z0-9-]{3,39}$ ]]
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+            open-evidence-pr)
+              [[ "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              ;;
+            package-report)
+              [[ "$WINDOW" =~ ^(current|24h|72h|7d)$ ]]
+              ;;
+            propose-cycle-closure)
+              [[ "$EVIDENCE_URL" == https://* ]]
+              ;;
+          esac
+
+  capture-health:
+    needs: validate
+    if: inputs.action == 'capture-health'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-observability
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Capture aggregate health snapshot
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          WINDOW: ${{ inputs.window }}
+          EVIDENCE_URL: ${{ inputs.evidence_url }}
+        run: |
+          mkdir -p /tmp/rc011-post-release
+          node scripts/capture-rc011-post-release-health.mjs \
+            --source-commit "$SOURCE_COMMIT" --window "$WINDOW" \
+            --crash-free "${{ inputs.crash_free_pct }}" --sync-success "${{ inputs.sync_success_pct }}" \
+            --auth-success "${{ inputs.auth_success_pct }}" --notification-success "${{ inputs.notification_success_pct }}" \
+            --sample-size "${{ inputs.sample_size }}" --critical-incidents "${{ inputs.critical_incidents }}" \
+            --open-sev2 "${{ inputs.open_sev2 }}" --blocking-support "${{ inputs.blocking_support_reports }}" \
+            --evidence-url "$EVIDENCE_URL" --output /tmp/rc011-post-release/health.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-post-release-health-${{ github.run_id }}
+          path: /tmp/rc011-post-release/health.json
+          retention-days: 90
+
+  capture-incident:
+    needs: validate
+    if: inputs.action == 'capture-incident'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-observability
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Capture sanitized technical incident
+        run: |
+          mkdir -p /tmp/rc011-post-release
+          node scripts/capture-rc011-post-release-incident.mjs \
+            --source-commit "${{ inputs.source_commit }}" --incident-id "${{ inputs.incident_id }}" \
+            --severity "${{ inputs.severity }}" --status "${{ inputs.incident_status }}" \
+            --platform "${{ inputs.platform }}" --impact "${{ inputs.impact }}" \
+            --action "${{ inputs.containment_action }}" --evidence-url "${{ inputs.evidence_url }}" \
+            --output /tmp/rc011-post-release/incident.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-post-release-incident-${{ github.run_id }}
+          path: /tmp/rc011-post-release/incident.json
+          retention-days: 90
+
+  package-report:
+    needs: validate
+    if: inputs.action == 'package-report'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Generate aggregate post-release report
+        env:
+          RC011_POST_RELEASE_WINDOW: ${{ inputs.window }}
+        run: npm run rc011:post-release:report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-post-release-report-${{ inputs.window }}-${{ github.run_id }}
+          path: artifacts/bemmecuida-0.11.0-post-release-${{ inputs.window }}.*
+          retention-days: 365
+
+  propose-cycle-closure:
+    needs: validate
+    if: inputs.action == 'propose-cycle-closure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-observability
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ inputs.source_commit }} }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Generate fail-closed cycle closure proposal
+        run: |
+          mkdir -p /tmp/rc011-post-release
+          node scripts/propose-rc011-cycle-closure.mjs \
+            --source-commit "${{ inputs.source_commit }}" --evidence-url "${{ inputs.evidence_url }}" \
+            --output /tmp/rc011-post-release/cycle-closure.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc011-cycle-closure-${{ github.run_id }}
+          path: /tmp/rc011-post-release/cycle-closure.json
+          retention-days: 365
+
+  open-evidence-pr:
+    needs: validate
+    if: inputs.action == 'open-evidence-pr'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.capture_run_id }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.13.1 }
+      - run: npm install
+      - name: Download exact evidence run
+        run: |
+          mkdir -p /tmp/rc011-post-release/evidence
+          gh run download "$RUN_ID" --dir /tmp/rc011-post-release/evidence
+          find /tmp/rc011-post-release/evidence -type f -name '*.json' -print
+      - name: Apply sanitized evidence
+        id: apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=$(find /tmp/rc011-post-release/evidence -type f -name '*.json' | head -n1)
+          [[ -n "$FILE" ]]
+          CAPTURE_SHA=$(jq -r '.sourceCommit // empty' "$FILE")
+          [[ "${CAPTURE_SHA,,}" == "${SOURCE_COMMIT,,}" ]]
+          TYPE=''
+          if jq -e '.snapshotId and .metrics' "$FILE" >/dev/null; then
+            TYPE='health'
+            node scripts/apply-rc011-post-release-health.mjs --capture "$FILE" --output release/rc-0.11.0/post-release-health.json
+          elif jq -e '.incidentId and .severity' "$FILE" >/dev/null; then
+            TYPE='incident'
+            node scripts/apply-rc011-post-release-incident.mjs --capture "$FILE" --output release/rc-0.11.0/post-release-incidents.json
+          elif jq -e '.status == "ready-for-human-closure" and .conditions' "$FILE" >/dev/null; then
+            TYPE='closure'
+            cp "$FILE" release/rc-0.11.0/cycle-closure.json
+          else
+            echo 'Artefato pós-release desconhecido.' >&2
+            exit 1
+          fi
+          echo "type=$TYPE" >> "$GITHUB_OUTPUT"
+      - name: Open idempotent evidence PR
+        env:
+          EVIDENCE_TYPE: ${{ steps.apply.outputs.type }}
+        run: |
+          set -euo pipefail
+          BRANCH="evidence/rc011-post-release-${EVIDENCE_TYPE}-${RUN_ID}"
+          EXISTING=$(gh pr list --state open --head "$BRANCH" --json url --jq '.[0].url // empty')
+          if [[ -n "$EXISTING" ]]; then echo "PR existente: $EXISTING"; exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$BRANCH"
+          git add release/rc-0.11.0/post-release-health.json release/rc-0.11.0/post-release-incidents.json release/rc-0.11.0/cycle-closure.json
+          git diff --cached --quiet && { echo 'Nenhuma mudança nova.'; exit 0; }
+          git commit -m "chore(rc011): registrar evidência pós-release ${EVIDENCE_TYPE}"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "chore: evidência pós-release ${EVIDENCE_TYPE} da 0.11.0" \
+            --body "Evidência sanitizada do run ${RUN_ID}, vinculada ao commit ${SOURCE_COMMIT}. Nenhuma ação externa foi executada por este PR.\n\nTehkné Solutions"
+          gh issue comment "$TRACKING_ISSUE" --body "PR de evidência pós-release aberto para o run ${RUN_ID}. Nenhuma pausa, rollback ou conclusão foi executada automaticamente.\n\n**Tehkné Solutions**"
