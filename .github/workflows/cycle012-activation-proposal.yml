@@ -1,0 +1,77 @@
+name: Cycle 0.12 Activation Proposal
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'SHA completo revisado do desenho 0.12.0'
+        required: true
+        type: string
+      evidence_url:
+        description: 'URL HTTPS do pacote consolidado de evidências'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cycle012-activation-proposal-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      EVIDENCE_URL: ${{ inputs.evidence_url }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - name: Validate source commit
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]
+          git cat-file -e "$SOURCE_COMMIT^{commit}"
+      - name: Validate consolidation controls
+        run: |
+          node scripts/verify-cycle012-human-review-capture.mjs structure
+          node scripts/verify-cycle012-review-consolidation.mjs structure
+      - name: Build consolidation and proposal
+        run: |
+          SHORT_SHA="${SOURCE_COMMIT:0:12}"
+          CONSOLIDATION="release/cycle-0.12.0/consolidations/${SHORT_SHA}.json"
+          PROPOSAL="release/cycle-0.12.0/activation-proposals/${SHORT_SHA}.json"
+          node scripts/consolidate-cycle012-reviews.mjs \
+            --source-commit "$SOURCE_COMMIT" \
+            --output "$CONSOLIDATION"
+          node scripts/generate-cycle012-activation-proposal-from-consolidation.mjs \
+            --source-commit "$SOURCE_COMMIT" \
+            --consolidation "$CONSOLIDATION" \
+            --evidence-url "$EVIDENCE_URL" \
+            --output "$PROPOSAL"
+          echo "CONSOLIDATION=$CONSOLIDATION" >> "$GITHUB_ENV"
+          echo "PROPOSAL=$PROPOSAL" >> "$GITHUB_ENV"
+      - name: Create evidence pull request
+        run: |
+          SHORT_SHA="${SOURCE_COMMIT:0:12}"
+          BRANCH="evidence/cycle012-activation-proposal-${SHORT_SHA}-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
+          git add "$CONSOLIDATION" "$PROPOSAL"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(cycle012): registrar consolidação e proposta protegida"
+          git push origin "$BRANCH"
+          STATUS="$(node -e "const p=require('./${PROPOSAL}'); process.stdout.write(p.status)")"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: proposta protegida do ciclo 0.12.0 (${SHORT_SHA})" \
+            --body "Consolidação e proposta geradas para o commit \`${SOURCE_COMMIT}\`. Status factual: \`${STATUS}\`. Este PR não ativa o ciclo, não cria migrations e exige revisão e merge humanos.\n\n**Tehkné Solutions**"
