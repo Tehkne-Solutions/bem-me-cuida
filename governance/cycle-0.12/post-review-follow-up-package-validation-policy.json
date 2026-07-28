@@ -1,0 +1,58 @@
+{
+  "artifactType": "post-review-follow-up-package-validation-policy",
+  "cycle": "0.12.0",
+  "classifications": [
+    "current-and-compatible",
+    "stale-execution-record-validation",
+    "duplicate-package",
+    "conflicting-package",
+    "incomplete-package",
+    "missing-owner",
+    "invalid-priority-or-status",
+    "completion-criteria-divergence",
+    "source-package-missing",
+    "invalid-package-reference",
+    "forbidden-operational-content"
+  ],
+  "requiredSections": [
+    "packageIdentity",
+    "decisionSummary",
+    "followUpItems",
+    "completionCriteria",
+    "riskNotes",
+    "references"
+  ],
+  "requiredItemFields": [
+    "itemId",
+    "title",
+    "owner",
+    "priority",
+    "status",
+    "completionCriterion"
+  ],
+  "allowedPriorities": ["critical", "high", "medium", "low"],
+  "allowedStatuses": ["planned", "blocked", "deferred", "not-required"],
+  "forbiddenTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "validationAllowed": true,
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
