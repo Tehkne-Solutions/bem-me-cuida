@@ -1,5 +1,5 @@
 import { Link, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -33,6 +33,8 @@ type CareSummary = {
   upcomingAppointments: number;
 };
 
+type HomeDataState = 'loading' | 'ready' | 'error';
+
 const emptyCareSummary: CareSummary = {
   medicationTotal: 0,
   medicationDone: 0,
@@ -47,16 +49,26 @@ export default function HomeScreen() {
   const sync = useSync();
   const [latest, setLatest] = useState<CheckIn | null>(null);
   const [care, setCare] = useState<CareSummary>(emptyCareSummary);
+  const [dataState, setDataState] = useState<HomeDataState>('loading');
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const focusedRef = useRef(false);
 
-  useFocusEffect(useCallback(() => {
+  const loadHomeData = useCallback(async () => {
     if (!session) return;
-    Promise.all([
-      listRecentCheckIns(session.user.id, 1),
-      listTodayMedicationDoses(session.user.id),
-      listTodayCarePractices(session.user.id),
-      listLowStockMedications(session.user.id),
-      listAppointments(session.user.id, { limit: 20 }),
-    ]).then(([checkIns, doses, practices, lowStock, appointments]) => {
+
+    if (!hasLoadedOnce) setDataState('loading');
+
+    try {
+      const [checkIns, doses, practices, lowStock, appointments] = await Promise.all([
+        listRecentCheckIns(session.user.id, 1),
+        listTodayMedicationDoses(session.user.id),
+        listTodayCarePractices(session.user.id),
+        listLowStockMedications(session.user.id),
+        listAppointments(session.user.id, { limit: 20 }),
+      ]);
+
+      if (!focusedRef.current) return;
+
       setLatest(checkIns[0] ?? null);
       setCare({
         medicationTotal: doses.length,
@@ -66,11 +78,22 @@ export default function HomeScreen() {
         lowStock: lowStock.length,
         upcomingAppointments: appointments.filter((item) => item.status === 'scheduled').length,
       });
-    }).catch(() => {
-      setLatest(null);
-      setCare(emptyCareSummary);
-    });
-  }, [session, sync.lastSuccessAt]));
+      setHasLoadedOnce(true);
+      setDataState('ready');
+    } catch {
+      if (!focusedRef.current) return;
+      setDataState('error');
+    }
+  }, [hasLoadedOnce, session]);
+
+  useFocusEffect(useCallback(() => {
+    focusedRef.current = true;
+    void loadHomeData();
+
+    return () => {
+      focusedRef.current = false;
+    };
+  }, [loadHomeData, sync.lastSuccessAt]));
 
   const syncLabel = sync.status === 'syncing'
     ? 'Sincronizando…'
@@ -84,6 +107,8 @@ export default function HomeScreen() {
 
   const careTotal = care.medicationTotal + care.practiceTotal;
   const careDone = care.medicationDone + care.practiceDone;
+  const showBlockingError = dataState === 'error' && !hasLoadedOnce;
+  const showRefreshWarning = dataState === 'error' && hasLoadedOnce;
 
   return (
     <Screen>
@@ -111,69 +136,97 @@ export default function HomeScreen() {
         <AppText variant="caption" style={styles.syncAction}>Atualizar</AppText>
       </Pressable>
 
-      <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
-        <AppText variant="h2">Como você está agora?</AppText>
-        <AppText muted>Um registro curto pode ajudar a perceber seu momento com mais clareza.</AppText>
-        <Link href="/(tabs)/check-in" asChild>
-          <Pressable testID="home-open-check-in" style={styles.heroAction} accessibilityRole="button">
-            <AppText variant="bodyStrong" style={styles.heroActionText}>Fazer check-in</AppText>
+      {dataState === 'loading' ? (
+        <Surface style={styles.statusCard} testID="home-data-loading">
+          <AppText variant="bodyStrong">Preparando seu resumo…</AppText>
+          <AppText variant="caption" muted>Os registros continuam salvos enquanto organizamos os dados desta tela.</AppText>
+        </Surface>
+      ) : null}
+
+      {showBlockingError ? (
+        <Surface style={[styles.statusCard, styles.errorCard]} testID="home-data-error">
+          <AppText variant="bodyStrong">Não foi possível carregar seu resumo agora.</AppText>
+          <AppText variant="caption" muted>Seus registros não foram apagados. Tente novamente para ler os dados salvos no aparelho.</AppText>
+          <Pressable testID="home-retry-data" accessibilityRole="button" onPress={() => void loadHomeData()} style={styles.retryButton}>
+            <AppText variant="bodyStrong" style={styles.retryText}>Tentar novamente</AppText>
           </Pressable>
-        </Link>
-      </LinearGradient>
+        </Surface>
+      ) : null}
 
-      <AppText variant="h2" style={styles.sectionTitle}>Cuidados de hoje</AppText>
-      <Surface style={styles.careCard}>
-        <View style={styles.rowBetween}>
-          <View>
-            <AppText variant="display">{careDone}/{careTotal}</AppText>
-            <AppText variant="caption" muted>{careTotal ? 'cuidados registrados como realizados' : 'nenhum cuidado programado'}</AppText>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${careTotal ? Math.round((careDone / careTotal) * 100) : 0}%` }]} />
-          </View>
-        </View>
-        <View style={styles.careLinks}>
-          <Link href="/medications" asChild>
-            <Pressable style={styles.careLink} accessibilityRole="button">
-              <AppText variant="bodyStrong">💊 Medicamentos</AppText>
-              <AppText variant="caption" muted>{care.medicationDone}/{care.medicationTotal}</AppText>
-            </Pressable>
-          </Link>
-          <Link href="/routines" asChild>
-            <Pressable style={styles.careLink} accessibilityRole="button">
-              <AppText variant="bodyStrong">🌿 Práticas</AppText>
-              <AppText variant="caption" muted>{care.practiceDone}/{care.practiceTotal}</AppText>
-            </Pressable>
-          </Link>
-        </View>
-        <View style={styles.careLinks}>
-          <Link href="/appointments" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{care.upcomingAppointments} próxima(s)</AppText></Pressable></Link>
-          <Link href="/medications" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{care.lowStock} aviso(s)</AppText></Pressable></Link>
-        </View>
-        <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
-      </Surface>
+      {showRefreshWarning ? (
+        <Pressable testID="home-data-refresh-warning" accessibilityRole="button" onPress={() => void loadHomeData()} style={styles.warningRow}>
+          <AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último resumo válido continua visível.</AppText>
+          <AppText variant="caption" style={styles.syncAction}>Tentar de novo</AppText>
+        </Pressable>
+      ) : null}
 
-      <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
-      <Surface>
-        {latest ? (
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryItem}>
-              <AppText variant="caption" muted>Último humor</AppText>
-              <AppText variant="bodyStrong">{moodLabel[latest.mood]}</AppText>
+      {!showBlockingError ? (
+        <>
+          <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
+            <AppText variant="h2">Como você está agora?</AppText>
+            <AppText muted>Um registro curto pode ajudar a perceber seu momento com mais clareza.</AppText>
+            <Link href="/(tabs)/check-in" asChild>
+              <Pressable testID="home-open-check-in" style={styles.heroAction} accessibilityRole="button">
+                <AppText variant="bodyStrong" style={styles.heroActionText}>Fazer check-in</AppText>
+              </Pressable>
+            </Link>
+          </LinearGradient>
+
+          <AppText variant="h2" style={styles.sectionTitle}>Cuidados de hoje</AppText>
+          <Surface style={styles.careCard}>
+            <View style={styles.rowBetween}>
+              <View>
+                <AppText variant="display">{careDone}/{careTotal}</AppText>
+                <AppText variant="caption" muted>{careTotal ? 'cuidados registrados como realizados' : 'nenhum cuidado programado'}</AppText>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${careTotal ? Math.round((careDone / careTotal) * 100) : 0}%` }]} />
+              </View>
             </View>
-            <View style={styles.summaryItem}>
-              <AppText variant="caption" muted>Ansiedade</AppText>
-              <AppText variant="bodyStrong">{latest.anxiety}/10</AppText>
+            <View style={styles.careLinks}>
+              <Link href="/medications" asChild>
+                <Pressable style={styles.careLink} accessibilityRole="button">
+                  <AppText variant="bodyStrong">💊 Medicamentos</AppText>
+                  <AppText variant="caption" muted>{care.medicationDone}/{care.medicationTotal}</AppText>
+                </Pressable>
+              </Link>
+              <Link href="/routines" asChild>
+                <Pressable style={styles.careLink} accessibilityRole="button">
+                  <AppText variant="bodyStrong">🌿 Práticas</AppText>
+                  <AppText variant="caption" muted>{care.practiceDone}/{care.practiceTotal}</AppText>
+                </Pressable>
+              </Link>
             </View>
-            <View style={styles.summaryItem}>
-              <AppText variant="caption" muted>Energia</AppText>
-              <AppText variant="bodyStrong">{latest.energy}/10</AppText>
+            <View style={styles.careLinks}>
+              <Link href="/appointments" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{care.upcomingAppointments} próxima(s)</AppText></Pressable></Link>
+              <Link href="/medications" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{care.lowStock} aviso(s)</AppText></Pressable></Link>
             </View>
-          </View>
-        ) : (
-          <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>
-        )}
-      </Surface>
+            <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
+          </Surface>
+
+          <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
+          <Surface>
+            {latest ? (
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryItem}>
+                  <AppText variant="caption" muted>Último humor</AppText>
+                  <AppText variant="bodyStrong">{moodLabel[latest.mood]}</AppText>
+                </View>
+                <View style={styles.summaryItem}>
+                  <AppText variant="caption" muted>Ansiedade</AppText>
+                  <AppText variant="bodyStrong">{latest.anxiety}/10</AppText>
+                </View>
+                <View style={styles.summaryItem}>
+                  <AppText variant="caption" muted>Energia</AppText>
+                  <AppText variant="bodyStrong">{latest.energy}/10</AppText>
+                </View>
+              </View>
+            ) : (
+              <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>
+            )}
+          </Surface>
+        </>
+      ) : null}
 
       <AppText variant="caption" muted style={styles.signature}>Tehkné Solutions</AppText>
     </Screen>
@@ -191,6 +244,12 @@ const styles = StyleSheet.create({
   syncRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.sm },
   syncText: { color: colors.textMuted },
   syncAction: { color: colors.primaryStrong, fontWeight: '700' },
+  statusCard: { gap: spacing.sm, marginBottom: spacing.md },
+  errorCard: { backgroundColor: colors.dangerSoft },
+  retryButton: { alignSelf: 'flex-start', marginTop: spacing.sm, backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  retryText: { color: colors.white },
+  warningRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, backgroundColor: colors.sand, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  warningText: { color: colors.text, flex: 1 },
   hero: { borderRadius: radius.lg, padding: spacing.xl, gap: spacing.sm },
   heroAction: { alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   heroActionText: { color: colors.white },
