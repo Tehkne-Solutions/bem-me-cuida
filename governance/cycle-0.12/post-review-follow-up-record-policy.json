@@ -1,0 +1,60 @@
+{
+  "artifactType": "post-review-follow-up-record",
+  "version": "1.0.0",
+  "sourcePackageClassificationRequired": "current-and-compatible",
+  "requiredSections": [
+    "recordIdentity",
+    "itemUpdates",
+    "evidenceRecords",
+    "blockers",
+    "closureSummary",
+    "references"
+  ],
+  "allowedItemStatuses": [
+    "planned",
+    "in-progress-administratively",
+    "blocked",
+    "deferred",
+    "completed-administratively",
+    "not-required"
+  ],
+  "allowedBlockerStatuses": ["open", "resolved", "accepted"],
+  "requiredItemUpdateFields": [
+    "itemId",
+    "owner",
+    "status",
+    "updatedAt",
+    "updatedBy",
+    "summary"
+  ],
+  "requiredEvidenceFields": [
+    "evidenceId",
+    "itemId",
+    "description",
+    "sourceReference",
+    "capturedAt",
+    "capturedBy"
+  ],
+  "forbiddenTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "followUpRecordGenerationAllowed": true,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
