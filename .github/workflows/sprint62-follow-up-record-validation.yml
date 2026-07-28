@@ -1,0 +1,35 @@
+name: Sprint 62
+
+on:
+  pull_request:
+    paths:
+      - 'governance/cycle-0.12/post-review-follow-up-record-validation-policy.json'
+      - 'scripts/validate-cycle012-post-review-follow-up-record.mjs'
+      - 'scripts/test-cycle012-post-review-follow-up-record-validation.mjs'
+      - 'scripts/verify-sprint62-readiness.mjs'
+      - 'docs/governance/cycle-0.12-sprint62-follow-up-record-validation.md'
+      - 'docs/adr/066-cycle012-follow-up-record-validation.md'
+      - '.github/workflows/sprint62-follow-up-record-validation.yml'
+
+jobs:
+  sprint62-quality:
+    runs-on: ubuntu-24.04
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: node scripts/verify-sprint62-readiness.mjs
+      - run: node scripts/test-cycle012-post-review-follow-up-record-validation.mjs

@@ -1,0 +1,83 @@
+{
+  "policyId": "cycle-0.12-post-review-follow-up-record-validation",
+  "version": "1.0.0",
+  "artifactType": "post-review-follow-up-record-validation-policy",
+  "requiredSections": [
+    "recordIdentity",
+    "itemUpdates",
+    "evidenceRecords",
+    "blockers",
+    "closureSummary",
+    "references"
+  ],
+  "requiredItemUpdateFields": [
+    "itemId",
+    "owner",
+    "status",
+    "updatedAt",
+    "updatedBy",
+    "summary"
+  ],
+  "requiredEvidenceFields": [
+    "evidenceId",
+    "itemId",
+    "description",
+    "sourceReference",
+    "capturedAt",
+    "capturedBy"
+  ],
+  "requiredBlockerFields": [
+    "blockerId",
+    "itemId",
+    "status",
+    "description",
+    "recordedAt",
+    "recordedBy"
+  ],
+  "allowedItemStatuses": [
+    "planned",
+    "in-progress-administratively",
+    "blocked",
+    "deferred",
+    "completed-administratively",
+    "not-required"
+  ],
+  "allowedBlockerStatuses": ["open", "resolved", "accepted"],
+  "allowedClosureStatuses": ["open", "partially-closed", "closed-administratively"],
+  "classifications": [
+    "current-and-compatible",
+    "stale-follow-up-package-validation",
+    "duplicate-record",
+    "conflicting-record",
+    "incomplete-record",
+    "invalid-item-update",
+    "evidence-divergence",
+    "invalid-blocker",
+    "inconsistent-closure",
+    "source-record-missing",
+    "invalid-record-reference",
+    "forbidden-operational-content"
+  ],
+  "forbiddenTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "validationAllowed": true,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
