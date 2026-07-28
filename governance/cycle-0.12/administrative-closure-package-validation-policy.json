@@ -1,0 +1,63 @@
+{
+  "policyId": "cycle-0.12-administrative-closure-package-validation",
+  "version": "1.0.0",
+  "cycle": "0.12.0",
+  "sourcePackageType": "administrative-closure-package",
+  "requiredSourceClassification": "current-and-compatible",
+  "classifications": [
+    "current-and-compatible",
+    "stale-closure-package",
+    "duplicate-closure-package",
+    "conflicting-closure-package",
+    "incomplete-closure-package",
+    "invalid-validated-source",
+    "decision-consolidation-divergence",
+    "follow-up-consolidation-divergence",
+    "invalid-remaining-item",
+    "invalid-accepted-risk",
+    "incomplete-transition-criteria",
+    "inconsistent-closure-state",
+    "invalid-closure-reference",
+    "forbidden-operational-content"
+  ],
+  "requiredSections": [
+    "packageIdentity",
+    "validatedSources",
+    "decisionConsolidation",
+    "followUpConsolidation",
+    "remainingItems",
+    "acceptedRisks",
+    "transitionCriteria",
+    "closureStatement",
+    "references"
+  ],
+  "remainingItemStatuses": ["blocked", "deferred", "accepted-risk", "not-required"],
+  "riskDecisions": ["accepted", "mitigation-required", "deferred"],
+  "closureStates": [
+    "open-administratively",
+    "partially-closed-administratively",
+    "closed-administratively"
+  ],
+  "forbiddenOperationalPatterns": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "validationAllowed": true,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
