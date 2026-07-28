@@ -1,0 +1,51 @@
+{
+  "policyId": "cycle012-human-review-session-execution-package-validation",
+  "version": "1.0.0",
+  "cycle": "0.12.0",
+  "acceptedPackageType": "human-review-session-execution-package",
+  "currentClassification": "current-and-compatible",
+  "classifications": [
+    "current-and-compatible",
+    "stale-authorization-validation",
+    "duplicate-package",
+    "conflicting-package",
+    "structure-divergence",
+    "source-package-missing",
+    "invalid-package-reference",
+    "forbidden-operational-content"
+  ],
+  "requiredSections": [
+    "sessionIdentity",
+    "participants",
+    "agenda",
+    "reviewQuestions",
+    "reviewChecklist",
+    "evidenceFields",
+    "decisionFields",
+    "closureFields",
+    "riskNotes",
+    "references"
+  ],
+  "forbiddenPatterns": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
