@@ -1,0 +1,45 @@
+{
+  "policyId": "cycle-0.12-post-review-follow-up-package-policy",
+  "version": 1,
+  "artifactType": "post-review-follow-up-package",
+  "requiredSourceClassification": "current-and-compatible",
+  "allowedDecisionOutcomes": [
+    "approved-administratively",
+    "approved-with-follow-up",
+    "changes-required",
+    "inconclusive"
+  ],
+  "allowedPriorities": ["critical", "high", "medium", "low"],
+  "allowedStatuses": ["planned", "blocked", "deferred", "not-required"],
+  "requiredSections": [
+    "packageIdentity",
+    "decisionSummary",
+    "followUpItems",
+    "completionCriteria",
+    "riskNotes",
+    "references"
+  ],
+  "forbiddenTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "followUpPackageGenerationAllowed": true,
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
