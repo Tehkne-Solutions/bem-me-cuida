@@ -7,6 +7,7 @@ import type { Appointment, CheckIn } from '@bemmecuida/domain';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
+import { RecentActivitySection } from '@/components/RecentActivitySection';
 import { Screen } from '@/components/Screen';
 import { Surface } from '@/components/Surface';
 import { listAppointments } from '@/data/care-management-repository';
@@ -27,24 +28,14 @@ import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const moodLabel: Record<CheckIn['mood'], string> = {
-  very_low: 'Muito difícil',
-  low: 'Difícil',
-  neutral: 'Neutro',
-  good: 'Bem',
-  very_good: 'Muito bem',
+  very_low: 'Muito difícil', low: 'Difícil', neutral: 'Neutro', good: 'Bem', very_good: 'Muito bem',
 };
 
 type HomeDataState = 'loading' | 'ready' | 'error';
 type ActionHref = '/medications' | '/routines' | '/appointments' | '/(tabs)/check-in';
 type DailyActionBase = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  detail: string;
-  href: ActionHref;
-  priority: number;
-  plannedAt: string;
-  urgent: boolean;
+  id: string; eyebrow: string; title: string; detail: string; href: ActionHref;
+  priority: number; plannedAt: string; urgent: boolean;
 };
 type DailyAction = DailyActionBase & (
   | { kind: 'medication'; dose: TodayMedicationDose }
@@ -52,11 +43,8 @@ type DailyAction = DailyActionBase & (
   | { kind: 'navigation' }
 );
 type Snapshot = {
-  latest: CheckIn | null;
-  doses: TodayMedicationDose[];
-  practices: TodayCarePractice[];
-  appointments: Appointment[];
-  lowStockCount: number;
+  latest: CheckIn | null; doses: TodayMedicationDose[]; practices: TodayCarePractice[];
+  appointments: Appointment[]; lowStockCount: number;
 };
 type RecentAction =
   | { kind: 'medication'; action: Extract<DailyAction, { kind: 'medication' }>; recordId: string }
@@ -87,8 +75,7 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
     if (dose.intake) continue;
     const overdue = new Date(dose.plannedAt) < now;
     actions.push({
-      id: `med-${dose.medication.id}-${dose.schedule.id}`,
-      kind: 'medication', dose,
+      id: `med-${dose.medication.id}-${dose.schedule.id}`, kind: 'medication', dose,
       eyebrow: overdue ? 'MEDICAÇÃO ATRASADA' : 'PRÓXIMA MEDICAÇÃO',
       title: `${dose.medication.name} · ${dose.medication.dosageText}`,
       detail: `${overdue ? 'Prevista' : 'Programada'} para ${timeLabel(dose.plannedAt)}`,
@@ -99,10 +86,8 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
     if (item.completion) continue;
     const overdue = new Date(item.plannedAt) < now;
     actions.push({
-      id: `practice-${item.practice.id}`,
-      kind: 'practice', item,
-      eyebrow: overdue ? 'PRÁTICA PENDENTE' : 'PRÓXIMA PRÁTICA',
-      title: item.practice.title,
+      id: `practice-${item.practice.id}`, kind: 'practice', item,
+      eyebrow: overdue ? 'PRÁTICA PENDENTE' : 'PRÓXIMA PRÁTICA', title: item.practice.title,
       detail: `${item.practice.targetMinutes} min · ${overdue ? 'prevista' : 'programada'} para ${timeLabel(item.plannedAt)}`,
       href: '/routines', priority: overdue ? 1 : 4, plannedAt: item.plannedAt, urgent: overdue,
     });
@@ -149,10 +134,8 @@ export default function HomeScreen() {
     if (!hasLoadedOnce) setDataState('loading');
     try {
       const [checkIns, doses, practices, lowStock, appointments] = await Promise.all([
-        listRecentCheckIns(session.user.id, 1),
-        listTodayMedicationDoses(session.user.id),
-        listTodayCarePractices(session.user.id),
-        listLowStockMedications(session.user.id),
+        listRecentCheckIns(session.user.id, 1), listTodayMedicationDoses(session.user.id),
+        listTodayCarePractices(session.user.id), listLowStockMedications(session.user.id),
         listAppointments(session.user.id, { limit: 20 }),
       ]);
       if (!focusedRef.current) return;
@@ -178,24 +161,18 @@ export default function HomeScreen() {
     try {
       if (action.kind === 'medication') {
         const intake = await recordMedicationIntake(action.dose, 'taken', session.user.id);
-        setSnapshot((current) => ({
-          ...current,
-          doses: current.doses.map((dose) => (
-            dose.medication.id === action.dose.medication.id
-            && dose.schedule.id === action.dose.schedule.id
-            && dose.plannedAt === action.dose.plannedAt ? { ...dose, intake } : dose
-          )),
-        }));
+        setSnapshot((current) => ({ ...current, doses: current.doses.map((dose) => (
+          dose.medication.id === action.dose.medication.id
+          && dose.schedule.id === action.dose.schedule.id
+          && dose.plannedAt === action.dose.plannedAt ? { ...dose, intake } : dose
+        )) }));
         setRecentAction({ kind: 'medication', action, recordId: intake.id });
       } else {
         const completion = await recordCarePracticeCompletion(action.item, 'completed', session.user.id);
-        setSnapshot((current) => ({
-          ...current,
-          practices: current.practices.map((item) => (
-            item.practice.id === action.item.practice.id && item.plannedAt === action.item.plannedAt
-              ? { ...item, completion } : item
-          )),
-        }));
+        setSnapshot((current) => ({ ...current, practices: current.practices.map((item) => (
+          item.practice.id === action.item.practice.id && item.plannedAt === action.item.plannedAt
+            ? { ...item, completion } : item
+        )) }));
         setRecentAction({ kind: 'practice', action, recordId: completion.id });
       }
     } catch {
@@ -225,22 +202,21 @@ export default function HomeScreen() {
     try {
       if (recentAction.kind === 'medication') {
         await undoRecentAction({
-          kind: 'medication', recordId: recentAction.recordId, medicationId: recentAction.action.dose.medication.id,
-          userId: session.user.id, unitsPerIntake: recentAction.action.dose.medication.unitsPerIntake,
+          kind: 'medication', recordId: recentAction.recordId,
+          medicationId: recentAction.action.dose.medication.id, userId: session.user.id,
+          unitsPerIntake: recentAction.action.dose.medication.unitsPerIntake,
         });
-        setSnapshot((current) => ({
-          ...current,
-          doses: current.doses.map((dose) => dose.medication.id === recentAction.action.dose.medication.id
-            && dose.schedule.id === recentAction.action.dose.schedule.id
-            && dose.plannedAt === recentAction.action.dose.plannedAt ? { ...dose, intake: null } : dose),
-        }));
+        setSnapshot((current) => ({ ...current, doses: current.doses.map((dose) => (
+          dose.medication.id === recentAction.action.dose.medication.id
+          && dose.schedule.id === recentAction.action.dose.schedule.id
+          && dose.plannedAt === recentAction.action.dose.plannedAt ? { ...dose, intake: null } : dose
+        )) }));
       } else {
         await undoRecentAction({ kind: 'practice', recordId: recentAction.recordId, userId: session.user.id });
-        setSnapshot((current) => ({
-          ...current,
-          practices: current.practices.map((item) => item.practice.id === recentAction.action.item.practice.id
-            && item.plannedAt === recentAction.action.item.plannedAt ? { ...item, completion: null } : item),
-        }));
+        setSnapshot((current) => ({ ...current, practices: current.practices.map((item) => (
+          item.practice.id === recentAction.action.item.practice.id
+          && item.plannedAt === recentAction.action.item.plannedAt ? { ...item, completion: null } : item
+        )) }));
       }
       setRecentAction(null);
     } catch (error) {
@@ -265,24 +241,19 @@ export default function HomeScreen() {
   const actions = buildDailyActions(snapshot).slice(0, 5);
   const blockingError = dataState === 'error' && !hasLoadedOnce;
   const refreshWarning = dataState === 'error' && hasLoadedOnce;
+  const activityRefreshToken = `${sync.lastSuccessAt ?? ''}:${recentAction?.recordId ?? ''}:${busyActionId ?? ''}`;
 
   return (
     <Screen>
       <View style={styles.header}>
-        <View style={styles.flex}>
-          <AppText variant="caption" muted>BEMMECUIDA</AppText>
-          <AppText variant="h1" testID="home-title">Olá, {profile?.displayName ?? 'por aí'} 🌿</AppText>
-        </View>
+        <View style={styles.flex}><AppText variant="caption" muted>BEMMECUIDA</AppText><AppText variant="h1" testID="home-title">Olá, {profile?.displayName ?? 'por aí'} 🌿</AppText></View>
         <View style={styles.headerActions}>
           <Link href="/settings" asChild><Pressable testID="home-open-settings" accessibilityRole="button" style={styles.settingsButton}><AppText variant="caption" style={styles.settingsText}>Conta</AppText></Pressable></Link>
           <Link href="/crisis" asChild><Pressable accessibilityRole="button" style={styles.helpButton}><AppText variant="caption" style={styles.helpText}>Preciso de apoio</AppText></Pressable></Link>
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={() => void sync.syncNow()} style={styles.syncRow}>
-        <AppText variant="caption" style={styles.syncText}>{syncLabel}</AppText><AppText variant="caption" style={styles.syncAction}>Atualizar</AppText>
-      </Pressable>
-
+      <Pressable accessibilityRole="button" onPress={() => void sync.syncNow()} style={styles.syncRow}><AppText variant="caption" style={styles.syncText}>{syncLabel}</AppText><AppText variant="caption" style={styles.syncAction}>Atualizar</AppText></Pressable>
       {dataState === 'loading' ? <Surface style={styles.statusCard} testID="home-data-loading"><AppText variant="bodyStrong">Preparando seu dia…</AppText><AppText variant="caption" muted>Organizando os próximos cuidados sem alterar seus registros.</AppText></Surface> : null}
       {blockingError ? <Surface style={[styles.statusCard, styles.errorCard]} testID="home-data-error"><AppText variant="bodyStrong">Não foi possível carregar seu dia agora.</AppText><AppText variant="caption" muted>Seus registros não foram apagados. Tente novamente.</AppText><Pressable testID="home-retry-data" accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}><AppText variant="bodyStrong" style={styles.retryText}>Tentar novamente</AppText></Pressable></Surface> : null}
       {refreshWarning ? <Pressable testID="home-data-refresh-warning" accessibilityRole="button" onPress={() => void load()} style={styles.warningRow}><AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último estado válido continua visível.</AppText><AppText variant="caption" style={styles.syncAction}>Tentar de novo</AppText></Pressable> : null}
@@ -321,6 +292,8 @@ export default function HomeScreen() {
           <View style={styles.careLinks}><Link href="/appointments" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{scheduledAppointments} próxima(s)</AppText></Pressable></Link><Link href="/medications" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{snapshot.lowStockCount} aviso(s)</AppText></Pressable></Link></View>
           <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
         </Surface>
+
+        <RecentActivitySection refreshToken={activityRefreshToken} />
 
         <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
         <Surface>{snapshot.latest ? <View style={styles.summaryGrid}><View style={styles.summaryItem}><AppText variant="caption" muted>Último humor</AppText><AppText variant="bodyStrong">{moodLabel[snapshot.latest.mood]}</AppText></View><View style={styles.summaryItem}><AppText variant="caption" muted>Ansiedade</AppText><AppText variant="bodyStrong">{snapshot.latest.anxiety}/10</AppText></View><View style={styles.summaryItem}><AppText variant="caption" muted>Energia</AppText><AppText variant="bodyStrong">{snapshot.latest.energy}/10</AppText></View></View> : <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>}</Surface>
