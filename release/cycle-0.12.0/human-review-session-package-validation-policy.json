@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "requiredPackageKind": "human-review-session-package",
+  "requiredSourceClassification": "current-and-compatible",
+  "validClassifications": [
+    "current-and-compatible",
+    "stale-source-validation",
+    "duplicate-package",
+    "conflicting-package",
+    "questions-divergence",
+    "checklist-divergence",
+    "source-package-missing",
+    "invalid-package-reference",
+    "forbidden-operational-content"
+  ],
+  "forbiddenPatterns": [
+    "BEGIN PATCH",
+    "diff --git",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply"
+  ],
+  "controls": {
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
