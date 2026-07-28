@@ -1,0 +1,29 @@
+{
+  "policyId": "cycle012-human-review-session-start-authorization-validation-v1",
+  "cycle": "0.12.0",
+  "mode": "read-only-fail-closed",
+  "classifications": [
+    "current-and-compatible",
+    "stale-session-package-validation",
+    "duplicate-authorization",
+    "conflicting-authorization",
+    "source-authorization-missing",
+    "authorization-decision-mismatch",
+    "invalid-authorization-reference"
+  ],
+  "expectedAuthorizationType": "human-review-session-start-authorization",
+  "expectedDecision": "authorize-human-review-session-start",
+  "requiredSourceClassification": "current-and-compatible",
+  "controls": {
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
