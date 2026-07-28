@@ -1,0 +1,42 @@
+name: Sprint 55
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'governance/cycle-0.12/human-review-session-execution-package.policy.json'
+      - 'scripts/cycle012-human-review-session-execution-package.mjs'
+      - 'scripts/test-cycle012-human-review-session-execution-package.mjs'
+      - 'scripts/verify-sprint55-readiness.mjs'
+      - 'docs/sprint-55-human-review-session-execution-package.md'
+      - 'docs/adr/059-human-review-session-execution-package.md'
+      - '.github/workflows/sprint55.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  sprint55-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: node scripts/verify-sprint55-readiness.mjs
+      - run: node scripts/test-cycle012-human-review-session-execution-package.mjs
