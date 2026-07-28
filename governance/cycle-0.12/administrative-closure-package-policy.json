@@ -1,0 +1,60 @@
+{
+  "policyId": "cycle-0.12-administrative-closure-package",
+  "version": "1.0.0",
+  "cycle": "0.12.0",
+  "purpose": "Consolidate validated administrative decisions, follow-up records, remaining items, accepted risks and future transition criteria without authorizing functional execution.",
+  "requiredSections": [
+    "packageIdentity",
+    "validatedSources",
+    "decisionConsolidation",
+    "followUpConsolidation",
+    "remainingItems",
+    "acceptedRisks",
+    "transitionCriteria",
+    "closureStatement",
+    "references"
+  ],
+  "allowedClosureStates": [
+    "open-administratively",
+    "partially-closed-administratively",
+    "closed-administratively"
+  ],
+  "allowedRemainingItemStates": [
+    "blocked",
+    "deferred",
+    "accepted-risk",
+    "not-required"
+  ],
+  "allowedRiskDecisions": [
+    "accepted",
+    "mitigation-required",
+    "deferred"
+  ],
+  "sourceRequirements": {
+    "followUpRecordValidation": "current-and-compatible",
+    "sourceCommitRequired": true,
+    "humanReviewRequired": true
+  },
+  "forbiddenOperationalTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "closurePackageGenerationAllowed": true,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
