@@ -4,7 +4,18 @@ const policy = JSON.parse(
   await readFile(new URL('../governance/cycle-0.12/administrative-closure-package-validation-policy.json', import.meta.url), 'utf8'),
 );
 
-const stable = (value) => JSON.stringify(value, Object.keys(value ?? {}).sort());
+const canonicalize = (value) => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalize(value[key])]),
+    );
+  }
+  return value;
+};
+const stable = (value) => JSON.stringify(canonicalize(value));
 const containsForbidden = (value) => {
   const text = JSON.stringify(value ?? {});
   return policy.forbiddenOperationalPatterns.some((pattern) => text.includes(pattern));
