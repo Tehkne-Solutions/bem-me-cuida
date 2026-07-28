@@ -33,17 +33,22 @@ export function RecentActivitySection({ refreshToken }: { refreshToken: string }
     }
   }, [refreshToken, session]);
 
-  useFocusEffect(useCallback(() => {
-    void load();
-  }, [load]));
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   return (
     <>
       <View style={styles.headingRow}>
         <AppText variant="h2">Atividade recente</AppText>
-        <Pressable accessibilityRole="button" onPress={() => void load()}>
-          <AppText variant="caption" style={styles.refreshText}>Atualizar</AppText>
-        </Pressable>
+        <View style={styles.headingActions}>
+          <Pressable accessibilityRole="button" onPress={() => void load()}>
+            <AppText variant="caption" style={styles.actionText}>Atualizar</AppText>
+          </Pressable>
+          <Link href="/care-history" asChild>
+            <Pressable testID="home-open-care-history" accessibilityRole="button">
+              <AppText variant="caption" style={styles.actionText}>Ver histórico</AppText>
+            </Pressable>
+          </Link>
+        </View>
       </View>
       <Surface testID="home-recent-activity" style={styles.card}>
         {failed ? (
@@ -84,8 +89,9 @@ export function RecentActivitySection({ refreshToken }: { refreshToken: string }
 }
 
 const styles = StyleSheet.create({
-  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xl, marginBottom: spacing.md },
-  refreshText: { color: colors.primaryStrong, fontWeight: '700' },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginTop: spacing.xl, marginBottom: spacing.md },
+  headingActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: spacing.md },
+  actionText: { color: colors.primaryStrong, fontWeight: '700' },
   card: { paddingVertical: spacing.sm },
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
