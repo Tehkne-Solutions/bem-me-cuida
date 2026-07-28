@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Appointment, CheckIn } from '@bemmecuida/domain';
 
@@ -10,9 +10,18 @@ import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
 import { Surface } from '@/components/Surface';
 import { listAppointments } from '@/data/care-management-repository';
-import { listTodayCarePractices, type TodayCarePractice } from '@/data/care-practice-repository';
+import {
+  listTodayCarePractices,
+  recordCarePracticeCompletion,
+  type TodayCarePractice,
+} from '@/data/care-practice-repository';
 import { listRecentCheckIns } from '@/data/check-in-repository';
-import { listLowStockMedications, listTodayMedicationDoses, type TodayMedicationDose } from '@/data/medication-repository';
+import {
+  listLowStockMedications,
+  listTodayMedicationDoses,
+  recordMedicationIntake,
+  type TodayMedicationDose,
+} from '@/data/medication-repository';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -26,7 +35,7 @@ const moodLabel: Record<CheckIn['mood'], string> = {
 
 type HomeDataState = 'loading' | 'ready' | 'error';
 type ActionHref = '/medications' | '/routines' | '/appointments' | '/(tabs)/check-in';
-type DailyAction = {
+type DailyActionBase = {
   id: string;
   eyebrow: string;
   title: string;
@@ -36,6 +45,11 @@ type DailyAction = {
   plannedAt: string;
   urgent: boolean;
 };
+type DailyAction = DailyActionBase & (
+  | { kind: 'medication'; dose: TodayMedicationDose }
+  | { kind: 'practice'; item: TodayCarePractice }
+  | { kind: 'navigation' }
+);
 
 type Snapshot = {
   latest: CheckIn | null;
@@ -78,6 +92,8 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
     const overdue = new Date(dose.plannedAt) < now;
     actions.push({
       id: `med-${dose.medication.id}-${dose.schedule.id}`,
+      kind: 'medication',
+      dose,
       eyebrow: overdue ? 'MEDICAÇÃO ATRASADA' : 'PRÓXIMA MEDICAÇÃO',
       title: `${dose.medication.name} · ${dose.medication.dosageText}`,
       detail: `${overdue ? 'Prevista' : 'Programada'} para ${timeLabel(dose.plannedAt)}`,
@@ -93,6 +109,8 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
     const overdue = new Date(item.plannedAt) < now;
     actions.push({
       id: `practice-${item.practice.id}`,
+      kind: 'practice',
+      item,
       eyebrow: overdue ? 'PRÁTICA PENDENTE' : 'PRÓXIMA PRÁTICA',
       title: item.practice.title,
       detail: `${item.practice.targetMinutes} min · ${overdue ? 'prevista' : 'programada'} para ${timeLabel(item.plannedAt)}`,
@@ -106,6 +124,7 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
   if (!snapshot.latest || !sameLocalDay(snapshot.latest.occurredAt, now)) {
     actions.push({
       id: 'check-in',
+      kind: 'navigation',
       eyebrow: 'CHECK-IN DO DIA',
       title: 'Como você está agora?',
       detail: 'Um registro curto ajuda a construir seu resumo emocional de hoje.',
@@ -120,6 +139,7 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
   if (appointment) {
     actions.push({
       id: `appointment-${appointment.id}`,
+      kind: 'navigation',
       eyebrow: 'PRÓXIMA CONSULTA',
       title: appointment.title,
       detail: appointmentLabel(appointment.scheduledAt),
@@ -133,6 +153,7 @@ function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] 
   if (snapshot.lowStockCount > 0) {
     actions.push({
       id: 'low-stock',
+      kind: 'navigation',
       eyebrow: 'REPOSIÇÃO',
       title: `${snapshot.lowStockCount} medicamento${snapshot.lowStockCount === 1 ? '' : 's'} com estoque baixo`,
       detail: 'Confira as quantidades antes que o tratamento seja interrompido.',
@@ -152,6 +173,8 @@ export default function HomeScreen() {
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [dataState, setDataState] = useState<HomeDataState>('loading');
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const focusedRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -180,6 +203,60 @@ export default function HomeScreen() {
     void load();
     return () => { focusedRef.current = false; };
   }, [load, sync.lastSuccessAt]));
+
+  const persistQuickAction = useCallback(async (action: DailyAction) => {
+    if (!session || action.kind === 'navigation' || busyActionId) return;
+    setBusyActionId(action.id);
+    setActionError(null);
+
+    try {
+      if (action.kind === 'medication') {
+        const intake = await recordMedicationIntake(action.dose, 'taken', session.user.id);
+        setSnapshot((current) => ({
+          ...current,
+          doses: current.doses.map((dose) => (
+            dose.medication.id === action.dose.medication.id
+            && dose.schedule.id === action.dose.schedule.id
+            && dose.plannedAt === action.dose.plannedAt
+              ? { ...dose, intake }
+              : dose
+          )),
+        }));
+      } else {
+        const completion = await recordCarePracticeCompletion(action.item, 'completed', session.user.id);
+        setSnapshot((current) => ({
+          ...current,
+          practices: current.practices.map((item) => (
+            item.practice.id === action.item.practice.id && item.plannedAt === action.item.plannedAt
+              ? { ...item, completion }
+              : item
+          )),
+        }));
+      }
+    } catch {
+      setActionError('Não foi possível salvar esse registro agora. O item continua pendente e você pode tentar novamente.');
+    } finally {
+      setBusyActionId(null);
+    }
+  }, [busyActionId, session]);
+
+  const confirmQuickAction = useCallback((action: DailyAction) => {
+    if (action.kind === 'navigation' || busyActionId) return;
+    const isMedication = action.kind === 'medication';
+    Alert.alert(
+      isMedication ? 'Confirmar tomada?' : 'Confirmar conclusão?',
+      isMedication
+        ? `Registrar ${action.title} como tomada agora?`
+        : `Registrar ${action.title} como concluída agora?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: isMedication ? 'Registrar tomada' : 'Registrar conclusão',
+          onPress: () => { void persistQuickAction(action); },
+        },
+      ],
+    );
+  }, [busyActionId, persistQuickAction]);
 
   const syncLabel = sync.status === 'syncing'
     ? 'Sincronizando…'
@@ -250,6 +327,15 @@ export default function HomeScreen() {
         </Pressable>
       ) : null}
 
+      {actionError ? (
+        <Surface style={[styles.statusCard, styles.errorCard]} testID="home-quick-action-error">
+          <AppText variant="caption">{actionError}</AppText>
+          <Pressable accessibilityRole="button" onPress={() => setActionError(null)}>
+            <AppText variant="caption" style={styles.syncAction}>Fechar aviso</AppText>
+          </Pressable>
+        </Surface>
+      ) : null}
+
       {!blockingError ? (
         <>
           <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
@@ -272,19 +358,36 @@ export default function HomeScreen() {
 
           <AppText variant="h2" style={styles.sectionTitle}>Próximos passos</AppText>
           <Surface style={styles.timelineCard} testID="home-daily-actions">
-            {actions.length ? actions.map((action, index) => (
-              <Link key={action.id} href={action.href} asChild>
-                <Pressable accessibilityRole="button" style={[styles.actionRow, index > 0 && styles.actionDivider]}>
+            {actions.length ? actions.map((action, index) => {
+              const supportsQuickAction = action.kind !== 'navigation';
+              const busy = busyActionId === action.id;
+              return (
+                <View key={action.id} style={[styles.actionRow, index > 0 && styles.actionDivider]}>
                   <View style={[styles.actionMarker, action.urgent && styles.actionMarkerUrgent]} />
-                  <View style={styles.flex}>
-                    <AppText variant="caption" style={action.urgent ? styles.urgentText : styles.eyebrow}>{action.eyebrow}</AppText>
-                    <AppText variant="bodyStrong">{action.title}</AppText>
-                    <AppText variant="caption" muted>{action.detail}</AppText>
-                  </View>
-                  <AppText variant="bodyStrong" style={styles.chevron}>›</AppText>
-                </Pressable>
-              </Link>
-            )) : (
+                  <Link href={action.href} asChild>
+                    <Pressable accessibilityRole="button" style={styles.actionContent}>
+                      <AppText variant="caption" style={action.urgent ? styles.urgentText : styles.eyebrow}>{action.eyebrow}</AppText>
+                      <AppText variant="bodyStrong">{action.title}</AppText>
+                      <AppText variant="caption" muted>{action.detail}</AppText>
+                    </Pressable>
+                  </Link>
+                  {supportsQuickAction ? (
+                    <Pressable
+                      testID={`home-quick-${action.kind}-${action.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={action.kind === 'medication' ? `Registrar tomada de ${action.title}` : `Registrar conclusão de ${action.title}`}
+                      disabled={Boolean(busyActionId)}
+                      onPress={() => confirmQuickAction(action)}
+                      style={[styles.quickButton, busyActionId && styles.quickButtonDisabled]}
+                    >
+                      <AppText variant="caption" style={styles.quickButtonText}>{busy ? 'Salvando…' : action.kind === 'medication' ? 'Tomei' : 'Concluí'}</AppText>
+                    </Pressable>
+                  ) : (
+                    <AppText variant="bodyStrong" style={styles.chevron}>›</AppText>
+                  )}
+                </View>
+              );
+            }) : (
               <View style={styles.emptyState}>
                 <AppText variant="bodyStrong">Nenhuma pendência identificada.</AppText>
                 <AppText variant="caption" muted>Isso considera apenas o que foi programado e registrado no aplicativo.</AppText>
@@ -357,8 +460,12 @@ const styles = StyleSheet.create({
   actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   actionMarker: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.primaryStrong },
   actionMarkerUrgent: { backgroundColor: colors.danger },
+  actionContent: { flex: 1, gap: spacing.xs },
   eyebrow: { color: colors.primaryStrong, fontWeight: '700' },
   urgentText: { color: colors.danger, fontWeight: '700' },
+  quickButton: { minWidth: 72, alignItems: 'center', backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  quickButtonDisabled: { opacity: 0.55 },
+  quickButtonText: { color: colors.white, fontWeight: '700' },
   chevron: { color: colors.textMuted, fontSize: 24 },
   emptyState: { gap: spacing.sm, paddingVertical: spacing.md },
   careCard: { gap: spacing.lg },
