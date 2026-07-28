@@ -22,6 +22,7 @@ import {
   recordMedicationIntake,
   type TodayMedicationDose,
 } from '@/data/medication-repository';
+import { undoRecentAction } from '@/data/recent-action-undo-repository';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -50,7 +51,6 @@ type DailyAction = DailyActionBase & (
   | { kind: 'practice'; item: TodayCarePractice }
   | { kind: 'navigation' }
 );
-
 type Snapshot = {
   latest: CheckIn | null;
   doses: TodayMedicationDose[];
@@ -58,14 +58,11 @@ type Snapshot = {
   appointments: Appointment[];
   lowStockCount: number;
 };
+type RecentAction =
+  | { kind: 'medication'; action: Extract<DailyAction, { kind: 'medication' }>; recordId: string }
+  | { kind: 'practice'; action: Extract<DailyAction, { kind: 'practice' }>; recordId: string };
 
-const emptySnapshot: Snapshot = {
-  latest: null,
-  doses: [],
-  practices: [],
-  appointments: [],
-  lowStockCount: 0,
-};
+const emptySnapshot: Snapshot = { latest: null, doses: [], practices: [], appointments: [], lowStockCount: 0 };
 
 function sameLocalDay(iso: string, reference = new Date()): boolean {
   const value = new Date(iso);
@@ -86,84 +83,53 @@ function appointmentLabel(iso: string): string {
 
 function buildDailyActions(snapshot: Snapshot, now = new Date()): DailyAction[] {
   const actions: DailyAction[] = [];
-
   for (const dose of snapshot.doses) {
     if (dose.intake) continue;
     const overdue = new Date(dose.plannedAt) < now;
     actions.push({
       id: `med-${dose.medication.id}-${dose.schedule.id}`,
-      kind: 'medication',
-      dose,
+      kind: 'medication', dose,
       eyebrow: overdue ? 'MEDICAÇÃO ATRASADA' : 'PRÓXIMA MEDICAÇÃO',
       title: `${dose.medication.name} · ${dose.medication.dosageText}`,
       detail: `${overdue ? 'Prevista' : 'Programada'} para ${timeLabel(dose.plannedAt)}`,
-      href: '/medications',
-      priority: overdue ? 0 : 3,
-      plannedAt: dose.plannedAt,
-      urgent: overdue,
+      href: '/medications', priority: overdue ? 0 : 3, plannedAt: dose.plannedAt, urgent: overdue,
     });
   }
-
   for (const item of snapshot.practices) {
     if (item.completion) continue;
     const overdue = new Date(item.plannedAt) < now;
     actions.push({
       id: `practice-${item.practice.id}`,
-      kind: 'practice',
-      item,
+      kind: 'practice', item,
       eyebrow: overdue ? 'PRÁTICA PENDENTE' : 'PRÓXIMA PRÁTICA',
       title: item.practice.title,
       detail: `${item.practice.targetMinutes} min · ${overdue ? 'prevista' : 'programada'} para ${timeLabel(item.plannedAt)}`,
-      href: '/routines',
-      priority: overdue ? 1 : 4,
-      plannedAt: item.plannedAt,
-      urgent: overdue,
+      href: '/routines', priority: overdue ? 1 : 4, plannedAt: item.plannedAt, urgent: overdue,
     });
   }
-
   if (!snapshot.latest || !sameLocalDay(snapshot.latest.occurredAt, now)) {
     actions.push({
-      id: 'check-in',
-      kind: 'navigation',
-      eyebrow: 'CHECK-IN DO DIA',
-      title: 'Como você está agora?',
-      detail: 'Um registro curto ajuda a construir seu resumo emocional de hoje.',
-      href: '/(tabs)/check-in',
-      priority: 2,
-      plannedAt: now.toISOString(),
-      urgent: false,
+      id: 'check-in', kind: 'navigation', eyebrow: 'CHECK-IN DO DIA', title: 'Como você está agora?',
+      detail: 'Um registro curto ajuda a construir seu resumo emocional de hoje.', href: '/(tabs)/check-in',
+      priority: 2, plannedAt: now.toISOString(), urgent: false,
     });
   }
-
   const appointment = snapshot.appointments.find((item) => item.status === 'scheduled');
   if (appointment) {
     actions.push({
-      id: `appointment-${appointment.id}`,
-      kind: 'navigation',
-      eyebrow: 'PRÓXIMA CONSULTA',
-      title: appointment.title,
-      detail: appointmentLabel(appointment.scheduledAt),
-      href: '/appointments',
-      priority: 5,
-      plannedAt: appointment.scheduledAt,
-      urgent: false,
+      id: `appointment-${appointment.id}`, kind: 'navigation', eyebrow: 'PRÓXIMA CONSULTA',
+      title: appointment.title, detail: appointmentLabel(appointment.scheduledAt), href: '/appointments',
+      priority: 5, plannedAt: appointment.scheduledAt, urgent: false,
     });
   }
-
   if (snapshot.lowStockCount > 0) {
     actions.push({
-      id: 'low-stock',
-      kind: 'navigation',
-      eyebrow: 'REPOSIÇÃO',
+      id: 'low-stock', kind: 'navigation', eyebrow: 'REPOSIÇÃO',
       title: `${snapshot.lowStockCount} medicamento${snapshot.lowStockCount === 1 ? '' : 's'} com estoque baixo`,
-      detail: 'Confira as quantidades antes que o tratamento seja interrompido.',
-      href: '/medications',
-      priority: 6,
-      plannedAt: now.toISOString(),
-      urgent: true,
+      detail: 'Confira as quantidades antes que o tratamento seja interrompido.', href: '/medications',
+      priority: 6, plannedAt: now.toISOString(), urgent: true,
     });
   }
-
   return actions.sort((a, b) => a.priority - b.priority || a.plannedAt.localeCompare(b.plannedAt));
 }
 
@@ -175,12 +141,12 @@ export default function HomeScreen() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [recentAction, setRecentAction] = useState<RecentAction | null>(null);
   const focusedRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     if (!hasLoadedOnce) setDataState('loading');
-
     try {
       const [checkIns, doses, practices, lowStock, appointments] = await Promise.all([
         listRecentCheckIns(session.user.id, 1),
@@ -208,7 +174,7 @@ export default function HomeScreen() {
     if (!session || action.kind === 'navigation' || busyActionId) return;
     setBusyActionId(action.id);
     setActionError(null);
-
+    setRecentAction(null);
     try {
       if (action.kind === 'medication') {
         const intake = await recordMedicationIntake(action.dose, 'taken', session.user.id);
@@ -217,21 +183,20 @@ export default function HomeScreen() {
           doses: current.doses.map((dose) => (
             dose.medication.id === action.dose.medication.id
             && dose.schedule.id === action.dose.schedule.id
-            && dose.plannedAt === action.dose.plannedAt
-              ? { ...dose, intake }
-              : dose
+            && dose.plannedAt === action.dose.plannedAt ? { ...dose, intake } : dose
           )),
         }));
+        setRecentAction({ kind: 'medication', action, recordId: intake.id });
       } else {
         const completion = await recordCarePracticeCompletion(action.item, 'completed', session.user.id);
         setSnapshot((current) => ({
           ...current,
           practices: current.practices.map((item) => (
             item.practice.id === action.item.practice.id && item.plannedAt === action.item.plannedAt
-              ? { ...item, completion }
-              : item
+              ? { ...item, completion } : item
           )),
         }));
+        setRecentAction({ kind: 'practice', action, recordId: completion.id });
       }
     } catch {
       setActionError('Não foi possível salvar esse registro agora. O item continua pendente e você pode tentar novamente.');
@@ -242,32 +207,56 @@ export default function HomeScreen() {
 
   const confirmQuickAction = useCallback((action: DailyAction) => {
     if (action.kind === 'navigation' || busyActionId) return;
-    const isMedication = action.kind === 'medication';
+    const medication = action.kind === 'medication';
     Alert.alert(
-      isMedication ? 'Confirmar tomada?' : 'Confirmar conclusão?',
-      isMedication
-        ? `Registrar ${action.title} como tomada agora?`
-        : `Registrar ${action.title} como concluída agora?`,
+      medication ? 'Confirmar tomada?' : 'Confirmar conclusão?',
+      medication ? `Registrar ${action.title} como tomada agora?` : `Registrar ${action.title} como concluída agora?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: isMedication ? 'Registrar tomada' : 'Registrar conclusão',
-          onPress: () => { void persistQuickAction(action); },
-        },
+        { text: medication ? 'Registrar tomada' : 'Registrar conclusão', onPress: () => { void persistQuickAction(action); } },
       ],
     );
   }, [busyActionId, persistQuickAction]);
 
-  const syncLabel = sync.status === 'syncing'
-    ? 'Sincronizando…'
-    : sync.status === 'offline'
-      ? 'Sem internet · salvo no aparelho'
-      : sync.status === 'error'
-        ? 'Sincronização pendente'
-        : sync.pending > 0
-          ? `${sync.pending} registro${sync.pending === 1 ? '' : 's'} aguardando envio`
-          : 'Dados sincronizados';
+  const undo = useCallback(async () => {
+    if (!session || !recentAction || busyActionId) return;
+    setBusyActionId(`undo-${recentAction.recordId}`);
+    setActionError(null);
+    try {
+      if (recentAction.kind === 'medication') {
+        await undoRecentAction({
+          kind: 'medication', recordId: recentAction.recordId, medicationId: recentAction.action.dose.medication.id,
+          userId: session.user.id, unitsPerIntake: recentAction.action.dose.medication.unitsPerIntake,
+        });
+        setSnapshot((current) => ({
+          ...current,
+          doses: current.doses.map((dose) => dose.medication.id === recentAction.action.dose.medication.id
+            && dose.schedule.id === recentAction.action.dose.schedule.id
+            && dose.plannedAt === recentAction.action.dose.plannedAt ? { ...dose, intake: null } : dose),
+        }));
+      } else {
+        await undoRecentAction({ kind: 'practice', recordId: recentAction.recordId, userId: session.user.id });
+        setSnapshot((current) => ({
+          ...current,
+          practices: current.practices.map((item) => item.practice.id === recentAction.action.item.practice.id
+            && item.plannedAt === recentAction.action.item.plannedAt ? { ...item, completion: null } : item),
+        }));
+      }
+      setRecentAction(null);
+    } catch (error) {
+      setRecentAction(null);
+      setActionError(error instanceof Error && error.message === 'recent_action_already_synced'
+        ? 'Esse registro já foi sincronizado e não pode mais ser desfeito por aqui. Abra a tela completa para revisar.'
+        : 'Não foi possível desfazer agora. O registro foi mantido.');
+    } finally {
+      setBusyActionId(null);
+    }
+  }, [busyActionId, recentAction, session]);
 
+  const syncLabel = sync.status === 'syncing' ? 'Sincronizando…'
+    : sync.status === 'offline' ? 'Sem internet · salvo no aparelho'
+      : sync.status === 'error' ? 'Sincronização pendente'
+        : sync.pending > 0 ? `${sync.pending} registro${sync.pending === 1 ? '' : 's'} aguardando envio` : 'Dados sincronizados';
   const medicationDone = snapshot.doses.filter((item) => item.intake?.status === 'taken').length;
   const practiceDone = snapshot.practices.filter((item) => item.completion?.status === 'completed').length;
   const careDone = medicationDone + practiceDone;
@@ -285,147 +274,57 @@ export default function HomeScreen() {
           <AppText variant="h1" testID="home-title">Olá, {profile?.displayName ?? 'por aí'} 🌿</AppText>
         </View>
         <View style={styles.headerActions}>
-          <Link href="/settings" asChild>
-            <Pressable testID="home-open-settings" accessibilityRole="button" style={styles.settingsButton}>
-              <AppText variant="caption" style={styles.settingsText}>Conta</AppText>
-            </Pressable>
-          </Link>
-          <Link href="/crisis" asChild>
-            <Pressable accessibilityRole="button" style={styles.helpButton}>
-              <AppText variant="caption" style={styles.helpText}>Preciso de apoio</AppText>
-            </Pressable>
-          </Link>
+          <Link href="/settings" asChild><Pressable testID="home-open-settings" accessibilityRole="button" style={styles.settingsButton}><AppText variant="caption" style={styles.settingsText}>Conta</AppText></Pressable></Link>
+          <Link href="/crisis" asChild><Pressable accessibilityRole="button" style={styles.helpButton}><AppText variant="caption" style={styles.helpText}>Preciso de apoio</AppText></Pressable></Link>
         </View>
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => void sync.syncNow()} style={styles.syncRow}>
-        <AppText variant="caption" style={styles.syncText}>{syncLabel}</AppText>
-        <AppText variant="caption" style={styles.syncAction}>Atualizar</AppText>
+        <AppText variant="caption" style={styles.syncText}>{syncLabel}</AppText><AppText variant="caption" style={styles.syncAction}>Atualizar</AppText>
       </Pressable>
 
-      {dataState === 'loading' ? (
-        <Surface style={styles.statusCard} testID="home-data-loading">
-          <AppText variant="bodyStrong">Preparando seu dia…</AppText>
-          <AppText variant="caption" muted>Organizando os próximos cuidados sem alterar seus registros.</AppText>
+      {dataState === 'loading' ? <Surface style={styles.statusCard} testID="home-data-loading"><AppText variant="bodyStrong">Preparando seu dia…</AppText><AppText variant="caption" muted>Organizando os próximos cuidados sem alterar seus registros.</AppText></Surface> : null}
+      {blockingError ? <Surface style={[styles.statusCard, styles.errorCard]} testID="home-data-error"><AppText variant="bodyStrong">Não foi possível carregar seu dia agora.</AppText><AppText variant="caption" muted>Seus registros não foram apagados. Tente novamente.</AppText><Pressable testID="home-retry-data" accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}><AppText variant="bodyStrong" style={styles.retryText}>Tentar novamente</AppText></Pressable></Surface> : null}
+      {refreshWarning ? <Pressable testID="home-data-refresh-warning" accessibilityRole="button" onPress={() => void load()} style={styles.warningRow}><AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último estado válido continua visível.</AppText><AppText variant="caption" style={styles.syncAction}>Tentar de novo</AppText></Pressable> : null}
+      {actionError ? <Surface style={[styles.statusCard, styles.errorCard]} testID="home-quick-action-error"><AppText variant="caption">{actionError}</AppText><Pressable accessibilityRole="button" onPress={() => setActionError(null)}><AppText variant="caption" style={styles.syncAction}>Fechar aviso</AppText></Pressable></Surface> : null}
+      {recentAction ? <Surface style={styles.undoCard} testID="home-recent-action-undo"><View style={styles.flex}><AppText variant="bodyStrong">Registro salvo.</AppText><AppText variant="caption" muted>{recentAction.kind === 'medication' ? 'A tomada foi registrada e o estoque atualizado.' : 'A prática foi registrada como concluída.'}</AppText></View><Pressable testID="home-undo-recent-action" accessibilityRole="button" disabled={Boolean(busyActionId)} onPress={() => void undo()}><AppText variant="bodyStrong" style={styles.undoText}>{busyActionId ? 'Desfazendo…' : 'Desfazer'}</AppText></Pressable></Surface> : null}
+
+      {!blockingError ? <>
+        <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
+          <AppText variant="caption" muted>SEU DIA AGORA</AppText>
+          <AppText variant="h2">{actions.length ? `${actions.length} ponto${actions.length === 1 ? '' : 's'} para acompanhar` : 'Tudo acompanhado por enquanto'}</AppText>
+          <AppText muted>{actions.length ? 'Comece pelo primeiro item e siga no seu ritmo.' : 'Você pode registrar como está quando fizer sentido.'}</AppText>
+          <View style={styles.heroActions}>
+            <Link href={actions[0]?.href ?? '/(tabs)/check-in'} asChild><Pressable testID="home-primary-action" style={styles.heroAction} accessibilityRole="button"><AppText variant="bodyStrong" style={styles.heroActionText}>{actions[0] ? 'Ver prioridade' : 'Fazer check-in'}</AppText></Pressable></Link>
+            <Link href="/(tabs)/check-in" asChild><Pressable testID="home-open-check-in" style={styles.secondaryHeroAction} accessibilityRole="button"><AppText variant="bodyStrong" style={styles.secondaryHeroActionText}>Check-in</AppText></Pressable></Link>
+          </View>
+        </LinearGradient>
+
+        <AppText variant="h2" style={styles.sectionTitle}>Próximos passos</AppText>
+        <Surface style={styles.timelineCard} testID="home-daily-actions">
+          {actions.length ? actions.map((action, index) => {
+            const supportsQuickAction = action.kind !== 'navigation';
+            const busy = busyActionId === action.id;
+            return <View key={action.id} style={[styles.actionRow, index > 0 && styles.actionDivider]}>
+              <View style={[styles.actionMarker, action.urgent && styles.actionMarkerUrgent]} />
+              <Link href={action.href} asChild><Pressable accessibilityRole="button" style={styles.actionContent}><AppText variant="caption" style={action.urgent ? styles.urgentText : styles.eyebrow}>{action.eyebrow}</AppText><AppText variant="bodyStrong">{action.title}</AppText><AppText variant="caption" muted>{action.detail}</AppText></Pressable></Link>
+              {supportsQuickAction ? <Pressable testID={`home-quick-${action.kind}-${action.id}`} accessibilityRole="button" accessibilityLabel={action.kind === 'medication' ? `Registrar tomada de ${action.title}` : `Registrar conclusão de ${action.title}`} disabled={Boolean(busyActionId)} onPress={() => confirmQuickAction(action)} style={[styles.quickButton, busyActionId && styles.quickButtonDisabled]}><AppText variant="caption" style={styles.quickButtonText}>{busy ? 'Salvando…' : action.kind === 'medication' ? 'Tomei' : 'Concluí'}</AppText></Pressable> : <AppText variant="bodyStrong" style={styles.chevron}>›</AppText>}
+            </View>;
+          }) : <View style={styles.emptyState}><AppText variant="bodyStrong">Nenhuma pendência identificada.</AppText><AppText variant="caption" muted>Isso considera apenas o que foi programado e registrado no aplicativo.</AppText></View>}
         </Surface>
-      ) : null}
 
-      {blockingError ? (
-        <Surface style={[styles.statusCard, styles.errorCard]} testID="home-data-error">
-          <AppText variant="bodyStrong">Não foi possível carregar seu dia agora.</AppText>
-          <AppText variant="caption" muted>Seus registros não foram apagados. Tente novamente.</AppText>
-          <Pressable testID="home-retry-data" accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
-            <AppText variant="bodyStrong" style={styles.retryText}>Tentar novamente</AppText>
-          </Pressable>
+        <AppText variant="h2" style={styles.sectionTitle}>Progresso de hoje</AppText>
+        <Surface style={styles.careCard}>
+          <AppText variant="display">{careDone}/{careTotal}</AppText><AppText variant="caption" muted>{careTotal ? 'cuidados registrados como realizados' : 'nenhum cuidado programado'}</AppText>
+          <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${careTotal ? Math.round((careDone / careTotal) * 100) : 0}%` }]} /></View>
+          <View style={styles.careLinks}><Link href="/medications" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">💊 Medicamentos</AppText><AppText variant="caption" muted>{medicationDone}/{snapshot.doses.length}</AppText></Pressable></Link><Link href="/routines" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">🌿 Práticas</AppText><AppText variant="caption" muted>{practiceDone}/{snapshot.practices.length}</AppText></Pressable></Link></View>
+          <View style={styles.careLinks}><Link href="/appointments" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{scheduledAppointments} próxima(s)</AppText></Pressable></Link><Link href="/medications" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{snapshot.lowStockCount} aviso(s)</AppText></Pressable></Link></View>
+          <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
         </Surface>
-      ) : null}
 
-      {refreshWarning ? (
-        <Pressable testID="home-data-refresh-warning" accessibilityRole="button" onPress={() => void load()} style={styles.warningRow}>
-          <AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último estado válido continua visível.</AppText>
-          <AppText variant="caption" style={styles.syncAction}>Tentar de novo</AppText>
-        </Pressable>
-      ) : null}
-
-      {actionError ? (
-        <Surface style={[styles.statusCard, styles.errorCard]} testID="home-quick-action-error">
-          <AppText variant="caption">{actionError}</AppText>
-          <Pressable accessibilityRole="button" onPress={() => setActionError(null)}>
-            <AppText variant="caption" style={styles.syncAction}>Fechar aviso</AppText>
-          </Pressable>
-        </Surface>
-      ) : null}
-
-      {!blockingError ? (
-        <>
-          <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
-            <AppText variant="caption" muted>SEU DIA AGORA</AppText>
-            <AppText variant="h2">{actions.length ? `${actions.length} ponto${actions.length === 1 ? '' : 's'} para acompanhar` : 'Tudo acompanhado por enquanto'}</AppText>
-            <AppText muted>{actions.length ? 'Comece pelo primeiro item e siga no seu ritmo.' : 'Você pode registrar como está quando fizer sentido.'}</AppText>
-            <View style={styles.heroActions}>
-              <Link href={actions[0]?.href ?? '/(tabs)/check-in'} asChild>
-                <Pressable testID="home-primary-action" style={styles.heroAction} accessibilityRole="button">
-                  <AppText variant="bodyStrong" style={styles.heroActionText}>{actions[0] ? 'Ver prioridade' : 'Fazer check-in'}</AppText>
-                </Pressable>
-              </Link>
-              <Link href="/(tabs)/check-in" asChild>
-                <Pressable testID="home-open-check-in" style={styles.secondaryHeroAction} accessibilityRole="button">
-                  <AppText variant="bodyStrong" style={styles.secondaryHeroActionText}>Check-in</AppText>
-                </Pressable>
-              </Link>
-            </View>
-          </LinearGradient>
-
-          <AppText variant="h2" style={styles.sectionTitle}>Próximos passos</AppText>
-          <Surface style={styles.timelineCard} testID="home-daily-actions">
-            {actions.length ? actions.map((action, index) => {
-              const supportsQuickAction = action.kind !== 'navigation';
-              const busy = busyActionId === action.id;
-              return (
-                <View key={action.id} style={[styles.actionRow, index > 0 && styles.actionDivider]}>
-                  <View style={[styles.actionMarker, action.urgent && styles.actionMarkerUrgent]} />
-                  <Link href={action.href} asChild>
-                    <Pressable accessibilityRole="button" style={styles.actionContent}>
-                      <AppText variant="caption" style={action.urgent ? styles.urgentText : styles.eyebrow}>{action.eyebrow}</AppText>
-                      <AppText variant="bodyStrong">{action.title}</AppText>
-                      <AppText variant="caption" muted>{action.detail}</AppText>
-                    </Pressable>
-                  </Link>
-                  {supportsQuickAction ? (
-                    <Pressable
-                      testID={`home-quick-${action.kind}-${action.id}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={action.kind === 'medication' ? `Registrar tomada de ${action.title}` : `Registrar conclusão de ${action.title}`}
-                      disabled={Boolean(busyActionId)}
-                      onPress={() => confirmQuickAction(action)}
-                      style={[styles.quickButton, busyActionId && styles.quickButtonDisabled]}
-                    >
-                      <AppText variant="caption" style={styles.quickButtonText}>{busy ? 'Salvando…' : action.kind === 'medication' ? 'Tomei' : 'Concluí'}</AppText>
-                    </Pressable>
-                  ) : (
-                    <AppText variant="bodyStrong" style={styles.chevron}>›</AppText>
-                  )}
-                </View>
-              );
-            }) : (
-              <View style={styles.emptyState}>
-                <AppText variant="bodyStrong">Nenhuma pendência identificada.</AppText>
-                <AppText variant="caption" muted>Isso considera apenas o que foi programado e registrado no aplicativo.</AppText>
-              </View>
-            )}
-          </Surface>
-
-          <AppText variant="h2" style={styles.sectionTitle}>Progresso de hoje</AppText>
-          <Surface style={styles.careCard}>
-            <AppText variant="display">{careDone}/{careTotal}</AppText>
-            <AppText variant="caption" muted>{careTotal ? 'cuidados registrados como realizados' : 'nenhum cuidado programado'}</AppText>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${careTotal ? Math.round((careDone / careTotal) * 100) : 0}%` }]} />
-            </View>
-            <View style={styles.careLinks}>
-              <Link href="/medications" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">💊 Medicamentos</AppText><AppText variant="caption" muted>{medicationDone}/{snapshot.doses.length}</AppText></Pressable></Link>
-              <Link href="/routines" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">🌿 Práticas</AppText><AppText variant="caption" muted>{practiceDone}/{snapshot.practices.length}</AppText></Pressable></Link>
-            </View>
-            <View style={styles.careLinks}>
-              <Link href="/appointments" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{scheduledAppointments} próxima(s)</AppText></Pressable></Link>
-              <Link href="/medications" asChild><Pressable style={styles.careLink}><AppText variant="bodyStrong">📦 Reposição</AppText><AppText variant="caption" muted>{snapshot.lowStockCount} aviso(s)</AppText></Pressable></Link>
-            </View>
-            <AppText variant="caption" muted>Não completar tudo não apaga o que você conseguiu fazer.</AppText>
-          </Surface>
-
-          <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
-          <Surface>
-            {snapshot.latest ? (
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryItem}><AppText variant="caption" muted>Último humor</AppText><AppText variant="bodyStrong">{moodLabel[snapshot.latest.mood]}</AppText></View>
-                <View style={styles.summaryItem}><AppText variant="caption" muted>Ansiedade</AppText><AppText variant="bodyStrong">{snapshot.latest.anxiety}/10</AppText></View>
-                <View style={styles.summaryItem}><AppText variant="caption" muted>Energia</AppText><AppText variant="bodyStrong">{snapshot.latest.energy}/10</AppText></View>
-              </View>
-            ) : <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>}
-          </Surface>
-        </>
-      ) : null}
-
+        <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
+        <Surface>{snapshot.latest ? <View style={styles.summaryGrid}><View style={styles.summaryItem}><AppText variant="caption" muted>Último humor</AppText><AppText variant="bodyStrong">{moodLabel[snapshot.latest.mood]}</AppText></View><View style={styles.summaryItem}><AppText variant="caption" muted>Ansiedade</AppText><AppText variant="bodyStrong">{snapshot.latest.anxiety}/10</AppText></View><View style={styles.summaryItem}><AppText variant="caption" muted>Energia</AppText><AppText variant="bodyStrong">{snapshot.latest.energy}/10</AppText></View></View> : <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>}</Surface>
+      </> : null}
       <AppText variant="caption" muted style={styles.signature}>Tehkné Solutions</AppText>
     </Screen>
   );
@@ -433,47 +332,24 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.xl },
-  flex: { flex: 1 },
-  headerActions: { gap: spacing.sm, alignItems: 'flex-end' },
-  settingsButton: { backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  settingsText: { color: colors.primaryStrong },
-  helpButton: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  helpText: { color: colors.danger },
-  syncRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.sm },
-  syncText: { color: colors.textMuted },
-  syncAction: { color: colors.primaryStrong, fontWeight: '700' },
-  statusCard: { gap: spacing.sm, marginBottom: spacing.md },
-  errorCard: { backgroundColor: colors.dangerSoft },
-  retryButton: { alignSelf: 'flex-start', backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  retryText: { color: colors.white },
-  warningRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.sand, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
-  warningText: { color: colors.text, flex: 1 },
-  hero: { borderRadius: radius.lg, padding: spacing.xl, gap: spacing.sm },
-  heroActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
-  heroAction: { backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  heroActionText: { color: colors.white },
-  secondaryHeroAction: { backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  secondaryHeroActionText: { color: colors.primaryStrong },
-  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
-  timelineCard: { paddingVertical: spacing.sm },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-  actionMarker: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.primaryStrong },
-  actionMarkerUrgent: { backgroundColor: colors.danger },
-  actionContent: { flex: 1, gap: spacing.xs },
-  eyebrow: { color: colors.primaryStrong, fontWeight: '700' },
-  urgentText: { color: colors.danger, fontWeight: '700' },
-  quickButton: { minWidth: 72, alignItems: 'center', backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  quickButtonDisabled: { opacity: 0.55 },
-  quickButtonText: { color: colors.white, fontWeight: '700' },
-  chevron: { color: colors.textMuted, fontSize: 24 },
-  emptyState: { gap: spacing.sm, paddingVertical: spacing.md },
-  careCard: { gap: spacing.lg },
-  progressTrack: { height: 8, backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.primaryStrong, borderRadius: radius.pill },
-  careLinks: { flexDirection: 'row', gap: spacing.md },
-  careLink: { flex: 1, gap: spacing.xs, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
-  summaryGrid: { flexDirection: 'row', gap: spacing.md },
-  summaryItem: { flex: 1, gap: spacing.xs },
-  signature: { textAlign: 'center', marginTop: spacing.xxxl, marginBottom: spacing.xl },
+  flex: { flex: 1 }, headerActions: { gap: spacing.sm, alignItems: 'flex-end' },
+  settingsButton: { backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, settingsText: { color: colors.primaryStrong },
+  helpButton: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, helpText: { color: colors.danger },
+  syncRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.sm }, syncText: { color: colors.textMuted }, syncAction: { color: colors.primaryStrong, fontWeight: '700' },
+  statusCard: { gap: spacing.sm, marginBottom: spacing.md }, errorCard: { backgroundColor: colors.dangerSoft },
+  retryButton: { alignSelf: 'flex-start', backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }, retryText: { color: colors.white },
+  warningRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.sand, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md }, warningText: { color: colors.text, flex: 1 },
+  undoCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md, backgroundColor: colors.primarySoft }, undoText: { color: colors.primaryStrong },
+  hero: { borderRadius: radius.lg, padding: spacing.xl, gap: spacing.sm }, heroActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  heroAction: { backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }, heroActionText: { color: colors.white },
+  secondaryHeroAction: { backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }, secondaryHeroActionText: { color: colors.primaryStrong },
+  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md }, timelineCard: { paddingVertical: spacing.sm },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md }, actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  actionMarker: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.primaryStrong }, actionMarkerUrgent: { backgroundColor: colors.danger }, actionContent: { flex: 1, gap: spacing.xs },
+  eyebrow: { color: colors.primaryStrong, fontWeight: '700' }, urgentText: { color: colors.danger, fontWeight: '700' },
+  quickButton: { minWidth: 72, alignItems: 'center', backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, quickButtonDisabled: { opacity: 0.55 }, quickButtonText: { color: colors.white, fontWeight: '700' },
+  chevron: { color: colors.textMuted, fontSize: 24 }, emptyState: { gap: spacing.sm, paddingVertical: spacing.md }, careCard: { gap: spacing.lg },
+  progressTrack: { height: 8, backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, overflow: 'hidden' }, progressFill: { height: '100%', backgroundColor: colors.primaryStrong, borderRadius: radius.pill },
+  careLinks: { flexDirection: 'row', gap: spacing.md }, careLink: { flex: 1, gap: spacing.xs, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
+  summaryGrid: { flexDirection: 'row', gap: spacing.md }, summaryItem: { flex: 1, gap: spacing.xs }, signature: { textAlign: 'center', marginTop: spacing.xxxl, marginBottom: spacing.xl },
 });
