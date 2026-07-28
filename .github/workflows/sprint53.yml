@@ -1,0 +1,30 @@
+name: Sprint 53
+
+on:
+  pull_request:
+    paths:
+      - 'governance/cycle-0.12/human-review-session-start-authorization.policy.json'
+      - 'scripts/cycle012-human-review-session-start-authorization.mjs'
+      - 'scripts/test-cycle012-human-review-session-start-authorization.mjs'
+      - 'scripts/verify-sprint53-readiness.mjs'
+      - 'docs/sprint-53-human-review-session-start-authorization.md'
+      - 'docs/adr/057-human-review-session-start-authorization.md'
+      - '.github/workflows/sprint53.yml'
+
+jobs:
+  sprint53-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run config:check
+      - run: npm run security:check
+      - run: npm run release:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: node scripts/verify-sprint53-readiness.mjs
+      - run: node scripts/test-cycle012-human-review-session-start-authorization.mjs
