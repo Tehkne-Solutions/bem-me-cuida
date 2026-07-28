@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0.0",
+  "cycle": "0.12.0",
+  "artifactType": "human-review-session-execution-record-validation-policy",
+  "allowedClassifications": [
+    "current-and-compatible",
+    "stale-execution-package-validation",
+    "duplicate-record",
+    "conflicting-record",
+    "incomplete-record",
+    "invalid-decision",
+    "evidence-divergence",
+    "source-record-missing",
+    "invalid-record-reference",
+    "forbidden-operational-content"
+  ],
+  "requiredSections": [
+    "sessionIdentity",
+    "participants",
+    "responses",
+    "reviewChecklistResults",
+    "evidenceRecords",
+    "decisionRecord",
+    "closureRecord",
+    "references"
+  ],
+  "allowedOutcomes": [
+    "approved-administratively",
+    "approved-with-follow-up",
+    "changes-required",
+    "inconclusive",
+    "cancelled"
+  ],
+  "forbiddenTokens": [
+    "diff --git",
+    "BEGIN PATCH",
+    "replacementContent",
+    "migrationSql",
+    "supabase db push",
+    "git apply",
+    "npm run deploy",
+    "eas submit"
+  ],
+  "controls": {
+    "validationAllowed": true,
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  }
+}
