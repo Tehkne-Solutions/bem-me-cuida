@@ -2,6 +2,7 @@ import { getDatabase } from '@/data/database';
 
 export type RecentActivityKind = 'medication' | 'practice' | 'check_in';
 export type RecentActivityHref = '/medications' | '/routines' | '/(tabs)/check-in';
+export type ActivityFilterKind = 'all' | RecentActivityKind;
 
 export type RecentActivity = {
   id: string;
@@ -11,6 +12,19 @@ export type RecentActivity = {
   occurredAt: string;
   synced: boolean;
   href: RecentActivityHref;
+};
+
+export type ActivityPageOptions = {
+  limit?: number;
+  offset?: number;
+  kind?: ActivityFilterKind;
+  query?: string;
+  since?: string | null;
+};
+
+export type ActivityPage = {
+  items: RecentActivity[];
+  hasMore: boolean;
 };
 
 type ActivityRow = {
@@ -36,61 +50,8 @@ function hrefFor(kind: RecentActivityKind): RecentActivityHref {
   return '/(tabs)/check-in';
 }
 
-export async function listRecentActivities(userId: string, limit = 6): Promise<RecentActivity[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<ActivityRow>(
-    `SELECT * FROM (
-      SELECT
-        i.id AS id,
-        'medication' AS kind,
-        m.name AS title,
-        CASE WHEN i.status = 'taken'
-          THEN m.dosage_text
-          ELSE 'Dose registrada como não tomada'
-        END AS detail,
-        COALESCE(i.occurred_at, i.updated_at) AS occurred_at,
-        i.synced_at AS synced_at
-      FROM medication_intakes i
-      INNER JOIN medications m ON m.id = i.medication_id AND m.user_id = i.user_id
-      WHERE i.user_id = ? AND i.deleted_at IS NULL AND m.deleted_at IS NULL
-
-      UNION ALL
-
-      SELECT
-        c.id AS id,
-        'practice' AS kind,
-        p.title AS title,
-        CASE WHEN c.status = 'completed'
-          THEN CAST(p.target_minutes AS TEXT) || ' min concluídos'
-          ELSE 'Prática registrada como não concluída'
-        END AS detail,
-        COALESCE(c.completed_at, c.updated_at) AS occurred_at,
-        c.synced_at AS synced_at
-      FROM care_practice_completions c
-      INNER JOIN care_practices p ON p.id = c.practice_id AND p.user_id = c.user_id
-      WHERE c.user_id = ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
-
-      UNION ALL
-
-      SELECT
-        id,
-        'check_in' AS kind,
-        'Check-in emocional' AS title,
-        mood AS detail,
-        occurred_at,
-        synced_at
-      FROM mood_checkins
-      WHERE user_id = ? AND deleted_at IS NULL
-    ) activity
-    ORDER BY occurred_at DESC
-    LIMIT ?;`,
-    userId,
-    userId,
-    userId,
-    Math.max(1, limit),
-  );
-
-  return rows.map((row) => ({
+function mapActivity(row: ActivityRow): RecentActivity {
+  return {
     id: row.id,
     kind: row.kind,
     title: row.title,
@@ -98,5 +59,93 @@ export async function listRecentActivities(userId: string, limit = 6): Promise<R
     occurredAt: row.occurred_at,
     synced: Boolean(row.synced_at),
     href: hrefFor(row.kind),
-  }));
+  };
+}
+
+const activityUnion = `
+  SELECT * FROM (
+    SELECT
+      i.id AS id,
+      'medication' AS kind,
+      m.name AS title,
+      CASE WHEN i.status = 'taken'
+        THEN m.dosage_text
+        ELSE 'Dose registrada como não tomada'
+      END AS detail,
+      COALESCE(i.occurred_at, i.updated_at) AS occurred_at,
+      i.synced_at AS synced_at
+    FROM medication_intakes i
+    INNER JOIN medications m ON m.id = i.medication_id AND m.user_id = i.user_id
+    WHERE i.user_id = ? AND i.deleted_at IS NULL AND m.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+      c.id AS id,
+      'practice' AS kind,
+      p.title AS title,
+      CASE WHEN c.status = 'completed'
+        THEN CAST(p.target_minutes AS TEXT) || ' min concluídos'
+        ELSE 'Prática registrada como não concluída'
+      END AS detail,
+      COALESCE(c.completed_at, c.updated_at) AS occurred_at,
+      c.synced_at AS synced_at
+    FROM care_practice_completions c
+    INNER JOIN care_practices p ON p.id = c.practice_id AND p.user_id = c.user_id
+    WHERE c.user_id = ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+      id,
+      'check_in' AS kind,
+      'Check-in emocional' AS title,
+      mood AS detail,
+      occurred_at,
+      synced_at
+    FROM mood_checkins
+    WHERE user_id = ? AND deleted_at IS NULL
+  ) activity
+`;
+
+export async function listActivityPage(userId: string, options: ActivityPageOptions = {}): Promise<ActivityPage> {
+  const db = await getDatabase();
+  const limit = Math.min(50, Math.max(1, options.limit ?? 20));
+  const offset = Math.max(0, options.offset ?? 0);
+  const kind = options.kind ?? 'all';
+  const normalizedQuery = options.query?.trim().toLocaleLowerCase('pt-BR') ?? '';
+  const clauses: string[] = [];
+  const params: Array<string | number> = [userId, userId, userId];
+
+  if (kind !== 'all') {
+    clauses.push('kind = ?');
+    params.push(kind);
+  }
+  if (options.since) {
+    clauses.push('occurred_at >= ?');
+    params.push(options.since);
+  }
+  if (normalizedQuery) {
+    clauses.push('(LOWER(title) LIKE ? OR LOWER(detail) LIKE ?)');
+    const pattern = `%${normalizedQuery}%`;
+    params.push(pattern, pattern);
+  }
+
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+  const rows = await db.getAllAsync<ActivityRow>(
+    `${activityUnion} ${where} ORDER BY occurred_at DESC LIMIT ? OFFSET ?;`,
+    ...params,
+    limit + 1,
+    offset,
+  );
+
+  return {
+    items: rows.slice(0, limit).map(mapActivity),
+    hasMore: rows.length > limit,
+  };
+}
+
+export async function listRecentActivities(userId: string, limit = 6): Promise<RecentActivity[]> {
+  const page = await listActivityPage(userId, { limit });
+  return page.items;
 }
