@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "kind": "human-review-session-start-authorization-policy",
+  "eligibleSourceClassification": "current-and-compatible",
+  "allowedDecision": "authorize-human-review-session-start",
+  "controls": {
+    "sessionStartAuthorizationRecordingAllowed": true,
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  },
+  "requiredFields": ["reviewer", "decidedAt", "rationale", "sessionPackageId", "sessionPackageValidationCommit"]
+}
