@@ -1,18 +1,22 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import type { CheckIn } from '@bemmecuida/domain';
+import type { Appointment, CheckIn } from '@bemmecuida/domain';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
 import { Surface } from '@/components/Surface';
-import { listTodayCarePractices } from '@/data/care-practice-repository';
-import { listRecentCheckIns } from '@/data/check-in-repository';
-import { listLowStockMedications, listTodayMedicationDoses } from '@/data/medication-repository';
 import { listAppointments } from '@/data/care-management-repository';
+import { listTodayCarePractices, type TodayCarePractice } from '@/data/care-practice-repository';
+import { listRecentCheckIns } from '@/data/check-in-repository';
+import {
+  listLowStockMedications,
+  listTodayMedicationDoses,
+  type TodayMedicationDose,
+} from '@/data/medication-repository';
 import { useSync } from '@/sync/SyncProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -34,6 +38,25 @@ type CareSummary = {
 };
 
 type HomeDataState = 'loading' | 'ready' | 'error';
+type DailyActionHref = '/medications' | '/routines' | '/appointments' | '/(tabs)/check-in';
+type DailyAction = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  detail: string;
+  href: DailyActionHref;
+  priority: number;
+  plannedAt: string;
+  tone: 'urgent' | 'next' | 'neutral';
+};
+
+type HomeSnapshot = {
+  latest: CheckIn | null;
+  doses: TodayMedicationDose[];
+  practices: TodayCarePractice[];
+  lowStockCount: number;
+  appointments: Appointment[];
+};
 
 const emptyCareSummary: CareSummary = {
   medicationTotal: 0,
@@ -44,10 +67,115 @@ const emptyCareSummary: CareSummary = {
   upcomingAppointments: 0,
 };
 
+const emptySnapshot: HomeSnapshot = {
+  latest: null,
+  doses: [],
+  practices: [],
+  lowStockCount: 0,
+  appointments: [],
+};
+
+function isSameLocalDay(iso: string, reference = new Date()): boolean {
+  const value = new Date(iso);
+  return value.getFullYear() === reference.getFullYear()
+    && value.getMonth() === reference.getMonth()
+    && value.getDate() === reference.getDate();
+}
+
+function formatTime(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+}
+
+function formatAppointment(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+function buildDailyActions(snapshot: HomeSnapshot, now = new Date()): DailyAction[] {
+  const actions: DailyAction[] = [];
+
+  for (const dose of snapshot.doses) {
+    if (dose.intake) continue;
+    const overdue = new Date(dose.plannedAt) < now;
+    actions.push({
+      id: `medication-${dose.medication.id}-${dose.schedule.id}`,
+      eyebrow: overdue ? 'MEDICAÇÃO ATRASADA' : 'PRÓXIMA MEDICAÇÃO',
+      title: `${dose.medication.name} · ${dose.medication.dosageText}`,
+      detail: `${overdue ? 'Prevista' : 'Programada'} para ${formatTime(dose.plannedAt)}`,
+      href: '/medications',
+      priority: overdue ? 0 : 3,
+      plannedAt: dose.plannedAt,
+      tone: overdue ? 'urgent' : 'next',
+    });
+  }
+
+  for (const item of snapshot.practices) {
+    if (item.completion) continue;
+    const overdue = new Date(item.plannedAt) < now;
+    actions.push({
+      id: `practice-${item.practice.id}`,
+      eyebrow: overdue ? 'PRÁTICA PENDENTE' : 'PRÓXIMA PRÁTICA',
+      title: item.practice.title,
+      detail: `${item.practice.targetMinutes} min · ${overdue ? 'prevista' : 'programada'} para ${formatTime(item.plannedAt)}`,
+      href: '/routines',
+      priority: overdue ? 1 : 4,
+      plannedAt: item.plannedAt,
+      tone: overdue ? 'urgent' : 'next',
+    });
+  }
+
+  if (!snapshot.latest || !isSameLocalDay(snapshot.latest.occurredAt, now)) {
+    actions.push({
+      id: 'daily-check-in',
+      eyebrow: 'CHECK-IN DO DIA',
+      title: 'Como você está agora?',
+      detail: 'Um registro curto ajuda a construir seu resumo emocional de hoje.',
+      href: '/(tabs)/check-in',
+      priority: 2,
+      plannedAt: now.toISOString(),
+      tone: 'neutral',
+    });
+  }
+
+  const appointment = snapshot.appointments.find((item) => item.status === 'scheduled');
+  if (appointment) {
+    actions.push({
+      id: `appointment-${appointment.id}`,
+      eyebrow: 'PRÓXIMA CONSULTA',
+      title: appointment.title,
+      detail: formatAppointment(appointment.scheduledAt),
+      href: '/appointments',
+      priority: 5,
+      plannedAt: appointment.scheduledAt,
+      tone: 'neutral',
+    });
+  }
+
+  if (snapshot.lowStockCount > 0) {
+    actions.push({
+      id: 'low-stock',
+      eyebrow: 'REPOSIÇÃO',
+      title: `${snapshot.lowStockCount} medicamento${snapshot.lowStockCount === 1 ? '' : 's'} com estoque baixo`,
+      detail: 'Confira as quantidades antes que o tratamento seja interrompido.',
+      href: '/medications',
+      priority: 6,
+      plannedAt: now.toISOString(),
+      tone: 'urgent',
+    });
+  }
+
+  return actions.sort((a, b) => a.priority - b.priority || a.plannedAt.localeCompare(b.plannedAt));
+}
+
 export default function HomeScreen() {
   const { session, profile } = useAuth();
   const sync = useSync();
-  const [latest, setLatest] = useState<CheckIn | null>(null);
+  const [snapshot, setSnapshot] = useState<HomeSnapshot>(emptySnapshot);
   const [care, setCare] = useState<CareSummary>(emptyCareSummary);
   const [dataState, setDataState] = useState<HomeDataState>('loading');
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -55,7 +183,6 @@ export default function HomeScreen() {
 
   const loadHomeData = useCallback(async () => {
     if (!session) return;
-
     if (!hasLoadedOnce) setDataState('loading');
 
     try {
@@ -69,7 +196,8 @@ export default function HomeScreen() {
 
       if (!focusedRef.current) return;
 
-      setLatest(checkIns[0] ?? null);
+      const latest = checkIns[0] ?? null;
+      setSnapshot({ latest, doses, practices, lowStockCount: lowStock.length, appointments });
       setCare({
         medicationTotal: doses.length,
         medicationDone: doses.filter((item) => item.intake?.status === 'taken').length,
@@ -89,10 +217,7 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     focusedRef.current = true;
     void loadHomeData();
-
-    return () => {
-      focusedRef.current = false;
-    };
+    return () => { focusedRef.current = false; };
   }, [loadHomeData, sync.lastSuccessAt]));
 
   const syncLabel = sync.status === 'syncing'
@@ -107,6 +232,7 @@ export default function HomeScreen() {
 
   const careTotal = care.medicationTotal + care.practiceTotal;
   const careDone = care.medicationDone + care.practiceDone;
+  const dailyActions = buildDailyActions(snapshot).slice(0, 5);
   const showBlockingError = dataState === 'error' && !hasLoadedOnce;
   const showRefreshWarning = dataState === 'error' && hasLoadedOnce;
 
@@ -138,14 +264,14 @@ export default function HomeScreen() {
 
       {dataState === 'loading' ? (
         <Surface style={styles.statusCard} testID="home-data-loading">
-          <AppText variant="bodyStrong">Preparando seu resumo…</AppText>
-          <AppText variant="caption" muted>Os registros continuam salvos enquanto organizamos os dados desta tela.</AppText>
+          <AppText variant="bodyStrong">Preparando seu dia…</AppText>
+          <AppText variant="caption" muted>Organizando os próximos cuidados sem alterar seus registros.</AppText>
         </Surface>
       ) : null}
 
       {showBlockingError ? (
         <Surface style={[styles.statusCard, styles.errorCard]} testID="home-data-error">
-          <AppText variant="bodyStrong">Não foi possível carregar seu resumo agora.</AppText>
+          <AppText variant="bodyStrong">Não foi possível carregar seu dia agora.</AppText>
           <AppText variant="caption" muted>Seus registros não foram apagados. Tente novamente para ler os dados salvos no aparelho.</AppText>
           <Pressable testID="home-retry-data" accessibilityRole="button" onPress={() => void loadHomeData()} style={styles.retryButton}>
             <AppText variant="bodyStrong" style={styles.retryText}>Tentar novamente</AppText>
@@ -155,7 +281,7 @@ export default function HomeScreen() {
 
       {showRefreshWarning ? (
         <Pressable testID="home-data-refresh-warning" accessibilityRole="button" onPress={() => void loadHomeData()} style={styles.warningRow}>
-          <AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último resumo válido continua visível.</AppText>
+          <AppText variant="caption" style={styles.warningText}>Não conseguimos atualizar agora. O último estado válido continua visível.</AppText>
           <AppText variant="caption" style={styles.syncAction}>Tentar de novo</AppText>
         </Pressable>
       ) : null}
@@ -163,16 +289,39 @@ export default function HomeScreen() {
       {!showBlockingError ? (
         <>
           <LinearGradient colors={[colors.primarySoft, colors.sky]} style={styles.hero}>
-            <AppText variant="h2">Como você está agora?</AppText>
-            <AppText muted>Um registro curto pode ajudar a perceber seu momento com mais clareza.</AppText>
-            <Link href="/(tabs)/check-in" asChild>
-              <Pressable testID="home-open-check-in" style={styles.heroAction} accessibilityRole="button">
-                <AppText variant="bodyStrong" style={styles.heroActionText}>Fazer check-in</AppText>
+            <AppText variant="caption" muted>SEU DIA AGORA</AppText>
+            <AppText variant="h2">{dailyActions.length ? `${dailyActions.length} ponto${dailyActions.length === 1 ? '' : 's'} para acompanhar` : 'Tudo acompanhado por enquanto'}</AppText>
+            <AppText muted>{dailyActions.length ? 'Comece pelo primeiro item e siga no seu ritmo.' : 'Você pode fazer um check-in quando sentir que faz sentido.'}</AppText>
+            <Link href={dailyActions[0]?.href ?? '/(tabs)/check-in'} asChild>
+              <Pressable testID="home-primary-action" style={styles.heroAction} accessibilityRole="button">
+                <AppText variant="bodyStrong" style={styles.heroActionText}>{dailyActions[0] ? 'Ver prioridade' : 'Fazer check-in'}</AppText>
               </Pressable>
             </Link>
           </LinearGradient>
 
-          <AppText variant="h2" style={styles.sectionTitle}>Cuidados de hoje</AppText>
+          <AppText variant="h2" style={styles.sectionTitle}>Próximos passos</AppText>
+          <Surface style={styles.timelineCard} testID="home-daily-actions">
+            {dailyActions.length ? dailyActions.map((action, index) => (
+              <Link key={action.id} href={action.href} asChild>
+                <Pressable accessibilityRole="button" style={[styles.actionRow, index > 0 && styles.actionDivider]}>
+                  <View style={[styles.actionMarker, action.tone === 'urgent' && styles.actionMarkerUrgent, action.tone === 'next' && styles.actionMarkerNext]} />
+                  <View style={styles.flex}>
+                    <AppText variant="caption" style={action.tone === 'urgent' ? styles.urgentText : styles.eyebrow}>{action.eyebrow}</AppText>
+                    <AppText variant="bodyStrong">{action.title}</AppText>
+                    <AppText variant="caption" muted>{action.detail}</AppText>
+                  </View>
+                  <AppText variant="bodyStrong" style={styles.chevron}>›</AppText>
+                </Pressable>
+              </Link>
+            )) : (
+              <View style={styles.emptyState}>
+                <AppText variant="bodyStrong">Nenhuma pendência identificada.</AppText>
+                <AppText variant="caption" muted>Isso considera apenas o que foi programado e registrado no aplicativo.</AppText>
+              </View>
+            )}
+          </Surface>
+
+          <AppText variant="h2" style={styles.sectionTitle}>Progresso de hoje</AppText>
           <Surface style={styles.careCard}>
             <View style={styles.rowBetween}>
               <View>
@@ -184,18 +333,8 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.careLinks}>
-              <Link href="/medications" asChild>
-                <Pressable style={styles.careLink} accessibilityRole="button">
-                  <AppText variant="bodyStrong">💊 Medicamentos</AppText>
-                  <AppText variant="caption" muted>{care.medicationDone}/{care.medicationTotal}</AppText>
-                </Pressable>
-              </Link>
-              <Link href="/routines" asChild>
-                <Pressable style={styles.careLink} accessibilityRole="button">
-                  <AppText variant="bodyStrong">🌿 Práticas</AppText>
-                  <AppText variant="caption" muted>{care.practiceDone}/{care.practiceTotal}</AppText>
-                </Pressable>
-              </Link>
+              <Link href="/medications" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">💊 Medicamentos</AppText><AppText variant="caption" muted>{care.medicationDone}/{care.medicationTotal}</AppText></Pressable></Link>
+              <Link href="/routines" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">🌿 Práticas</AppText><AppText variant="caption" muted>{care.practiceDone}/{care.practiceTotal}</AppText></Pressable></Link>
             </View>
             <View style={styles.careLinks}>
               <Link href="/appointments" asChild><Pressable style={styles.careLink} accessibilityRole="button"><AppText variant="bodyStrong">🗓️ Consultas</AppText><AppText variant="caption" muted>{care.upcomingAppointments} próxima(s)</AppText></Pressable></Link>
@@ -206,24 +345,13 @@ export default function HomeScreen() {
 
           <AppText variant="h2" style={styles.sectionTitle}>Resumo emocional</AppText>
           <Surface>
-            {latest ? (
+            {snapshot.latest ? (
               <View style={styles.summaryGrid}>
-                <View style={styles.summaryItem}>
-                  <AppText variant="caption" muted>Último humor</AppText>
-                  <AppText variant="bodyStrong">{moodLabel[latest.mood]}</AppText>
-                </View>
-                <View style={styles.summaryItem}>
-                  <AppText variant="caption" muted>Ansiedade</AppText>
-                  <AppText variant="bodyStrong">{latest.anxiety}/10</AppText>
-                </View>
-                <View style={styles.summaryItem}>
-                  <AppText variant="caption" muted>Energia</AppText>
-                  <AppText variant="bodyStrong">{latest.energy}/10</AppText>
-                </View>
+                <View style={styles.summaryItem}><AppText variant="caption" muted>Último humor</AppText><AppText variant="bodyStrong">{moodLabel[snapshot.latest.mood]}</AppText></View>
+                <View style={styles.summaryItem}><AppText variant="caption" muted>Ansiedade</AppText><AppText variant="bodyStrong">{snapshot.latest.anxiety}/10</AppText></View>
+                <View style={styles.summaryItem}><AppText variant="caption" muted>Energia</AppText><AppText variant="bodyStrong">{snapshot.latest.energy}/10</AppText></View>
               </View>
-            ) : (
-              <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>
-            )}
+            ) : <AppText muted>Seu primeiro resumo aparecerá depois de um check-in.</AppText>}
           </Surface>
         </>
       ) : null}
@@ -254,6 +382,16 @@ const styles = StyleSheet.create({
   heroAction: { alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.primaryStrong, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   heroActionText: { color: colors.white },
   sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
+  timelineCard: { paddingVertical: spacing.sm },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  actionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  actionMarker: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.textMuted },
+  actionMarkerUrgent: { backgroundColor: colors.danger },
+  actionMarkerNext: { backgroundColor: colors.primaryStrong },
+  eyebrow: { color: colors.primaryStrong, fontWeight: '700' },
+  urgentText: { color: colors.danger, fontWeight: '700' },
+  chevron: { color: colors.textMuted, fontSize: 24 },
+  emptyState: { gap: spacing.sm, paddingVertical: spacing.md },
   careCard: { gap: spacing.lg },
   rowBetween: { gap: spacing.md },
   progressTrack: { height: 8, backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, overflow: 'hidden' },
