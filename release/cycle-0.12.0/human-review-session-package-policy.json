@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "cycle": "0.12.0",
+  "requiredRecordClassification": "current-and-compatible",
+  "packageKind": "human-review-session-package",
+  "allowedSections": [
+    "context",
+    "references",
+    "reviewQuestions",
+    "reviewChecklist",
+    "decisionFields",
+    "riskNotes"
+  ],
+  "requiredChecklist": [
+    "reviewer-identity-confirmed",
+    "references-current",
+    "scope-understood",
+    "risks-reviewed",
+    "no-operational-content-present"
+  ],
+  "allowedDecisionFields": [
+    "reviewOutcome",
+    "reviewNotes",
+    "followUpRequired",
+    "reviewedAt"
+  ],
+  "controls": {
+    "sessionPackageGenerationAllowed": true,
+    "reviewSessionExecutionAllowed": false,
+    "functionalBranchCreationAllowed": false,
+    "pullRequestOpeningAllowed": false,
+    "patchGenerationAllowed": false,
+    "sourceMutationAllowed": false,
+    "executionAllowed": false,
+    "correctionAuthorized": false,
+    "mergeAllowed": false,
+    "activationAllowed": false,
+    "humanReviewRequired": true
+  },
+  "forbiddenContent": [
+    "patch",
+    "diff",
+    "replacementContent",
+    "commands",
+    "migrationSql",
+    "credentials",
+    "executableInstructions"
+  ]
+}
