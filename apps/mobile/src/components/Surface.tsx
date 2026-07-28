@@ -1,14 +1,21 @@
 import type { PropsWithChildren } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewProps } from 'react-native';
 
 import { useAppAccessibility } from '@/accessibility/AccessibilityProvider';
 import { colors, radius, spacing } from '@/theme/tokens';
 
-type Props = PropsWithChildren<{ style?: StyleProp<ViewStyle> }>;
+type Props = PropsWithChildren<ViewProps>;
 
-export function Surface({ children, style }: Props) {
+export function Surface({ children, style, ...viewProps }: Props) {
   const { preferences } = useAppAccessibility();
-  return <View style={[styles.surface, preferences.highContrast && styles.highContrast, style]}>{children}</View>;
+  return (
+    <View
+      {...viewProps}
+      style={[styles.surface, preferences.highContrast && styles.highContrast, style]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
