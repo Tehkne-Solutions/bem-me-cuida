@@ -1,6 +1,7 @@
 name: Sprint 53
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'governance/cycle-0.12/human-review-session-start-authorization.policy.json'
@@ -10,15 +11,26 @@ on:
       - 'docs/sprint-53-human-review-session-start-authorization.md'
       - 'docs/adr/057-human-review-session-start-authorization.md'
       - '.github/workflows/sprint53.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   sprint53-quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_VARIANT: development
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.13.1
       - run: npm install
       - run: npm run config:check
       - run: npm run security:check
