@@ -2,22 +2,21 @@ name: Sprint 63
 
 on:
   pull_request:
-    paths:
-      - 'governance/cycle-0.12/administrative-closure-package-policy.json'
-      - 'scripts/generate-cycle012-administrative-closure-package.mjs'
-      - 'scripts/test-cycle012-administrative-closure-package.mjs'
-      - 'scripts/verify-sprint63-readiness.mjs'
-      - 'docs/governance/sprint-63-administrative-closure-package.md'
-      - 'docs/adr/067-cycle-012-administrative-closure-package.md'
-      - '.github/workflows/sprint63.yml'
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  APP_VARIANT: development
+  EXPO_PUBLIC_APP_ENV: development
+  EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
 
 jobs:
   sprint63-quality:
     runs-on: ubuntu-latest
-    env:
-      NODE_ENV: development
-      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: example-anon-key
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
