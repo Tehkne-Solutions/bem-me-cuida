@@ -15,14 +15,14 @@ export function validateExecutionRecord({ record, records = [], currentExecution
   if (policy.requiredSections.some((section) => record[section] == null)) return result('incomplete-record');
   if (!policy.allowedOutcomes.includes(record.decisionRecord?.outcome)) return result('invalid-decision');
 
+  const evidenceIds = record.evidenceRecords.map((evidence) => evidence.evidenceId);
+  if (new Set(evidenceIds).size !== evidenceIds.length) return result('evidence-divergence');
+  if (record.reviewChecklistResults.some((item) => item.evidenceId && !evidenceIds.includes(item.evidenceId))) return result('evidence-divergence');
+
   const sameSession = records.filter((candidate) => candidate?.sessionIdentity?.sessionId === record.sessionIdentity?.sessionId);
   const exact = sameSession.filter((candidate) => JSON.stringify(candidate) === serialized);
   if (exact.length > 1) return result('duplicate-record');
   if (sameSession.some((candidate) => JSON.stringify(candidate) !== serialized)) return result('conflicting-record');
-
-  const evidenceIds = record.evidenceRecords.map((evidence) => evidence.evidenceId);
-  if (new Set(evidenceIds).size !== evidenceIds.length) return result('evidence-divergence');
-  if (record.reviewChecklistResults.some((item) => item.evidenceId && !evidenceIds.includes(item.evidenceId))) return result('evidence-divergence');
 
   return result('current-and-compatible');
 }
