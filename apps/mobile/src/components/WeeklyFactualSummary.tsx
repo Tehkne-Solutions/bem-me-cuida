@@ -5,32 +5,62 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { Surface } from '@/components/Surface';
-import { getWeeklyActivityFacts, type WeeklyActivityFacts } from '@/data/recent-activity-repository';
+import {
+  getWeeklyActivityFacts,
+  listWeeklyDailyFacts,
+  type DailyActivityFacts,
+  type WeeklyActivityFacts,
+} from '@/data/recent-activity-repository';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const emptyFacts: WeeklyActivityFacts = {
-  medicationRecords: 0,
-  practiceRecords: 0,
-  checkInRecords: 0,
-  activeDays: 0,
-  checkInDays: 0,
-  totalRecords: 0,
+  medicationRecords: 0, practiceRecords: 0, checkInRecords: 0,
+  activeDays: 0, checkInDays: 0, totalRecords: 0,
 };
 
-function sevenDayStartIso(): string {
+function sevenDayStart(): Date {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6).toISOString();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+}
+
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildSevenDays(rows: DailyActivityFacts[]): DailyActivityFacts[] {
+  const byDate = new Map(rows.map((row) => [row.date, row]));
+  const start = sevenDayStart();
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    const key = localDateKey(date);
+    return byDate.get(key) ?? { date: key, medicationRecords: 0, practiceRecords: 0, checkInRecords: 0, totalRecords: 0 };
+  });
+}
+
+function dayLabel(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(new Date(year, month - 1, day)).replace('.', '');
 }
 
 export function WeeklyFactualSummary({ refreshToken }: { refreshToken: string }) {
   const { session } = useAuth();
   const [facts, setFacts] = useState<WeeklyActivityFacts>(emptyFacts);
+  const [days, setDays] = useState<DailyActivityFacts[]>([]);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
-      setFacts(await getWeeklyActivityFacts(session.user.id, sevenDayStartIso()));
+      const since = sevenDayStart().toISOString();
+      const [weeklyFacts, dailyFacts] = await Promise.all([
+        getWeeklyActivityFacts(session.user.id, since),
+        listWeeklyDailyFacts(session.user.id, since),
+      ]);
+      setFacts(weeklyFacts);
+      setDays(buildSevenDays(dailyFacts));
       setFailed(false);
     } catch {
       setFailed(true);
@@ -42,23 +72,13 @@ export function WeeklyFactualSummary({ refreshToken }: { refreshToken: string })
   return (
     <>
       <View style={styles.headingRow}>
-        <View>
-          <AppText variant="h2">Últimos 7 dias</AppText>
-          <AppText variant="caption" muted>Hoje e os seis dias anteriores</AppText>
-        </View>
-        <Link href="/care-history" asChild>
-          <Pressable testID="home-open-weekly-history" accessibilityRole="button">
-            <AppText variant="caption" style={styles.linkText}>Ver histórico</AppText>
-          </Pressable>
-        </Link>
+        <View><AppText variant="h2">Últimos 7 dias</AppText><AppText variant="caption" muted>Hoje e os seis dias anteriores</AppText></View>
+        <Link href="/care-history" asChild><Pressable testID="home-open-weekly-history" accessibilityRole="button"><AppText variant="caption" style={styles.linkText}>Ver histórico</AppText></Pressable></Link>
       </View>
 
       <Surface testID="home-weekly-factual-summary" style={styles.card}>
         {failed ? (
-          <View style={styles.emptyState}>
-            <AppText variant="bodyStrong">Não foi possível atualizar a semana agora.</AppText>
-            <AppText variant="caption" muted>Os registros continuam salvos no aplicativo.</AppText>
-          </View>
+          <View style={styles.emptyState}><AppText variant="bodyStrong">Não foi possível atualizar a semana agora.</AppText><AppText variant="caption" muted>Os registros continuam salvos no aplicativo.</AppText></View>
         ) : facts.totalRecords > 0 ? (
           <>
             <View style={styles.grid}>
@@ -67,15 +87,26 @@ export function WeeklyFactualSummary({ refreshToken }: { refreshToken: string })
               <View style={styles.metric}><AppText variant="display">{facts.checkInDays}/7</AppText><AppText variant="caption" muted>dias com check-in</AppText></View>
               <View style={styles.metric}><AppText variant="display">{facts.activeDays}/7</AppText><AppText variant="caption" muted>dias com algum registro</AppText></View>
             </View>
-            <View style={styles.noteBox}>
-              <AppText variant="caption" muted>{facts.totalRecords} registro(s) no período. As contagens descrevem apenas o que foi salvo no aplicativo.</AppText>
+
+            <View testID="home-weekly-daily-breakdown" style={styles.daysRow}>
+              {days.map((item) => (
+                <View key={item.date} accessibilityLabel={`${dayLabel(item.date)}, ${item.totalRecords} registros`} style={styles.dayItem}>
+                  <AppText variant="caption" muted>{dayLabel(item.date)}</AppText>
+                  <AppText variant="bodyStrong">{item.totalRecords}</AppText>
+                  <View style={styles.kindRow}>
+                    {item.medicationRecords > 0 ? <AppText variant="caption">💊</AppText> : null}
+                    {item.practiceRecords > 0 ? <AppText variant="caption">🌿</AppText> : null}
+                    {item.checkInRecords > 0 ? <AppText variant="caption">😊</AppText> : null}
+                    {item.totalRecords === 0 ? <AppText variant="caption" muted>—</AppText> : null}
+                  </View>
+                </View>
+              ))}
             </View>
+
+            <View style={styles.noteBox}><AppText variant="caption" muted>{facts.totalRecords} registro(s) no período. Cada coluna mostra o total factual do dia e as categorias presentes.</AppText></View>
           </>
         ) : (
-          <View style={styles.emptyState}>
-            <AppText variant="bodyStrong">Nenhum registro nos últimos 7 dias.</AppText>
-            <AppText variant="caption" muted>Tomadas, práticas e check-ins aparecerão aqui quando forem registrados.</AppText>
-          </View>
+          <View style={styles.emptyState}><AppText variant="bodyStrong">Nenhum registro nos últimos 7 dias.</AppText><AppText variant="caption" muted>Tomadas, práticas e check-ins aparecerão aqui quando forem registrados.</AppText></View>
         )}
       </Surface>
     </>
@@ -88,6 +119,9 @@ const styles = StyleSheet.create({
   card: { gap: spacing.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   metric: { width: '47%', minWidth: 130, gap: spacing.xs, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: spacing.md },
+  daysRow: { flexDirection: 'row', gap: spacing.xs },
+  dayItem: { flex: 1, minWidth: 38, alignItems: 'center', gap: spacing.xs, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs },
+  kindRow: { minHeight: 20, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' },
   noteBox: { backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.md },
   emptyState: { gap: spacing.sm, paddingVertical: spacing.sm },
 });
