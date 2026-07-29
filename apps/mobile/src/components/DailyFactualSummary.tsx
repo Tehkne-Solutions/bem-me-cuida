@@ -5,17 +5,30 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { Surface } from '@/components/Surface';
+import { listTodayCarePractices } from '@/data/care-practice-repository';
+import { listRecentCheckIns } from '@/data/check-in-repository';
+import { listTodayMedicationDoses } from '@/data/medication-repository';
 import { listActivityPage, type RecentActivity } from '@/data/recent-activity-repository';
 import { colors, radius, spacing } from '@/theme/tokens';
 
-type Props = {
+type DailyFacts = {
   medicationDone: number;
   medicationTotal: number;
   practiceDone: number;
   practiceTotal: number;
   checkInToday: boolean;
   pendingTitles: string[];
-  refreshToken: string;
+  activities: RecentActivity[];
+};
+
+const emptyFacts: DailyFacts = {
+  medicationDone: 0,
+  medicationTotal: 0,
+  practiceDone: 0,
+  practiceTotal: 0,
+  checkInToday: false,
+  pendingTitles: [],
+  activities: [],
 };
 
 function startOfLocalDayIso(): string {
@@ -23,37 +36,54 @@ function startOfLocalDayIso(): string {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 }
 
+function sameLocalDay(iso: string): boolean {
+  const value = new Date(iso);
+  const now = new Date();
+  return value.getFullYear() === now.getFullYear()
+    && value.getMonth() === now.getMonth()
+    && value.getDate() === now.getDate();
+}
+
 function timeLabel(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 }
 
 function activityLabel(item: RecentActivity): string {
-  if (item.kind === 'medication') return `Medicação registrada às ${timeLabel(item.occurredAt)}`;
-  if (item.kind === 'practice') return `Prática registrada às ${timeLabel(item.occurredAt)}`;
-  return `Check-in registrado às ${timeLabel(item.occurredAt)}`;
+  if (item.kind === 'medication') return `medicação às ${timeLabel(item.occurredAt)}`;
+  if (item.kind === 'practice') return `prática às ${timeLabel(item.occurredAt)}`;
+  return `check-in às ${timeLabel(item.occurredAt)}`;
 }
 
-export function DailyFactualSummary({
-  medicationDone,
-  medicationTotal,
-  practiceDone,
-  practiceTotal,
-  checkInToday,
-  pendingTitles,
-  refreshToken,
-}: Props) {
+export function DailyFactualSummary({ refreshToken }: { refreshToken: string }) {
   const { session } = useAuth();
-  const [todayActivities, setTodayActivities] = useState<RecentActivity[]>([]);
+  const [facts, setFacts] = useState<DailyFacts>(emptyFacts);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
-      const page = await listActivityPage(session.user.id, {
-        since: startOfLocalDayIso(),
-        limit: 50,
+      const [doses, practices, checkIns, activityPage] = await Promise.all([
+        listTodayMedicationDoses(session.user.id),
+        listTodayCarePractices(session.user.id),
+        listRecentCheckIns(session.user.id, 1),
+        listActivityPage(session.user.id, { since: startOfLocalDayIso(), limit: 50 }),
+      ]);
+      const pendingMedicationTitles = doses
+        .filter((item) => !item.intake)
+        .map((item) => `${item.medication.name} · ${timeLabel(item.plannedAt)}`);
+      const pendingPracticeTitles = practices
+        .filter((item) => !item.completion)
+        .map((item) => `${item.practice.title} · ${timeLabel(item.plannedAt)}`);
+
+      setFacts({
+        medicationDone: doses.filter((item) => item.intake?.status === 'taken').length,
+        medicationTotal: doses.length,
+        practiceDone: practices.filter((item) => item.completion?.status === 'completed').length,
+        practiceTotal: practices.length,
+        checkInToday: Boolean(checkIns[0] && sameLocalDay(checkIns[0].occurredAt)),
+        pendingTitles: [...pendingMedicationTitles, ...pendingPracticeTitles],
+        activities: activityPage.items,
       });
-      setTodayActivities(page.items);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -62,8 +92,11 @@ export function DailyFactualSummary({
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  const lastActivity = todayActivities[0] ?? null;
-  const hasAnyFact = medicationDone > 0 || practiceDone > 0 || checkInToday || todayActivities.length > 0;
+  const lastActivity = facts.activities[0] ?? null;
+  const hasAnyFact = facts.medicationDone > 0
+    || facts.practiceDone > 0
+    || facts.checkInToday
+    || facts.activities.length > 0;
 
   return (
     <>
@@ -87,32 +120,32 @@ export function DailyFactualSummary({
             <View style={styles.factRow}>
               <AppText style={styles.icon}>💊</AppText>
               <View style={styles.flex}>
-                <AppText variant="bodyStrong">{medicationDone} de {medicationTotal} medicações registradas</AppText>
-                <AppText variant="caption" muted>Considera apenas as doses programadas para hoje.</AppText>
+                <AppText variant="bodyStrong">{facts.medicationDone} de {facts.medicationTotal} medicações registradas</AppText>
+                <AppText variant="caption" muted>Somente doses programadas para hoje.</AppText>
               </View>
             </View>
             <View style={styles.factRow}>
               <AppText style={styles.icon}>🌿</AppText>
               <View style={styles.flex}>
-                <AppText variant="bodyStrong">{practiceDone} de {practiceTotal} práticas concluídas</AppText>
-                <AppText variant="caption" muted>Considera apenas práticas programadas para hoje.</AppText>
+                <AppText variant="bodyStrong">{facts.practiceDone} de {facts.practiceTotal} práticas concluídas</AppText>
+                <AppText variant="caption" muted>Somente práticas programadas para hoje.</AppText>
               </View>
             </View>
             <View style={styles.factRow}>
               <AppText style={styles.icon}>😊</AppText>
               <View style={styles.flex}>
-                <AppText variant="bodyStrong">{checkInToday ? 'Check-in registrado hoje' : 'Nenhum check-in registrado hoje'}</AppText>
+                <AppText variant="bodyStrong">{facts.checkInToday ? 'Check-in registrado hoje' : 'Nenhum check-in registrado hoje'}</AppText>
                 {lastActivity ? <AppText variant="caption" muted>Última atividade: {activityLabel(lastActivity)}</AppText> : null}
               </View>
             </View>
 
-            {pendingTitles.length ? (
+            {facts.pendingTitles.length ? (
               <View style={styles.pendingBox}>
                 <AppText variant="bodyStrong">Ainda para hoje</AppText>
-                {pendingTitles.slice(0, 3).map((title) => (
+                {facts.pendingTitles.slice(0, 3).map((title) => (
                   <AppText key={title} variant="caption" muted>○ {title}</AppText>
                 ))}
-                {pendingTitles.length > 3 ? <AppText variant="caption" muted>+ {pendingTitles.length - 3} outro(s) item(ns)</AppText> : null}
+                {facts.pendingTitles.length > 3 ? <AppText variant="caption" muted>+ {facts.pendingTitles.length - 3} outro(s) item(ns)</AppText> : null}
               </View>
             ) : (
               <View style={styles.completeBox}>
