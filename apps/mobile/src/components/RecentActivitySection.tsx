@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
+import { DailyFactualSummary } from '@/components/DailyFactualSummary';
 import { Surface } from '@/components/Surface';
 import { listRecentActivities, type RecentActivity } from '@/data/recent-activity-repository';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -37,6 +38,8 @@ export function RecentActivitySection({ refreshToken }: { refreshToken: string }
 
   return (
     <>
+      <DailyFactualSummary refreshToken={refreshToken} />
+
       <View style={styles.headingRow}>
         <AppText variant="h2">Atividade recente</AppText>
         <View style={styles.headingActions}>
