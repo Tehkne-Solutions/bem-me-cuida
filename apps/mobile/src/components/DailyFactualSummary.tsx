@@ -93,9 +93,10 @@ export function DailyFactualSummary({ refreshToken }: { refreshToken: string }) 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const lastActivity = facts.activities[0] ?? null;
-  const hasAnyFact = facts.medicationDone > 0
-    || facts.practiceDone > 0
+  const hasAnyFact = facts.medicationTotal > 0
+    || facts.practiceTotal > 0
     || facts.checkInToday
+    || facts.pendingTitles.length > 0
     || facts.activities.length > 0;
 
   return (
