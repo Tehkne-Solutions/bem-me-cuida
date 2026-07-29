@@ -8,9 +8,11 @@ export type RecentActivity = { id: string; kind: RecentActivityKind; title: stri
 export type ActivityPageOptions = { limit?: number; offset?: number; kind?: ActivityFilterKind; query?: string; since?: string | null };
 export type ActivityPage = { items: RecentActivity[]; hasMore: boolean };
 export type WeeklyActivityFacts = { medicationRecords: number; practiceRecords: number; checkInRecords: number; activeDays: number; checkInDays: number; totalRecords: number };
+export type DailyActivityFacts = { date: string; medicationRecords: number; practiceRecords: number; checkInRecords: number; totalRecords: number };
 
-type ActivityRow = { id: string; kind: RecentActivityKind; title: string; detail: string; occurred_at: string; synced_at: string | null };
+ type ActivityRow = { id: string; kind: RecentActivityKind; title: string; detail: string; occurred_at: string; synced_at: string | null };
 type WeeklyActivityRow = { medication_records: number; practice_records: number; check_in_records: number; active_days: number; check_in_days: number; total_records: number };
+type DailyActivityRow = { activity_date: string; medication_records: number; practice_records: number; check_in_records: number; total_records: number };
 
 const moodLabels: Record<string, string> = { very_low: 'Humor muito difícil', low: 'Humor difícil', neutral: 'Humor neutro', good: 'Humor bem', very_good: 'Humor muito bem' };
 
@@ -39,6 +41,20 @@ const activityUnion = `
   ) activity
 `;
 
+const factualActivityCte = `
+  WITH activity AS (
+    SELECT 'medication' AS kind, COALESCE(i.occurred_at, i.updated_at) AS occurred_at
+    FROM medication_intakes i INNER JOIN medications m ON m.id = i.medication_id AND m.user_id = i.user_id
+    WHERE i.user_id = ? AND i.deleted_at IS NULL AND m.deleted_at IS NULL
+    UNION ALL
+    SELECT 'practice' AS kind, COALESCE(c.completed_at, c.updated_at) AS occurred_at
+    FROM care_practice_completions c INNER JOIN care_practices p ON p.id = c.practice_id AND p.user_id = c.user_id
+    WHERE c.user_id = ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
+    UNION ALL
+    SELECT 'check_in' AS kind, occurred_at FROM mood_checkins WHERE user_id = ? AND deleted_at IS NULL
+  )
+`;
+
 export async function listActivityPage(userId: string, options: ActivityPageOptions = {}): Promise<ActivityPage> {
   const db = await getDatabase();
   const limit = Math.min(50, Math.max(1, options.limit ?? 20));
@@ -59,18 +75,7 @@ export async function listRecentActivities(userId: string, limit = 6): Promise<R
 
 export async function getWeeklyActivityFacts(userId: string, since: string): Promise<WeeklyActivityFacts> {
   const db = await getDatabase();
-  const row = await db.getFirstAsync<WeeklyActivityRow>(`
-    WITH activity AS (
-      SELECT 'medication' AS kind, COALESCE(i.occurred_at, i.updated_at) AS occurred_at
-      FROM medication_intakes i INNER JOIN medications m ON m.id = i.medication_id AND m.user_id = i.user_id
-      WHERE i.user_id = ? AND i.deleted_at IS NULL AND m.deleted_at IS NULL
-      UNION ALL
-      SELECT 'practice' AS kind, COALESCE(c.completed_at, c.updated_at) AS occurred_at
-      FROM care_practice_completions c INNER JOIN care_practices p ON p.id = c.practice_id AND p.user_id = c.user_id
-      WHERE c.user_id = ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
-      UNION ALL
-      SELECT 'check_in' AS kind, occurred_at FROM mood_checkins WHERE user_id = ? AND deleted_at IS NULL
-    )
+  const row = await db.getFirstAsync<WeeklyActivityRow>(`${factualActivityCte}
     SELECT
       SUM(CASE WHEN kind = 'medication' THEN 1 ELSE 0 END) AS medication_records,
       SUM(CASE WHEN kind = 'practice' THEN 1 ELSE 0 END) AS practice_records,
@@ -80,4 +85,26 @@ export async function getWeeklyActivityFacts(userId: string, since: string): Pro
       COUNT(*) AS total_records
     FROM activity WHERE occurred_at >= ?;`, userId, userId, userId, since);
   return { medicationRecords: row?.medication_records ?? 0, practiceRecords: row?.practice_records ?? 0, checkInRecords: row?.check_in_records ?? 0, activeDays: row?.active_days ?? 0, checkInDays: row?.check_in_days ?? 0, totalRecords: row?.total_records ?? 0 };
+}
+
+export async function listWeeklyDailyFacts(userId: string, since: string): Promise<DailyActivityFacts[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<DailyActivityRow>(`${factualActivityCte}
+    SELECT
+      date(occurred_at, 'localtime') AS activity_date,
+      SUM(CASE WHEN kind = 'medication' THEN 1 ELSE 0 END) AS medication_records,
+      SUM(CASE WHEN kind = 'practice' THEN 1 ELSE 0 END) AS practice_records,
+      SUM(CASE WHEN kind = 'check_in' THEN 1 ELSE 0 END) AS check_in_records,
+      COUNT(*) AS total_records
+    FROM activity
+    WHERE occurred_at >= ?
+    GROUP BY date(occurred_at, 'localtime')
+    ORDER BY activity_date ASC;`, userId, userId, userId, since);
+  return rows.map((row) => ({
+    date: row.activity_date,
+    medicationRecords: row.medication_records ?? 0,
+    practiceRecords: row.practice_records ?? 0,
+    checkInRecords: row.check_in_records ?? 0,
+    totalRecords: row.total_records ?? 0,
+  }));
 }
