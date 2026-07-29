@@ -27,6 +27,15 @@ export type ActivityPage = {
   hasMore: boolean;
 };
 
+export type WeeklyActivityFacts = {
+  medicationRecords: number;
+  practiceRecords: number;
+  checkInRecords: number;
+  activeDays: number;
+  checkInDays: number;
+  totalRecords: number;
+};
+
 type ActivityRow = {
   id: string;
   kind: RecentActivityKind;
@@ -34,6 +43,15 @@ type ActivityRow = {
   detail: string;
   occurred_at: string;
   synced_at: string | null;
+};
+
+type WeeklyActivityRow = {
+  medication_records: number;
+  practice_records: number;
+  check_in_records: number;
+  active_days: number;
+  check_in_days: number;
+  total_records: number;
 };
 
 const moodLabels: Record<string, string> = {
@@ -64,45 +82,21 @@ function mapActivity(row: ActivityRow): RecentActivity {
 
 const activityUnion = `
   SELECT * FROM (
-    SELECT
-      i.id AS id,
-      'medication' AS kind,
-      m.name AS title,
-      CASE WHEN i.status = 'taken'
-        THEN m.dosage_text
-        ELSE 'Dose registrada como não tomada'
-      END AS detail,
-      COALESCE(i.occurred_at, i.updated_at) AS occurred_at,
-      i.synced_at AS synced_at
+    SELECT i.id AS id, 'medication' AS kind, m.name AS title,
+      CASE WHEN i.status = 'taken' THEN m.dosage_text ELSE 'Dose registrada como não tomada' END AS detail,
+      COALESCE(i.occurred_at, i.updated_at) AS occurred_at, i.synced_at AS synced_at
     FROM medication_intakes i
     INNER JOIN medications m ON m.id = i.medication_id AND m.user_id = i.user_id
     WHERE i.user_id = ? AND i.deleted_at IS NULL AND m.deleted_at IS NULL
-
     UNION ALL
-
-    SELECT
-      c.id AS id,
-      'practice' AS kind,
-      p.title AS title,
-      CASE WHEN c.status = 'completed'
-        THEN CAST(p.target_minutes AS TEXT) || ' min concluídos'
-        ELSE 'Prática registrada como não concluída'
-      END AS detail,
-      COALESCE(c.completed_at, c.updated_at) AS occurred_at,
-      c.synced_at AS synced_at
+    SELECT c.id AS id, 'practice' AS kind, p.title AS title,
+      CASE WHEN c.status = 'completed' THEN CAST(p.target_minutes AS TEXT) || ' min concluídos' ELSE 'Prática registrada como não concluída' END AS detail,
+      COALESCE(c.completed_at, c.updated_at) AS occurred_at, c.synced_at AS synced_at
     FROM care_practice_completions c
     INNER JOIN care_practices p ON p.id = c.practice_id AND p.user_id = c.user_id
     WHERE c.user_id = ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
-
     UNION ALL
-
-    SELECT
-      id,
-      'check_in' AS kind,
-      'Check-in emocional' AS title,
-      mood AS detail,
-      occurred_at,
-      synced_at
+    SELECT id, 'check_in' AS kind, 'Check-in emocional' AS title, mood AS detail, occurred_at, synced_at
     FROM mood_checkins
     WHERE user_id = ? AND deleted_at IS NULL
   ) activity
@@ -116,36 +110,47 @@ export async function listActivityPage(userId: string, options: ActivityPageOpti
   const normalizedQuery = options.query?.trim().toLocaleLowerCase('pt-BR') ?? '';
   const clauses: string[] = [];
   const params: Array<string | number> = [userId, userId, userId];
-
-  if (kind !== 'all') {
-    clauses.push('kind = ?');
-    params.push(kind);
-  }
-  if (options.since) {
-    clauses.push('occurred_at >= ?');
-    params.push(options.since);
-  }
+  if (kind !== 'all') { clauses.push('kind = ?'); params.push(kind); }
+  if (options.since) { clauses.push('occurred_at >= ?'); params.push(options.since); }
   if (normalizedQuery) {
     clauses.push('(LOWER(title) LIKE ? OR LOWER(detail) LIKE ?)');
     const pattern = `%${normalizedQuery}%`;
     params.push(pattern, pattern);
   }
-
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = await db.getAllAsync<ActivityRow>(
     `${activityUnion} ${where} ORDER BY occurred_at DESC LIMIT ? OFFSET ?;`,
-    ...params,
-    limit + 1,
-    offset,
+    ...params, limit + 1, offset,
   );
-
-  return {
-    items: rows.slice(0, limit).map(mapActivity),
-    hasMore: rows.length > limit,
-  };
+  return { items: rows.slice(0, limit).map(mapActivity), hasMore: rows.length > limit };
 }
 
 export async function listRecentActivities(userId: string, limit = 6): Promise<RecentActivity[]> {
   const page = await listActivityPage(userId, { limit });
   return page.items;
+}
+
+export async function getWeeklyActivityFacts(userId: string, since: string): Promise<WeeklyActivityFacts> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<WeeklyActivityRow>(
+    `${activityUnion}
+      SELECT
+        SUM(CASE WHEN kind = 'medication' THEN 1 ELSE 0 END) AS medication_records,
+        SUM(CASE WHEN kind = 'practice' THEN 1 ELSE 0 END) AS practice_records,
+        SUM(CASE WHEN kind = 'check_in' THEN 1 ELSE 0 END) AS check_in_records,
+        COUNT(DISTINCT date(occurred_at, 'localtime')) AS active_days,
+        COUNT(DISTINCT CASE WHEN kind = 'check_in' THEN date(occurred_at, 'localtime') END) AS check_in_days,
+        COUNT(*) AS total_records
+      FROM activity
+      WHERE occurred_at >= ?;`,
+    userId, userId, userId, since,
+  );
+  return {
+    medicationRecords: row?.medication_records ?? 0,
+    practiceRecords: row?.practice_records ?? 0,
+    checkInRecords: row?.check_in_records ?? 0,
+    activeDays: row?.active_days ?? 0,
+    checkInDays: row?.check_in_days ?? 0,
+    totalRecords: row?.total_records ?? 0,
+  };
 }
