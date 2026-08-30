@@ -8,6 +8,7 @@ export type ActivityPageOptions = { limit?: number; offset?: number; kind?: Acti
 export type ActivityPage = { items: RecentActivity[]; hasMore: boolean };
 export type WeeklyActivityFacts = { medicationRecords: number; practiceRecords: number; checkInRecords: number; activeDays: number; checkInDays: number; totalRecords: number };
 export type DailyActivityFacts = { date: string; medicationRecords: number; practiceRecords: number; checkInRecords: number; totalRecords: number };
+export type WeeklyComparisonFacts = { current: WeeklyActivityFacts; previous: WeeklyActivityFacts };
 
 type ActivityRow = { id: string; kind: RecentActivityKind; title: string; detail: string; occurred_at: string; synced_at: string | null };
 type WeeklyActivityRow = { medication_records: number; practice_records: number; check_in_records: number; active_days: number; check_in_days: number; total_records: number };
@@ -71,6 +72,14 @@ export async function getWeeklyActivityFacts(userId: string, since: string, unti
       COUNT(DISTINCT CASE WHEN kind = 'check_in' THEN date(occurred_at, 'localtime') END) AS check_in_days,
       COUNT(*) AS total_records FROM activity WHERE occurred_at >= ?${endClause};`, ...params);
   return { medicationRecords: row?.medication_records ?? 0, practiceRecords: row?.practice_records ?? 0, checkInRecords: row?.check_in_records ?? 0, activeDays: row?.active_days ?? 0, checkInDays: row?.check_in_days ?? 0, totalRecords: row?.total_records ?? 0 };
+}
+
+export async function getWeeklyComparisonFacts(userId: string, currentSince: string, currentUntil: string, previousSince: string, previousUntil: string): Promise<WeeklyComparisonFacts> {
+  const [current, previous] = await Promise.all([
+    getWeeklyActivityFacts(userId, currentSince, currentUntil),
+    getWeeklyActivityFacts(userId, previousSince, previousUntil),
+  ]);
+  return { current, previous };
 }
 
 export async function listWeeklyDailyFacts(userId: string, since: string, until?: string): Promise<DailyActivityFacts[]> {
