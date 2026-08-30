@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatWeeklyReport, type WeeklyShareFacts } from './share-weekly-report';
+import { formatWeeklyReport, type WeeklyShareFacts } from './weekly-report-format';
 
 const facts: WeeklyShareFacts = {
   startLabel: '24/08', endLabel: '30/08', totalRecords: 22, medicationRecords: 12, practiceRecords: 5, checkInDays: 5,
